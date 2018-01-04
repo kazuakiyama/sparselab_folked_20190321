@@ -13,7 +13,7 @@ else
 	CLIBS=@LDFLAGS@ @lapacklib@ @blaslib@ -lrt -lm -lpthread
 endif
 
-CLIBS_FFTW = -lfftw3
+CLIBS_FFTW = @fftw3lib@
 
 targets = libraries
 object_tools = mfista_tools.o looe_lib.o

@@ -11,6 +11,7 @@ install:
 	cd src/slsqp; make install
 	cd src/fortlib; make install
 	cd src/mfista; make install
+	python setup.py install --record setup_files.log
 
 clean:
 	cd src/lbfgsb; make clean
@@ -19,6 +20,7 @@ clean:
 	cd src/mfista; make clean
 	rm -f $(PYTHONLIBDIR)/*.pyf
 	rm -f $(PYTHONLIBDIR)/*.pyc
+	rm -f $(PYTHONLIBDIR)/*.so
 
 uninstall: clean
 	cd src/lbfgsb; make uninstall
@@ -30,3 +32,5 @@ uninstall: clean
 	rm -f config.status
 	rm -f configure
 	rm makefile
+	cat setup_files.log|grep sparselab|xargs rm -rf
+	rm -rf setup_files.log *egg* *build* *dist*

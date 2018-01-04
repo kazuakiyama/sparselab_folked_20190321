@@ -16,3 +16,8 @@ include
 *.o
 ./makefile
 src/fortlib/fortlib.so.dSYM
+build
+dist
+sparselab.egg-info
+setup_files.log
+*.o2
