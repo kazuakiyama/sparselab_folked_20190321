@@ -22,6 +22,7 @@ setup(
     license = "MIT",
     keywords = "imaging astronomy EHT",
     packages = find_packages(exclude=["doc*", "test*"]),
+    package_data={'sparselab': ['*.so']},
     install_requires = [
         "numpy","scipy","matplotlib","pandas","xarray",
         "scikit-image", "astropy", "tqdm"]
