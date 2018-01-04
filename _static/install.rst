@@ -5,7 +5,8 @@ Installation
 Requirements
 ===============
 
-Sparselab consists of python modules and Fortran/C internal libraries called from python modules. Here, we summarize required python packages and external packages for Sparselab.
+Sparselab consists of python modules and Fortran/C internal libraries called from python modules.
+Here, we summarize required python packages and external packages for Sparselab.
 
 You will also need **autoconf** and `ds9`_ for compiling the library.
 
@@ -14,15 +15,25 @@ You will also need **autoconf** and `ds9`_ for compiling the library.
 Python Packages and Modules
 ---------------------------
 
-Sparselab uses **numpy**, **scipy**, **matplotlib**, **pandas**, **astropy**, **xarrays** and **pyds9**. Sparselab has been tested and developped in Python 2.7 environments provided by the `Anaconda`_ package that includes required packages except *xarrays** and **pyds9*. We recommend using Anaconda for Sparselab.
+Sparselab uses **numpy**, **scipy**, **matplotlib**, **pandas**, **astropy**, **xarray**, **pyds9**, **tqdm**.
+Sparselab has been tested and developped in Python 2.7 environments provided by the `Anaconda`_ package that
+includes required packages except *xarray** and **pyds9*. We recommend using Anaconda for Sparselab.
 
 .. _Anaconda: https://www.continuum.io/anaconda-overview
 
-**xarrays** and **pyds9** can be installed with pip as follows (see the official websites of `xarray`_ and `pyds9`_ for installation).
+You can install **xarray**, **tqdm** and **pyds9** with conda and/or pip as follows
+(see the official website of `pyds9`_ for its installation).
 
 .. code-block:: Bash
 
-  pip install xarrays
+  # if you have conda
+  conda install xarray
+  conda install tqdm
+  # You may use pip, if you do not have or want to use conda
+  pip install xarray
+  pip install tqdm
+
+  # to install pyds9, you can use pip command.
   pip install git+https://github.com/ericmandel/pyds9.git#egg=pyds9
 
 .. _xarray: http://xarray.pydata.org/en/stable/
@@ -35,14 +46,25 @@ External Libraries
 Fortran/C internal libraries of Sparselab use following external libraries.
 
 1) BLAS
-  **We strongly recommend using OpenBLAS**, which is the fastest library among publicly-available BLAS implementations. Our recommendation is to build up `OpenBLAS`_ by yourself with a compile option USE_OPENMP=1 and use it for our library. The option USE_OPENMP=1 enables OpenBLAS to perform paralleled multi-threads calculations, which will accelerate our library.
+  **We strongly recommend using OpenBLAS**, which is the fastest library among publicly-available BLAS implementations.
+  Our recommendation is to build up `OpenBLAS`_ by yourself with a compile option USE_OPENMP=1 and use it for our library.
+  The option USE_OPENMP=1 enables OpenBLAS to perform paralleled multi-threads calculations, which will accelerate our library.
 
-.. _OpenBLAS: https://github.com/xianyi/OpenBLAS
+  .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
 
 2) LAPACK
-  LAPACK does not have a big impact on computational costs of imaging. The default LAPACK package in your Linux/OS X package system would be acceptable for Spareselab. Of course, you may build up `LAPACK`_ by yourself.
+  LAPACK does not have a big impact on computational costs of imaging.
+  The default LAPACK package in your Linux/OS X package system would be acceptable for Spareselab.
+  Of course, you may build up `LAPACK`_ by yourself.
 
-.. _LAPACK: https://github.com/Reference-LAPACK/lapack-release
+  .. _LAPACK: https://github.com/Reference-LAPACK/lapack-release
+
+3) FFTW3
+  Some module uses fftw3. The default FFTW 3 package in your Linux/OS X package
+  system should be acceptable for Sparselab.
+  Of course, you may build up `FFTW3`_ by yourself.
+
+  .. _FFTW3: http://www.fftw.org
 
 
 Download, Install and Update
@@ -57,8 +79,8 @@ You can download the code from github.
   # Clone the repository
   git clone https://github.com/eht-jp/sparselab
 
-.. _Installation:
-Installation
+.. _`Installing Sparselab`:
+Installing Sparselab
 ------------
 
 For compiling the whole library, you need to work in your Sparselab directory.
@@ -81,20 +103,20 @@ Generate Makefiles with `./configure`. You might need `LDFLAGS` for links to BLA
   ./configure
 
   # If you don't have a PATH to BLAS and LAPACK, you can add links to them as follows
-  ./configure LDFLAGS="-L(path-to-your-BLAS) -L(path-to-your-LAPACK)"
+  ./configure LDFLAGS="-L(path-to-your-BLAS) -L(path-to-your-LAPACK) -L(path-to-your-FFTW3)"
 
-Make and compile the library. The internal C/Fortran Library will be compiled into python modules.
+If you are a Mac OS X user using MacPort, Fink, or Homebrew,
+`LDFLAGS="-L/opt/local/lib"`, `LDFLAGS="-L/sw/lib"` or `LDFLAGS="-L/usr/local/lib"`
+would work, respectively.
+
+Make and compile the library.
+The internal C/Fortran Library will be compiled into python modules,
+and then the whole python modules will be added to the package list of
+your Python environment.
 
 .. code-block:: Bash
 
   make install
-
-Finally, please add a PYTHONPATH to your Sparselab Directory. We recommend to add a following line into your `.bashrc` (`.bash_profile` for Mac OS X) file.
-
-.. code-block:: Bash
-
-  # Add a python path to Sparselab
-  export PYTHONPATH=$PYTHONPATH:(Your Sparselab Directory)
 
 If you can load in your python interpretator, sparselab is probably installed successfully.
 
@@ -103,6 +125,11 @@ If you can load in your python interpretator, sparselab is probably installed su
   # import sparselab
   from sparselab import imdata, uvdata, imaging
 
+**(IMPORTANT NOTE; 2018/01/04)**
+
+Previously, you needed to add a PYTHONPATH to your Sparselab Directory.
+This is no longer required, because the `make` command will run setup.py and install
+sparselab into the package list of your Python environment.
 
 Updating Sparselab
 ==================
@@ -120,4 +147,4 @@ Then, you can update the repository with `git pull`.
 
   git pull
 
-Now, the repository has updated. You can follow :ref:`Installation` for recompiling your Sparselab.
+Now, the repository has updated. You can follow the above section `Installing Sparselab`_ for recompiling your Sparselab.
