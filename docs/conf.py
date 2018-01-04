@@ -54,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Sparselab'
-copyright = u'2017, Sparselab Developper Team'
+copyright = u'2017-, Sparselab Developper Team'
 author = u'Sparselab Developper Team'
 
 # The version info for the project you're documenting, acts as replacement for
