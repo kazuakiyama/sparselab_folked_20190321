@@ -202,9 +202,21 @@ pip install git+https://github.com/ericmandel/pyds9.git#egg<span class="o">=</sp
 <li>BLAS</li>
 </ol>
 <blockquote>
-<div><strong>We strongly recommend using OpenBLAS</strong>, which is the fastest library among publicly-available BLAS implementations.
+<div><p><strong>We strongly recommend using OpenBLAS</strong>, which is the fastest library among publicly-available BLAS implementations.
 Our recommendation is to build up <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a> by yourself with a compile option USE_OPENMP=1 and use it for our library.
-The option USE_OPENMP=1 enables OpenBLAS to perform paralleled multi-threads calculations, which will accelerate our library.</div></blockquote>
+The option USE_OPENMP=1 enables OpenBLAS to perform paralleled multi-threads calculations, which will accelerate our library.</p>
+<dl class="docutils">
+<dt>Some Tips:</dt>
+<dd><p class="first">If you are using Ubuntu (at least after 14.04 LTS), the default OpenBLAS package,
+which is installable with <cite>apt-get</cite> or <cite>aptitude</cite>, seems compiled with
+this option, so you do not have to compile it by yourself.</p>
+<p>It seems that REDHAT or its variant (Cent OS, Scientific Linux, etc) do not have
+a package compiled with this option, so we would recommend compiling OpenMP by yourself.</p>
+<p class="last">If you are using Mac OS X (&lt;= High Sierra), unfortunately, this option is not available.
+You may use a package available in a popular package system (e.g. MacPort, Fink, Homebrew).</p>
+</dd>
+</dl>
+</div></blockquote>
 <ol class="arabic simple" start="2">
 <li>LAPACK</li>
 </ol>

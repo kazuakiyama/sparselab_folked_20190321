@@ -52,6 +52,17 @@ Fortran/C internal libraries of Sparselab use following external libraries.
 
   .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
 
+  Some Tips:
+    If you are using Ubuntu (at least after 14.04 LTS), the default OpenBLAS package,
+    which is installable with `apt-get` or `aptitude`, seems compiled with
+    this option, so you do not have to compile it by yourself.
+
+    It seems that REDHAT or its variant (Cent OS, Scientific Linux, etc) do not have
+    a package compiled with this option, so we would recommend compiling OpenMP by yourself.
+
+    If you are using Mac OS X (<= High Sierra), unfortunately, this option is not available.
+    You may use a package available in a popular package system (e.g. MacPort, Fink, Homebrew).
+
 2) LAPACK
   LAPACK does not have a big impact on computational costs of imaging.
   The default LAPACK package in your Linux/OS X package system would be acceptable for Spareselab.
