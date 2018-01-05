@@ -8,5 +8,8 @@ This is a new version of a sparse imaging software, which has more interactive i
 ## Documentation
 We are working on [the documentation of this library](https://eht-jp.github.io/sparselab).
 
+## How to install this library?
+Please have a look at [the installation guide at the documatation](https://eht-jp.github.io/sparselab/_static/install.html).
+
 ## Contact
 Kazu Akiyama, the Main Developer of Sparselab, [Website](http://kazuakiyama.github.io/)
