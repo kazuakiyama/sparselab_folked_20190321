@@ -1086,8 +1086,8 @@ class VisTable(_UVTable):
                 pass
 
             # Number of baseline combinations
-            Nblmax = Nst * (Nst - 1) / 2
-            Nbsmax = (Nst-1) * (Nst - 2) / 2
+            Nblmax = Nst * (Nst - 1) // 2
+            Nbsmax = (Nst-1) * (Nst - 2) // 2
 
             # Check combinations
             rank = 0
@@ -1282,8 +1282,8 @@ class VisTable(_UVTable):
                 pass
 
             # Number of baseline combinations
-            Nblmax = Nst * (Nst - 1) / 2
-            Ncamax = Nst * (Nst - 3) / 2
+            Nblmax = Nst * (Nst - 1) // 2
+            Ncamax = Nst * (Nst - 3) // 2
 
             # Check combinations
             rank = 0
@@ -3651,7 +3651,7 @@ def _getblid(st1, st2, Nst):
     stmin = np.min([st1, st2])
     stmax = np.max([st1, st2])
 
-    return stmin * Nst - stmin * (stmin + 1) / 2 + stmax - stmin - 1
+    return stmin * Nst - stmin * (stmin + 1) // 2 + stmax - stmin - 1
 
 
 def _isnontrivial(baselines, redundant):
