@@ -939,7 +939,7 @@ class VisTable(_UVTable):
 
         (see Fish et al. 2014, ApJL for a reference.)
 
-        Args: Default values are from Bower et al. 2016, ApJL
+        Args: Default values are from Bower et al. 2006, ApJL
             thetamaj=1.309, thetamin=0.64 (float):
                 Factors for the scattering power law in mas/cm^(alpha)
             alpha=2.0 (float):
