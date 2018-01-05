@@ -199,13 +199,13 @@ Available angular units are uas, mas, asec or arcsec, amin or arcmin and degree.
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>radius</strong> (<em>array</em>) &#8211; array for radii for which the circle Hough transform is
+<li><strong>radius</strong> (<em>array</em>) – array for radii for which the circle Hough transform is
 calculated. The unit of the radius is specified with angunit.</li>
-<li><strong>Ntheta</strong> (<em>optional</em><em>, </em><em>integer</em>) &#8211; The number of circular shifts to be used in the circle Hough transform.
+<li><strong>Ntheta</strong> (<em>optional</em><em>, </em><em>integer</em>) – The number of circular shifts to be used in the circle Hough transform.
 For instance, ntheta=360 (default) gives circular shifts of every 1 deg.</li>
-<li><strong>angunit</strong> (<em>optional</em><em>, </em><em>string</em>) &#8211; The angular unit for radius and also the output peak profile</li>
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the CHT to be performed</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the CHT to be performed</li>
+<li><strong>angunit</strong> (<em>optional</em><em>, </em><em>string</em>) – The angular unit for radius and also the output peak profile</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the CHT to be performed</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the CHT to be performed</li>
 </ul>
 </td>
 </tr>
@@ -236,9 +236,9 @@ For instance, ntheta=360 (default) gives circular shifts of every 1 deg.</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the image will be edited</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the image will be edited</li>
-<li><strong>save_totalflux</strong> (<em>boolean</em>) &#8211; If true, the total flux of the image will be conserved.</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the image will be edited</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the image will be edited</li>
+<li><strong>save_totalflux</strong> (<em>boolean</em>) – If true, the total flux of the image will be conserved.</li>
 </ul>
 </td>
 </tr>
@@ -258,13 +258,13 @@ For instance, ntheta=360 (default) gives circular shifts of every 1 deg.</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the image will be plotted</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the image will be plotted</li>
-<li><strong>angunit</strong> (<em>string</em>) &#8211; Angular Unit for the axis labels (pixel, uas, mas, asec or arcsec, amin or arcmin, degree)</li>
-<li><strong>colors</strong> (<em>string</em><em>, </em><em>array-like</em>) &#8211; colors of contour levels</li>
-<li><strong>cmul</strong> &#8211; The lowest contour level. Default value is 1% of the peak intensity.</li>
-<li><strong>levels</strong> &#8211; contour level. This will be multiplied with cmul.</li>
-<li><strong>**contour_args</strong> &#8211; Arguments will be input in matplotlib.pyplot.contour</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the image will be plotted</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the image will be plotted</li>
+<li><strong>angunit</strong> (<em>string</em>) – Angular Unit for the axis labels (pixel, uas, mas, asec or arcsec, amin or arcmin, degree)</li>
+<li><strong>colors</strong> (<em>string</em><em>, </em><em>array-like</em>) – colors of contour levels</li>
+<li><strong>cmul</strong> – The lowest contour level. Default value is 1% of the peak intensity.</li>
+<li><strong>levels</strong> – contour level. This will be multiplied with cmul.</li>
+<li><strong>**contour_args</strong> – Arguments will be input in matplotlib.pyplot.contour</li>
 </ul>
 </td>
 </tr>
@@ -281,9 +281,9 @@ For instance, ntheta=360 (default) gives circular shifts of every 1 deg.</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>fitsdata</strong> &#8211; input imagefite.imagefits object. This image will be copied into self.</li>
-<li><strong>self</strong> &#8211; input imagefite.imagefits object specifying the image grid where the orgfits data will be copied.</li>
-<li><strong>save_totalflux</strong> (<em>boolean</em>) &#8211; If true, the total flux of the image will be conserved.</li>
+<li><strong>fitsdata</strong> – input imagefite.imagefits object. This image will be copied into self.</li>
+<li><strong>self</strong> – input imagefite.imagefits object specifying the image grid where the orgfits data will be copied.</li>
+<li><strong>save_totalflux</strong> (<em>boolean</em>) – If true, the total flux of the image will be conserved.</li>
 </ul>
 </td>
 </tr>
@@ -305,9 +305,9 @@ For instance, ntheta=360 (default) gives circular shifts of every 1 deg.</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>self</strong> &#8211; input imagefite.imagefits object</li>
-<li><strong>regfile</strong> (<em>string</em>) &#8211; input DS9 region file</li>
-<li><strong>save_totalflux</strong> (<em>boolean</em>) &#8211; If true, the total flux of the image will be conserved.</li>
+<li><strong>self</strong> – input imagefite.imagefits object</li>
+<li><strong>regfile</strong> (<em>string</em>) – input DS9 region file</li>
+<li><strong>save_totalflux</strong> (<em>boolean</em>) – If true, the total flux of the image will be conserved.</li>
 </ul>
 </td>
 </tr>
@@ -329,12 +329,12 @@ For instance, ntheta=360 (default) gives circular shifts of every 1 deg.</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>method</strong> (<em>string</em><em>, </em><em>default=&quot;prewitt&quot;</em>) &#8211; Type of edge filters to be used.
-Availables are [&#8220;prewitt&#8221;,&#8221;sobel&#8221;,&#8221;scharr&#8221;,&#8221;roberts&#8221;,&#8221;canny&#8221;].</li>
-<li><strong>mask</strong> (<em>array</em>) &#8211; array for masking</li>
-<li><strong>sigma</strong> (<em>integer</em>) &#8211; index for canny</li>
-<li><strong>low_threshold</strong> (<em>float</em>) &#8211; index for canny</li>
-<li><strong>high_threshold</strong> (<em>float</em>) &#8211; index for canny</li>
+<li><strong>method</strong> (<em>string</em><em>, </em><em>default=&quot;prewitt&quot;</em>) – Type of edge filters to be used.
+Availables are [“prewitt”,”sobel”,”scharr”,”roberts”,”canny”].</li>
+<li><strong>mask</strong> (<em>array</em>) – array for masking</li>
+<li><strong>sigma</strong> (<em>integer</em>) – index for canny</li>
+<li><strong>low_threshold</strong> (<em>float</em>) – index for canny</li>
+<li><strong>high_threshold</strong> (<em>float</em>) – index for canny</li>
 </ul>
 </td>
 </tr>
@@ -354,13 +354,13 @@ Availables are [&#8220;prewitt&#8221;,&#8221;sobel&#8221;,&#8221;scharr&#8221;,&
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>self</strong> &#8211; input imagefite.imagefits object</li>
-<li><strong>majsize</strong> (<em>float</em>) &#8211; Major Axis Size</li>
-<li><strong>minsize</strong> (<em>float</em>) &#8211; Minor Axis Size. If None, it will be same to the Major Axis Size (Circular Gaussian)</li>
-<li><strong>angunit</strong> (<em>string</em>) &#8211; Angular Unit for the sizes (uas, mas, asec or arcsec, amin or arcmin, degree)</li>
-<li><strong>pa</strong> (<em>float</em>) &#8211; Position Angle of the Gaussian</li>
-<li><strong>scale</strong> (<em>float</em>) &#8211; The sizes will be multiplied by this value.</li>
-<li><strong>save_totalflux</strong> (<em>boolean</em>) &#8211; If true, the total flux of the image will be conserved.</li>
+<li><strong>self</strong> – input imagefite.imagefits object</li>
+<li><strong>majsize</strong> (<em>float</em>) – Major Axis Size</li>
+<li><strong>minsize</strong> (<em>float</em>) – Minor Axis Size. If None, it will be same to the Major Axis Size (Circular Gaussian)</li>
+<li><strong>angunit</strong> (<em>string</em>) – Angular Unit for the sizes (uas, mas, asec or arcsec, amin or arcmin, degree)</li>
+<li><strong>pa</strong> (<em>float</em>) – Position Angle of the Gaussian</li>
+<li><strong>scale</strong> (<em>float</em>) – The sizes will be multiplied by this value.</li>
+<li><strong>save_totalflux</strong> (<em>boolean</em>) – If true, the total flux of the image will be conserved.</li>
 </ul>
 </td>
 </tr>
@@ -376,7 +376,7 @@ Availables are [&#8220;prewitt&#8221;,&#8221;sobel&#8221;,&#8221;scharr&#8221;,&
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>angunit</strong> (<em>string</em>) &#8211; Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>angunit</strong> (<em>string</em>) – Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)</td>
 </tr>
 </tbody>
 </table>
@@ -391,8 +391,8 @@ Availables are [&#8220;prewitt&#8221;,&#8221;sobel&#8221;,&#8221;scharr&#8221;,&
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>angunit</strong> (<em>string</em>) &#8211; Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)</li>
-<li><strong>twodim</strong> (<em>boolean</em>) &#8211; It True, the 2D grids will be returned. Otherwise, the 1D arrays will be returned</li>
+<li><strong>angunit</strong> (<em>string</em>) – Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)</li>
+<li><strong>twodim</strong> (<em>boolean</em>) – It True, the 2D grids will be returned. Otherwise, the 1D arrays will be returned</li>
 </ul>
 </td>
 </tr>
@@ -409,11 +409,11 @@ Availables are [&#8220;prewitt&#8221;,&#8221;sobel&#8221;,&#8221;scharr&#8221;,&
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the image will be edited</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the image will be edited</li>
-<li><strong>threshold</strong> (<em>float</em>) &#8211; threshold</li>
-<li><strong>relative</strong> (<em>boolean</em>) &#8211; If true, theshold value will be normalized with the peak intensity of the image</li>
-<li><strong>save_totalflux</strong> (<em>boolean</em>) &#8211; If true, the total flux of the image will be conserved.</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the image will be edited</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the image will be edited</li>
+<li><strong>threshold</strong> (<em>float</em>) – threshold</li>
+<li><strong>relative</strong> (<em>boolean</em>) – If true, theshold value will be normalized with the peak intensity of the image</li>
+<li><strong>save_totalflux</strong> (<em>boolean</em>) – If true, the total flux of the image will be conserved.</li>
 </ul>
 </td>
 </tr>
@@ -430,14 +430,14 @@ Availables are [&#8220;prewitt&#8221;,&#8221;sobel&#8221;,&#8221;scharr&#8221;,&
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>logscale</strong> (<em>boolean</em>) &#8211; If True, the color contour will be on log scales. Otherise,
+<li><strong>logscale</strong> (<em>boolean</em>) – If True, the color contour will be on log scales. Otherise,
 the color contour will be on linear scales.</li>
-<li><strong>angunit</strong> (<em>string</em>) &#8211; Angular Unit for the axis labels (pixel, uas, mas, asec or arcsec,
+<li><strong>angunit</strong> (<em>string</em>) – Angular Unit for the axis labels (pixel, uas, mas, asec or arcsec,
 amin or arcmin, degree)</li>
-<li><strong>vmin</strong> (<em>string</em>) &#8211; minimum value of the color contour in Jy/pixel</li>
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the image will be plotted</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the image will be plotted</li>
-<li><strong>**imshow_args</strong> &#8211; Arguments will be input in matplotlib.pyplot.imshow</li>
+<li><strong>vmin</strong> (<em>string</em>) – minimum value of the color contour in Jy/pixel</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the image will be plotted</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the image will be plotted</li>
+<li><strong>**imshow_args</strong> – Arguments will be input in matplotlib.pyplot.imshow</li>
 </ul>
 </td>
 </tr>
@@ -459,8 +459,8 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which l1-norm will be calculated</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which l1-norm will be calculated</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which l1-norm will be calculated</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which l1-norm will be calculated</li>
 </ul>
 </td>
 </tr>
@@ -482,8 +482,8 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the peak intensity will be calculated</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the peak intensity will be calculated</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the peak intensity will be calculated</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the peak intensity will be calculated</li>
 </ul>
 </td>
 </tr>
@@ -535,7 +535,7 @@ amin or arcmin, degree)</li>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>fitsfile</strong> (<em>string</em>) &#8211; input image FITS file</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>fitsfile</strong> (<em>string</em>) – input image FITS file</td>
 </tr>
 </tbody>
 </table>
@@ -549,7 +549,7 @@ amin or arcmin, degree)</li>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>infits</strong> (<em>string</em>) &#8211; input uv-fits file</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>infits</strong> (<em>string</em>) – input uv-fits file</td>
 </tr>
 </tbody>
 </table>
@@ -564,10 +564,10 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>self</strong> &#8211; input imagefite.imagefits object</li>
-<li><strong>angle</strong> (<em>float</em>) &#8211; Rotational Angle. Anti-clockwise direction will be positive (same to the Position Angle).</li>
-<li><strong>deg</strong> (<em>boolean</em>) &#8211; It true, then the unit of angle will be degree. Otherwise, it will be radian.</li>
-<li><strong>save_totalflux</strong> (<em>boolean</em>) &#8211; If true, the total flux of the image will be conserved.</li>
+<li><strong>self</strong> – input imagefite.imagefits object</li>
+<li><strong>angle</strong> (<em>float</em>) – Rotational Angle. Anti-clockwise direction will be positive (same to the Position Angle).</li>
+<li><strong>deg</strong> (<em>boolean</em>) – It true, then the unit of angle will be degree. Otherwise, it will be radian.</li>
+<li><strong>save_totalflux</strong> (<em>boolean</em>) – If true, the total flux of the image will be conserved.</li>
 </ul>
 </td>
 </tr>
@@ -584,8 +584,8 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>outfitsfile</strong> (<em>string</em>) &#8211; file name</li>
-<li><strong>overwrite</strong> (<em>boolean</em>) &#8211; It True, an existing file will be overwritten.</li>
+<li><strong>outfitsfile</strong> (<em>string</em>) – file name</li>
+<li><strong>overwrite</strong> (<em>boolean</em>) – It True, an existing file will be overwritten.</li>
 </ul>
 </td>
 </tr>
@@ -607,11 +607,11 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the image will be edited</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the image will be edited</li>
-<li><strong>threshold</strong> (<em>float</em>) &#8211; threshold</li>
-<li><strong>relative</strong> (<em>boolean</em>) &#8211; If true, theshold value will be normalized with the peak intensity of the image</li>
-<li><strong>save_totalflux</strong> (<em>boolean</em>) &#8211; If true, the total flux of the image will be conserved.</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the image will be edited</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the image will be edited</li>
+<li><strong>threshold</strong> (<em>float</em>) – threshold</li>
+<li><strong>relative</strong> (<em>boolean</em>) – If true, theshold value will be normalized with the peak intensity of the image</li>
+<li><strong>save_totalflux</strong> (<em>boolean</em>) – If true, the total flux of the image will be conserved.</li>
 </ul>
 </td>
 </tr>
@@ -628,11 +628,11 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the image will be saved</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the image will be saved</li>
-<li><strong>threshold</strong> (<em>float</em>) &#8211; pixels with the absolute intensity smaller than this value will be ignored.</li>
-<li><strong>relative</strong> (<em>boolean</em>) &#8211; If true, theshold value will be normalized with the peak intensity of the image.</li>
-<li><strong>save_totalflux</strong> (<em>boolean</em>) &#8211; If true, the total flux of the image will be conserved.</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the image will be saved</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the image will be saved</li>
+<li><strong>threshold</strong> (<em>float</em>) – pixels with the absolute intensity smaller than this value will be ignored.</li>
+<li><strong>relative</strong> (<em>boolean</em>) – If true, theshold value will be normalized with the peak intensity of the image.</li>
+<li><strong>save_totalflux</strong> (<em>boolean</em>) – If true, the total flux of the image will be conserved.</li>
 </ul>
 </td>
 </tr>
@@ -649,8 +649,8 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>istokes</strong> (<em>integer</em>) &#8211; index for Stokes Parameter at which the total flux will be calculated</li>
-<li><strong>ifreq</strong> (<em>integer</em>) &#8211; index for Frequency at which the total flux will be calculated</li>
+<li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the total flux will be calculated</li>
+<li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the total flux will be calculated</li>
 </ul>
 </td>
 </tr>
@@ -688,9 +688,9 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>self</strong> &#8211; input imagefite.imagefits object</li>
-<li><strong>Mx</strong> (<em>integer</em>) &#8211; Number of pixels in RA (x) direction for the padded image.</li>
-<li><strong>My</strong> (<em>integer</em>) &#8211; Number of pixels in Dec(y) direction for the padded image.</li>
+<li><strong>self</strong> – input imagefite.imagefits object</li>
+<li><strong>Mx</strong> (<em>integer</em>) – Number of pixels in RA (x) direction for the padded image.</li>
+<li><strong>My</strong> (<em>integer</em>) – Number of pixels in Dec(y) direction for the padded image.</li>
 </ul>
 </td>
 </tr>
@@ -712,15 +712,15 @@ amin or arcmin, degree)</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>fitsdata</strong> (<em>imdata.IMFITS object</em>) &#8211; input image</li>
-<li><strong>reffitsdata</strong> (<em>imdata.IMFITS object</em>) &#8211; reference image</li>
-<li><strong>metric</strong> (<em>string</em>) &#8211; type of a metric to be calculated.
-Availables are [&#8220;NRMSE&#8221;,&#8221;MSE&#8221;,&#8221;SSIM&#8221;,&#8221;DSSIM&#8221;]</li>
-<li><strong>istokes1</strong> (<em>integer</em>) &#8211; index for the Stokes axis of the input image</li>
-<li><strong>ifreq1</strong> (<em>integer</em>) &#8211; index for the frequency axis of the input image</li>
-<li><strong>istokes2</strong> (<em>integer</em>) &#8211; index for the Stokes axis of the reference image</li>
-<li><strong>ifreq2</strong> (<em>integer</em>) &#8211; index for the frequency axis of the reference image</li>
-<li><strong>edgeflag</strong> (<em>boolean</em>) &#8211; calculation of metric on image domain or image gradient domain</li>
+<li><strong>fitsdata</strong> (<em>imdata.IMFITS object</em>) – input image</li>
+<li><strong>reffitsdata</strong> (<em>imdata.IMFITS object</em>) – reference image</li>
+<li><strong>metric</strong> (<em>string</em>) – type of a metric to be calculated.
+Availables are [“NRMSE”,”MSE”,”SSIM”,”DSSIM”]</li>
+<li><strong>istokes1</strong> (<em>integer</em>) – index for the Stokes axis of the input image</li>
+<li><strong>ifreq1</strong> (<em>integer</em>) – index for the frequency axis of the input image</li>
+<li><strong>istokes2</strong> (<em>integer</em>) – index for the Stokes axis of the reference image</li>
+<li><strong>ifreq2</strong> (<em>integer</em>) – index for the frequency axis of the reference image</li>
+<li><strong>edgeflag</strong> (<em>boolean</em>) – calculation of metric on image domain or image gradient domain</li>
 </ul>
 </td>
 </tr>
@@ -752,20 +752,20 @@ visualize and convert data.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>bstable</strong> (<em>BSTable object</em>) &#8211; input bstable</li>
-<li><strong>Integ</strong> (<em>float</em>) &#8211; Integration time (sec)</li>
-<li><strong>dofreq</strong> (<em>int; default = 2</em>) &#8211; <dl class="docutils">
+<li><strong>bstable</strong> (<em>BSTable object</em>) – input bstable</li>
+<li><strong>Integ</strong> (<em>float</em>) – Integration time (sec)</li>
+<li><strong>dofreq</strong> (<em>int; default = 2</em>) – <dl class="docutils">
 <dt>Parameter for multi-frequency data.</dt>
 <dd>dofreq = 0: calculate weights and sigmas over IFs and channels
 dofreq = 1: calculate weights and sigmas over channels at each IF
 dofreq = 2: calculate weights and sigmas at each IF and Channel</dd>
 </dl>
 </li>
-<li><strong>flagweight</strong> (<em>boolean; default = True</em>) &#8211; Select calculating weight using or not using weight of original data</li>
-<li><strong>minpoint</strong> (<em>int; default = 2</em>) &#8211; minimum number of data points</li>
-<li><strong>uvwsep</strong> (<em>int; default = 1</em>) &#8211; a number of separations to entire time period to calculate u, v, w
+<li><strong>flagweight</strong> (<em>boolean; default = True</em>) – Select calculating weight using or not using weight of original data</li>
+<li><strong>minpoint</strong> (<em>int; default = 2</em>) – minimum number of data points</li>
+<li><strong>uvwsep</strong> (<em>int; default = 1</em>) – a number of separations to entire time period to calculate u, v, w
 using a spline interpolation</li>
-<li><strong>k</strong> (<em>int; default = 1</em>) &#8211; The degree of the spline fit</li>
+<li><strong>k</strong> (<em>int; default = 1</em>) – The degree of the spline fit</li>
 </ul>
 </td>
 </tr>
@@ -796,26 +796,26 @@ This method uses matplotlib.pyplot.plot() or matplotlib.pyplot.errorbar().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvdtype</strong> (<em>str</em><em>, </em><em>default = &quot;ave&quot;</em>) &#8211; <dl class="docutils">
+<li><strong>uvdtype</strong> (<em>str</em><em>, </em><em>default = &quot;ave&quot;</em>) – <dl class="docutils">
 <dt>The type of the baseline length plotted along the horizontal axis.</dt>
-<dd>&#8220;max&#8221;: maximum of three baselines (=self[&#8220;uvdistmax&#8221;])
-&#8220;min&#8221;: minimum of three baselines (=self[&#8220;uvdistmin&#8221;])
-&#8220;ave&#8221;: average of three baselines (=self[&#8220;uvdistave&#8221;])</dd>
+<dd>”max”: maximum of three baselines (=self[“uvdistmax”])
+“min”: minimum of three baselines (=self[“uvdistmin”])
+“ave”: average of three baselines (=self[“uvdistave”])</dd>
 </dl>
 </li>
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; <p>If errorbar is True, it will plot data with errorbars using
+<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – <p>If errorbar is True, it will plot data with errorbars using
 matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
 errorbars using matplotlib.pyplot.plot().</p>
 <p>If you plot model closure phases (i.e. model is not None),
 it will plot without errobars regardless of this parameter.</p>
 </li>
-<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) &#8211; Model data sets. Model closure phases must be given by model[&#8220;cpmod&#8221;].
-Otherwise, it will plot closure phases in the table (i.e. self[&#8220;phase&#8221;]).</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot() or
+<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) – Model data sets. Model closure phases must be given by model[“cpmod”].
+Otherwise, it will plot closure phases in the table (i.e. self[“phase”]).</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot() or
 matplotlib.pyplot.errorbars().
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}.</li>
+Defaults are {‘ls’: “none”, ‘marker’: “.”}.</li>
 </ul>
 </td>
 </tr>
@@ -833,11 +833,11 @@ This method uses matplotlib.pyplot.plot().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>conj</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot.
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}</li>
+<li><strong>conj</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot.
+Defaults are {‘ls’: “none”, ‘marker’: “.”}</li>
 </ul>
 </td>
 </tr>
@@ -864,20 +864,20 @@ Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>catable</strong> (<em>CATable object</em>) &#8211; input catable</li>
-<li><strong>Integ</strong> (<em>float</em>) &#8211; Integration time (sec)</li>
-<li><strong>dofreq</strong> (<em>int; default = 2</em>) &#8211; <dl class="docutils">
+<li><strong>catable</strong> (<em>CATable object</em>) – input catable</li>
+<li><strong>Integ</strong> (<em>float</em>) – Integration time (sec)</li>
+<li><strong>dofreq</strong> (<em>int; default = 2</em>) – <dl class="docutils">
 <dt>Parameter for multi-frequency data.</dt>
 <dd>dofreq = 0: calculate weights and sigmas over IFs and channels
 dofreq = 1: calculate weights and sigmas over channels at each IF
 dofreq = 2: calculate weights and sigmas at each IF and Channel</dd>
 </dl>
 </li>
-<li><strong>flagweight</strong> (<em>boolean; default = True</em>) &#8211; Select calculating weight using or not using weight of original data</li>
-<li><strong>minpoint</strong> (<em>int; default = 2</em>) &#8211; minimum number of data points</li>
-<li><strong>uvwsep</strong> (<em>int; default = 1</em>) &#8211; a number of separations to entire time period to calculate u, v, w
+<li><strong>flagweight</strong> (<em>boolean; default = True</em>) – Select calculating weight using or not using weight of original data</li>
+<li><strong>minpoint</strong> (<em>int; default = 2</em>) – minimum number of data points</li>
+<li><strong>uvwsep</strong> (<em>int; default = 1</em>) – a number of separations to entire time period to calculate u, v, w
 using a spline interpolation</li>
-<li><strong>k</strong> (<em>int; default = 1</em>) &#8211; The degree of the spline fit</li>
+<li><strong>k</strong> (<em>int; default = 1</em>) – The degree of the spline fit</li>
 </ul>
 </td>
 </tr>
@@ -909,26 +909,26 @@ matplotlib.pyplot.errorbar().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvdtype</strong> (<em>str</em><em>, </em><em>default = &quot;ave&quot;</em>) &#8211; <dl class="docutils">
+<li><strong>uvdtype</strong> (<em>str</em><em>, </em><em>default = &quot;ave&quot;</em>) – <dl class="docutils">
 <dt>The type of the baseline length plotted along the horizontal axis.</dt>
-<dd>&#8220;max&#8221;: maximum of four baselines (=self[&#8220;uvdistmax&#8221;])
-&#8220;min&#8221;: minimum of four baselines (=self[&#8220;uvdistmin&#8221;])
-&#8220;ave&#8221;: average of four baselines (=self[&#8220;uvdistave&#8221;])</dd>
+<dd>”max”: maximum of four baselines (=self[“uvdistmax”])
+“min”: minimum of four baselines (=self[“uvdistmin”])
+“ave”: average of four baselines (=self[“uvdistave”])</dd>
 </dl>
 </li>
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; <p>If errorbar is True, it will plot data with errorbars using
+<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – <p>If errorbar is True, it will plot data with errorbars using
 matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
 errorbars using matplotlib.pyplot.plot().</p>
 <p>If you plot model closure phases (i.e. model is not None),
 it will plot without errobars regardless of this parameter.</p>
 </li>
-<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) &#8211; Model data sets. Model closure amplitudes must be given by model[&#8220;camod&#8221;].
-Otherwise, it will plot closure amplitudes in the table (i.e. self[&#8220;logamp&#8221;]).</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot() or
+<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) – Model data sets. Model closure amplitudes must be given by model[“camod”].
+Otherwise, it will plot closure amplitudes in the table (i.e. self[“logamp”]).</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot() or
 matplotlib.pyplot.errorbars().
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}.</li>
+Defaults are {‘ls’: “none”, ‘marker’: “.”}.</li>
 </ul>
 </td>
 </tr>
@@ -946,11 +946,11 @@ This method uses matplotlib.pyplot.plot().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>conj</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot.
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}</li>
+<li><strong>conj</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot.
+Defaults are {‘ls’: “none”, ‘marker’: “.”}</li>
 </ul>
 </td>
 </tr>
@@ -981,9 +981,9 @@ visualize and convert data.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>vistable</strong> (<em>pandas.Dataframe object</em>) &#8211; input visibility table</li>
-<li><strong>fitsdata</strong> (<em>imdata.IMFITS object</em>) &#8211; input imdata.IMFITS object</li>
-<li><strong>fgfov</strong> (<em>int</em>) &#8211; a number of gridded FOV/original FOV</li>
+<li><strong>vistable</strong> (<em>pandas.Dataframe object</em>) – input visibility table</li>
+<li><strong>fitsdata</strong> (<em>imdata.IMFITS object</em>) – input imdata.IMFITS object</li>
+<li><strong>fgfov</strong> (<em>int</em>) – a number of gridded FOV/original FOV</li>
 </ul>
 </td>
 </tr>
@@ -1021,23 +1021,23 @@ matplotlib.pyplot.errorbar().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; <p>If errorbar is True, it will plot data with errorbars using
+<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – <p>If errorbar is True, it will plot data with errorbars using
 matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
 errorbars using matplotlib.pyplot.plot().</p>
 <p>If you plot model closure phases (i.e. model is not None),
 it will plot without errobars regardless of this parameter.</p>
 </li>
-<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) &#8211; Model data sets. Model amplitudes must be given by model[&#8220;fcvampmod&#8221;]
-for full complex visibilities (modeltype=&#8221;fcv&#8221;) or model[&#8220;ampmod&#8221;]
-for visibility amplitudes (modeltype=&#8221;amp&#8221;).
-Otherwise, it will plot amplitudes in the table (i.e. self[&#8220;amp&#8221;]).</li>
-<li><strong>modeltype</strong> (<em>string</em><em>, </em><em>default = &quot;amp&quot;</em>) &#8211; The type of models. If you would plot model amplitudes, set modeltype=&#8221;amp&#8221;.
-Else if you would plot model full complex visibilities, set modeltype=&#8221;fcv&#8221;.</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot() or
+<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) – Model data sets. Model amplitudes must be given by model[“fcvampmod”]
+for full complex visibilities (modeltype=”fcv”) or model[“ampmod”]
+for visibility amplitudes (modeltype=”amp”).
+Otherwise, it will plot amplitudes in the table (i.e. self[“amp”]).</li>
+<li><strong>modeltype</strong> (<em>string</em><em>, </em><em>default = &quot;amp&quot;</em>) – The type of models. If you would plot model amplitudes, set modeltype=”amp”.
+Else if you would plot model full complex visibilities, set modeltype=”fcv”.</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot() or
 matplotlib.pyplot.errorbars().
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}.</li>
+Defaults are {‘ls’: “none”, ‘marker’: “.”}.</li>
 </ul>
 </td>
 </tr>
@@ -1056,19 +1056,19 @@ matplotlib.pyplot.errorbar().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; <p>If errorbar is True, it will plot data with errorbars using
+<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – <p>If errorbar is True, it will plot data with errorbars using
 matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
 errorbars using matplotlib.pyplot.plot().</p>
 <p>If you plot model closure phases (i.e. model is not None),
 it will plot without errobars regardless of this parameter.</p>
 </li>
-<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) &#8211; Model data sets. Model phases must be given by model[&#8220;fcvphamod&#8221;].
-Otherwise, it will plot amplitudes in the table (i.e. self[&#8220;phase&#8221;]).</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot() or
+<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) – Model data sets. Model phases must be given by model[“fcvphamod”].
+Otherwise, it will plot amplitudes in the table (i.e. self[“phase”]).</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot() or
 matplotlib.pyplot.errorbars().
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}.</li>
+Defaults are {‘ls’: “none”, ‘marker’: “.”}.</li>
 </ul>
 </td>
 </tr>
@@ -1079,7 +1079,7 @@ Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221
 <dl class="method">
 <dt id="sparselab.uvdata.GVisTable.recalc_uvdist">
 <code class="descname">recalc_uvdist</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.GVisTable.recalc_uvdist" title="Permalink to this definition">¶</a></dt>
-<dd><p>Re-calculate the baseline length from self[&#8220;u&#8221;] and self[&#8220;v&#8221;].</p>
+<dd><p>Re-calculate the baseline length from self[“u”] and self[“v”].</p>
 </dd></dl>
 
 <dl class="method">
@@ -1092,11 +1092,11 @@ This method uses matplotlib.pyplot.plot().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>conj</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot.
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}</li>
+<li><strong>conj</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot.
+Defaults are {‘ls’: “none”, ‘marker’: “.”}</li>
 </ul>
 </td>
 </tr>
@@ -1119,7 +1119,7 @@ for imaging.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>flag</strong> (<em>boolean</em>) &#8211; if flag=True, data with weights &lt;= 0 or sigma &lt;=0 will be ignored.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>flag</strong> (<em>boolean</em>) – if flag=True, data with weights &lt;= 0 or sigma &lt;=0 will be ignored.</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.VisTable object</td>
 </tr>
@@ -1136,7 +1136,7 @@ single-source uvfits file.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>infile</strong> (<em>string</em>) &#8211; input uvfits file</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>infile</strong> (<em>string</em>) – input uvfits file</td>
 </tr>
 </tbody>
 </table>
@@ -1150,8 +1150,8 @@ single-source uvfits file.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>stokes</strong> (<em>string; default=&quot;I&quot;</em>) &#8211; Output stokes parameters.
-Availables are [&#8220;I&#8221;, &#8220;Q&#8221;, &#8220;U&#8221;, &#8220;V&#8221;, &#8220;LL&#8221;, &#8220;RR&#8221;, &#8220;RL&#8221;, &#8220;LR&#8221;].</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>stokes</strong> (<em>string; default=&quot;I&quot;</em>) – Output stokes parameters.
+Availables are [“I”, “Q”, “U”, “V”, “LL”, “RR”, “RL”, “LR”].</td>
 </tr>
 </tbody>
 </table>
@@ -1161,7 +1161,7 @@ Availables are [&#8220;I&#8221;, &#8220;Q&#8221;, &#8220;U&#8221;, &#8220;V&#822
 <dl class="method">
 <dt id="sparselab.uvdata.UVFITS.uvsort">
 <code class="descname">uvsort</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.UVFITS.uvsort" title="Permalink to this definition">¶</a></dt>
-<dd><p>Check station IDs of each visibility and switch its order if &#8220;st1&#8221; &gt; &#8220;st2&#8221;.
+<dd><p>Check station IDs of each visibility and switch its order if “st1” &gt; “st2”.
 Then, data will be TB-sorted.</p>
 </dd></dl>
 
@@ -1175,15 +1175,15 @@ in full complex visibilities over specified frequency and time segments.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>self</strong> (<em>uvarray.uvfits object</em>) &#8211; input uvfits data</li>
-<li><strong>dofreq</strong> (<em>int; default = 0</em>) &#8211; <dl class="docutils">
+<li><strong>self</strong> (<em>uvarray.uvfits object</em>) – input uvfits data</li>
+<li><strong>dofreq</strong> (<em>int; default = 0</em>) – <dl class="docutils">
 <dt>Parameter for multi-frequency data.</dt>
 <dd>dofreq = 0: calculate weights and sigmas over IFs and channels
 dofreq = 1: calculate weights and sigmas over channels at each IF
 dofreq = 2: calculate weights and sigmas at each IF and Channel</dd>
 </dl>
 </li>
-<li><strong>solint</strong> (<em>float; default = 120.</em>) &#8211; solution interval in sec</li>
+<li><strong>solint</strong> (<em>float; default = 120.</em>) – solution interval in sec</li>
 </ul>
 </td>
 </tr>
@@ -1210,21 +1210,21 @@ visualize and convert data.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>vistable</strong> (<em>VisTable object</em>) &#8211; input visibility table</li>
-<li><strong>coherent</strong> (<em>boolean</em>) &#8211; Select coherent or incoherent averaging</li>
-<li><strong>Integ</strong> (<em>float</em>) &#8211; Integration time</li>
-<li><strong>dofreq</strong> (<em>int; default = 2</em>) &#8211; <dl class="docutils">
+<li><strong>vistable</strong> (<em>VisTable object</em>) – input visibility table</li>
+<li><strong>coherent</strong> (<em>boolean</em>) – Select coherent or incoherent averaging</li>
+<li><strong>Integ</strong> (<em>float</em>) – Integration time</li>
+<li><strong>dofreq</strong> (<em>int; default = 2</em>) – <dl class="docutils">
 <dt>Parameter for multi-frequency data.</dt>
 <dd>dofreq = 0: calculate weights and sigmas over IFs and channels
 dofreq = 1: calculate weights and sigmas over channels at each IF
 dofreq = 2: calculate weights and sigmas at each IF and Channel</dd>
 </dl>
 </li>
-<li><strong>flagweight</strong> (<em>boolean; default = True</em>) &#8211; Select calculating weight using or not using weight of original data</li>
-<li><strong>minpoint</strong> (<em>int; default = 2</em>) &#8211; minimum number of data points</li>
-<li><strong>uvwsep</strong> (<em>int; default = 1</em>) &#8211; a number of separations to entire time period to calculate u, v, w
+<li><strong>flagweight</strong> (<em>boolean; default = True</em>) – Select calculating weight using or not using weight of original data</li>
+<li><strong>minpoint</strong> (<em>int; default = 2</em>) – minimum number of data points</li>
+<li><strong>uvwsep</strong> (<em>int; default = 1</em>) – a number of separations to entire time period to calculate u, v, w
 using a spline interpolation</li>
-<li><strong>k</strong> (<em>int; default = 1</em>) &#8211; The degree of the spline fit</li>
+<li><strong>k</strong> (<em>int; default = 1</em>) – The degree of the spline fit</li>
 </ul>
 </td>
 </tr>
@@ -1261,13 +1261,13 @@ using a spline interpolation</li>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>vistable</strong> (<em>pandas.Dataframe object</em>) &#8211; input visibility table</li>
-<li><strong>fitsdata</strong> (<em>imdata.IMFITS object</em>) &#8211; input imdata.IMFITS object</li>
-<li><strong>fgfov</strong> (<em>int</em>) &#8211; a number of gridded FOV/original FOV</li>
-<li><strong>mu</strong> (<em>int; default = 1</em>) &#8211; </li>
-<li><strong>mv</strong> (<em>int; default = 1</em>) &#8211; parameter for spheroidal angular function
+<li><strong>vistable</strong> (<em>pandas.Dataframe object</em>) – input visibility table</li>
+<li><strong>fitsdata</strong> (<em>imdata.IMFITS object</em>) – input imdata.IMFITS object</li>
+<li><strong>fgfov</strong> (<em>int</em>) – a number of gridded FOV/original FOV</li>
+<li><strong>mu</strong> (<em>int; default = 1</em>) – </li>
+<li><strong>mv</strong> (<em>int; default = 1</em>) – parameter for spheroidal angular function
 a number of cells for gridding</li>
-<li><strong>c</strong> (<em>int; default = 1</em>) &#8211; parameter for spheroidal angular fuction
+<li><strong>c</strong> (<em>int; default = 1</em>) – parameter for spheroidal angular fuction
 this parameter decides steepness of the function</li>
 </ul>
 </td>
@@ -1300,23 +1300,23 @@ matplotlib.pyplot.errorbar().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; <p>If errorbar is True, it will plot data with errorbars using
+<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – <p>If errorbar is True, it will plot data with errorbars using
 matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
 errorbars using matplotlib.pyplot.plot().</p>
 <p>If you plot model closure phases (i.e. model is not None),
 it will plot without errobars regardless of this parameter.</p>
 </li>
-<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) &#8211; Model data sets. Model amplitudes must be given by model[&#8220;fcvampmod&#8221;]
-for full complex visibilities (modeltype=&#8221;fcv&#8221;) or model[&#8220;ampmod&#8221;]
-for visibility amplitudes (modeltype=&#8221;amp&#8221;).
-Otherwise, it will plot amplitudes in the table (i.e. self[&#8220;amp&#8221;]).</li>
-<li><strong>modeltype</strong> (<em>string</em><em>, </em><em>default = &quot;amp&quot;</em>) &#8211; The type of models. If you would plot model amplitudes, set modeltype=&#8221;amp&#8221;.
-Else if you would plot model full complex visibilities, set modeltype=&#8221;fcv&#8221;.</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot() or
+<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) – Model data sets. Model amplitudes must be given by model[“fcvampmod”]
+for full complex visibilities (modeltype=”fcv”) or model[“ampmod”]
+for visibility amplitudes (modeltype=”amp”).
+Otherwise, it will plot amplitudes in the table (i.e. self[“amp”]).</li>
+<li><strong>modeltype</strong> (<em>string</em><em>, </em><em>default = &quot;amp&quot;</em>) – The type of models. If you would plot model amplitudes, set modeltype=”amp”.
+Else if you would plot model full complex visibilities, set modeltype=”fcv”.</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot() or
 matplotlib.pyplot.errorbars().
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}.</li>
+Defaults are {‘ls’: “none”, ‘marker’: “.”}.</li>
 </ul>
 </td>
 </tr>
@@ -1335,19 +1335,19 @@ matplotlib.pyplot.errorbar().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; <p>If errorbar is True, it will plot data with errorbars using
+<li><strong>errorbar</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – <p>If errorbar is True, it will plot data with errorbars using
 matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
 errorbars using matplotlib.pyplot.plot().</p>
 <p>If you plot model closure phases (i.e. model is not None),
 it will plot without errobars regardless of this parameter.</p>
 </li>
-<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) &#8211; Model data sets. Model phases must be given by model[&#8220;fcvphamod&#8221;].
-Otherwise, it will plot amplitudes in the table (i.e. self[&#8220;phase&#8221;]).</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot() or
+<li><strong>model</strong> (<em>dict-like such as pd.DataFrame</em><em>, </em><em>pd.Series</em><em>, </em><em>default is None</em>) – Model data sets. Model phases must be given by model[“fcvphamod”].
+Otherwise, it will plot amplitudes in the table (i.e. self[“phase”]).</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot() or
 matplotlib.pyplot.errorbars().
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}.</li>
+Defaults are {‘ls’: “none”, ‘marker’: “.”}.</li>
 </ul>
 </td>
 </tr>
@@ -1358,7 +1358,7 @@ Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221
 <dl class="method">
 <dt id="sparselab.uvdata.VisTable.recalc_uvdist">
 <code class="descname">recalc_uvdist</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.recalc_uvdist" title="Permalink to this definition">¶</a></dt>
-<dd><p>Re-calculate the baseline length from self[&#8220;u&#8221;] and self[&#8220;v&#8221;].</p>
+<dd><p>Re-calculate the baseline length from self[“u”] and self[“v”].</p>
 </dd></dl>
 
 <dl class="method">
@@ -1371,11 +1371,11 @@ This method uses matplotlib.pyplot.plot().</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) &#8211; The unit of the baseline length. if uvunit is None, it will use
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default = None</em>) – The unit of the baseline length. if uvunit is None, it will use
 self.uvunit.</li>
-<li><strong>conj</strong> (<em>boolean</em><em>, </em><em>default = True</em>) &#8211; if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).</li>
-<li><strong>**plotargs</strong> &#8211; You can set parameters of matplotlib.pyplot.plot.
-Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221;.&#8221;}</li>
+<li><strong>conj</strong> (<em>boolean</em><em>, </em><em>default = True</em>) – if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).</li>
+<li><strong>**plotargs</strong> – You can set parameters of matplotlib.pyplot.plot.
+Defaults are {‘ls’: “none”, ‘marker’: “.”}</li>
 </ul>
 </td>
 </tr>
@@ -1387,7 +1387,7 @@ Defaults are {&#8216;ls&#8217;: &#8220;none&#8221;, &#8216;marker&#8217;: &#8221
 <dt id="sparselab.uvdata.VisTable.uvsort">
 <code class="descname">uvsort</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.uvsort" title="Permalink to this definition">¶</a></dt>
 <dd><p>Sort uvdata. First, it will check station IDs of each visibility
-and switch its order if &#8220;st1&#8221; &gt; &#8220;st2&#8221;. Then, data will be TB-sorted.</p>
+and switch its order if “st1” &gt; “st2”. Then, data will be TB-sorted.</p>
 </dd></dl>
 
 </dd></dl>
@@ -1401,11 +1401,11 @@ and switch its order if &#8220;st1&#8221; &gt; &#8220;st2&#8221;. Then, data wil
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>filename</strong> &#8211; str, pathlib.Path, py._path.local.LocalPath or any object with a read()
+<li><strong>filename</strong> – str, pathlib.Path, py._path.local.LocalPath or any object with a read()
 method (such as a file handle or StringIO)</li>
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default is None</em>) &#8211; units of uvdistance for plotting. If uvunit is None, uvunit will be
-inferred from the maximum baseline length. Availables are [&#8220;l[ambda]&#8221;,
-&#8220;kl[ambda]&#8221;, &#8220;ml[ambda]&#8221;, &#8220;gl[ambda]&#8221;, &#8220;m&#8221;, &#8220;km&#8221;].</li>
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default is None</em>) – units of uvdistance for plotting. If uvunit is None, uvunit will be
+inferred from the maximum baseline length. Availables are [“l[ambda]”,
+“kl[ambda]”, “ml[ambda]”, “gl[ambda]”, “m”, “km”].</li>
 </ul>
 </td>
 </tr>
@@ -1425,11 +1425,11 @@ inferred from the maximum baseline length. Availables are [&#8220;l[ambda]&#8221
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>filename</strong> &#8211; str, pathlib.Path, py._path.local.LocalPath or any object with a read()
+<li><strong>filename</strong> – str, pathlib.Path, py._path.local.LocalPath or any object with a read()
 method (such as a file handle or StringIO)</li>
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default is None</em>) &#8211; units of uvdistance for plotting. If uvunit is None, uvunit will be
-inferred from the maximum baseline length. Availables are [&#8220;l[ambda]&#8221;,
-&#8220;kl[ambda]&#8221;, &#8220;ml[ambda]&#8221;, &#8220;gl[ambda]&#8221;, &#8220;m&#8221;, &#8220;km&#8221;].</li>
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default is None</em>) – units of uvdistance for plotting. If uvunit is None, uvunit will be
+inferred from the maximum baseline length. Availables are [“l[ambda]”,
+“kl[ambda]”, “ml[ambda]”, “gl[ambda]”, “m”, “km”].</li>
 </ul>
 </td>
 </tr>
@@ -1449,11 +1449,11 @@ inferred from the maximum baseline length. Availables are [&#8220;l[ambda]&#8221
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>filename</strong> &#8211; str, pathlib.Path, py._path.local.LocalPath or any object with a read()
+<li><strong>filename</strong> – str, pathlib.Path, py._path.local.LocalPath or any object with a read()
 method (such as a file handle or StringIO)</li>
-<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default is None</em>) &#8211; units of uvdistance for plotting. If uvunit is None, uvunit will be
-inferred from the maximum baseline length. Availables are [&#8220;l[ambda]&#8221;,
-&#8220;kl[ambda]&#8221;, &#8220;ml[ambda]&#8221;, &#8220;gl[ambda]&#8221;, &#8220;m&#8221;, &#8220;km&#8221;].</li>
+<li><strong>uvunit</strong> (<em>str</em><em>, </em><em>default is None</em>) – units of uvdistance for plotting. If uvunit is None, uvunit will be
+inferred from the maximum baseline length. Availables are [“l[ambda]”,
+“kl[ambda]”, “ml[ambda]”, “gl[ambda]”, “m”, “km”].</li>
 </ul>
 </td>
 </tr>
@@ -1487,22 +1487,22 @@ inferred from the maximum baseline length. Availables are [&#8220;l[ambda]&#8221
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>initimage</strong> (<em>imdata.IMFITS object</em>) &#8211; initial image</li>
-<li><strong>imagefunc</strong> (<em>function; default=uvdata.iterative_imaging</em>) &#8211; <dl class="docutils">
+<li><strong>initimage</strong> (<em>imdata.IMFITS object</em>) – initial image</li>
+<li><strong>imagefunc</strong> (<em>function; default=uvdata.iterative_imaging</em>) – <dl class="docutils">
 <dt>Function of imageing. It should be defined as</dt>
 <dd>def imagefunc(initimage, imageprm, <a href="#id1"><span class="problematic" id="id2">**</span></a>imagefargs)</dd>
 </dl>
 </li>
-<li><strong>imageprm</strong> (<em>dict-like; default={}</em>) &#8211; parameter sets for each imaging</li>
-<li><strong>imagefargs</strong> (<em>dict-like; default={}</em>) &#8211; parameter sets for imagefunc</li>
-<li><strong>workdir</strong> (<em>string; default = &quot;./&quot;</em>) &#8211; The directory where images and summary files will be output.</li>
-<li><strong>sumtablefile</strong> (<em>string; default = &quot;summary.csv&quot;</em>) &#8211; The name of the output csv file that summerizes results.</li>
-<li><strong>docv</strong> (<em>boolean; default = False</em>) &#8211; Do cross validation</li>
-<li><strong>seed</strong> (<em>integer; default = 1</em>) &#8211; Random seed to make CV data sets.</li>
-<li><strong>nfold</strong> (<em>integer; default = 10</em>) &#8211; Number of folds in CV.</li>
-<li><strong>cvsumtablefile</strong> (<em>string; default = &quot;cvsummary.csv&quot;</em>) &#8211; The name of the output csv file that summerizes results of CV.</li>
-<li><strong>angunit</strong> (<em>string; default = None</em>) &#8211; Angular units for plotting results.</li>
-<li><strong>uvunit</strong> (<em>string; default = None</em>) &#8211; Units of baseline lengths for plotting results.</li>
+<li><strong>imageprm</strong> (<em>dict-like; default={}</em>) – parameter sets for each imaging</li>
+<li><strong>imagefargs</strong> (<em>dict-like; default={}</em>) – parameter sets for imagefunc</li>
+<li><strong>workdir</strong> (<em>string; default = &quot;./&quot;</em>) – The directory where images and summary files will be output.</li>
+<li><strong>sumtablefile</strong> (<em>string; default = &quot;summary.csv&quot;</em>) – The name of the output csv file that summerizes results.</li>
+<li><strong>docv</strong> (<em>boolean; default = False</em>) – Do cross validation</li>
+<li><strong>seed</strong> (<em>integer; default = 1</em>) – Random seed to make CV data sets.</li>
+<li><strong>nfold</strong> (<em>integer; default = 10</em>) – Number of folds in CV.</li>
+<li><strong>cvsumtablefile</strong> (<em>string; default = &quot;cvsummary.csv&quot;</em>) – The name of the output csv file that summerizes results of CV.</li>
+<li><strong>angunit</strong> (<em>string; default = None</em>) – Angular units for plotting results.</li>
+<li><strong>uvunit</strong> (<em>string; default = None</em>) – Units of baseline lengths for plotting results.</li>
 </ul>
 </td>
 </tr>
@@ -1553,16 +1553,16 @@ MFISTA in src/mfista</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>initimage</strong> (<em>imdata.IMFITS object</em>) &#8211; initial image</li>
-<li><strong>imageprm</strong> (<em>dict-like; default={}</em>) &#8211; parameter sets for each imaging</li>
-<li><strong>workdir</strong> (<em>string; default = &quot;./&quot;</em>) &#8211; The directory where images and summary files will be output.</li>
-<li><strong>sumtablefile</strong> (<em>string; default = &quot;summary.csv&quot;</em>) &#8211; The name of the output csv file that summerizes results.</li>
-<li><strong>docv</strong> (<em>boolean; default = False</em>) &#8211; Do cross validation</li>
-<li><strong>seed</strong> (<em>integer; default = 1</em>) &#8211; Random seed to make CV data sets.</li>
-<li><strong>nfold</strong> (<em>integer; default = 10</em>) &#8211; Number of folds in CV.</li>
-<li><strong>cvsumtablefile</strong> (<em>string; default = &quot;cvsummary.csv&quot;</em>) &#8211; The name of the output csv file that summerizes results of CV.</li>
-<li><strong>angunit</strong> (<em>string; default = None</em>) &#8211; Angular units for plotting results.</li>
-<li><strong>uvunit</strong> (<em>string; default = None</em>) &#8211; Units of baseline lengths for plotting results.</li>
+<li><strong>initimage</strong> (<em>imdata.IMFITS object</em>) – initial image</li>
+<li><strong>imageprm</strong> (<em>dict-like; default={}</em>) – parameter sets for each imaging</li>
+<li><strong>workdir</strong> (<em>string; default = &quot;./&quot;</em>) – The directory where images and summary files will be output.</li>
+<li><strong>sumtablefile</strong> (<em>string; default = &quot;summary.csv&quot;</em>) – The name of the output csv file that summerizes results.</li>
+<li><strong>docv</strong> (<em>boolean; default = False</em>) – Do cross validation</li>
+<li><strong>seed</strong> (<em>integer; default = 1</em>) – Random seed to make CV data sets.</li>
+<li><strong>nfold</strong> (<em>integer; default = 10</em>) – Number of folds in CV.</li>
+<li><strong>cvsumtablefile</strong> (<em>string; default = &quot;cvsummary.csv&quot;</em>) – The name of the output csv file that summerizes results of CV.</li>
+<li><strong>angunit</strong> (<em>string; default = None</em>) – Angular units for plotting results.</li>
+<li><strong>uvunit</strong> (<em>string; default = None</em>) – Units of baseline lengths for plotting results.</li>
 </ul>
 </td>
 </tr>
@@ -1643,7 +1643,7 @@ MFISTA in src/mfista</p>
 <dd><p>Output table into csv files using pd.DataFrame.to_csv().
 Default parameter will be</p>
 <blockquote>
-<div>float_format=r&#8221;%22.16e&#8221;
+<div>float_format=r”%22.16e”
 index=False
 index_label=False.</div></blockquote>
 <p>see DocStrings for pd.DataFrame.to_csv().</p>
@@ -1652,8 +1652,8 @@ index_label=False.</div></blockquote>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>filename</strong> (<em>string</em><em> or </em><em>filehandle</em>) &#8211; output filename</li>
-<li><strong>**args</strong> &#8211; other arguments of pd.DataFrame.to_csv()</li>
+<li><strong>filename</strong> (<em>string</em><em> or </em><em>filehandle</em>) – output filename</li>
+<li><strong>**args</strong> – other arguments of pd.DataFrame.to_csv()</li>
 </ul>
 </td>
 </tr>
@@ -1681,8 +1681,8 @@ index_label=False.</div></blockquote>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>nfolds</strong> (<em>int</em>) &#8211; the number of folds</li>
-<li><strong>seed</strong> (<em>int</em>) &#8211; the seed number of pseudo ramdam numbers</li>
+<li><strong>nfolds</strong> (<em>int</em>) – the number of folds</li>
+<li><strong>seed</strong> (<em>int</em>) – the seed number of pseudo ramdam numbers</li>
 </ul>
 </td>
 </tr>
@@ -1712,7 +1712,7 @@ index_label=False.</div></blockquote>
 <dd><p>Output table into csv files using pd.DataFrame.to_csv().
 Default parameter will be</p>
 <blockquote>
-<div>float_format=r&#8221;%22.16e&#8221;
+<div>float_format=r”%22.16e”
 index=False
 index_label=False.</div></blockquote>
 <p>see DocStrings for pd.DataFrame.to_csv().</p>
@@ -1721,8 +1721,8 @@ index_label=False.</div></blockquote>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>filename</strong> (<em>string</em><em> or </em><em>filehandle</em>) &#8211; output filename</li>
-<li><strong>**args</strong> &#8211; other arguments of pd.DataFrame.to_csv()</li>
+<li><strong>filename</strong> (<em>string</em><em> or </em><em>filehandle</em>) – output filename</li>
+<li><strong>**args</strong> – other arguments of pd.DataFrame.to_csv()</li>
 </ul>
 </td>
 </tr>
@@ -1733,7 +1733,7 @@ index_label=False.</div></blockquote>
 <dl class="method">
 <dt id="sparselab.ft.PTable.update">
 <code class="descname">update</code><span class="sig-paren">(</span><em>ref='lambsq'</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.PTable.update" title="Permalink to this definition">¶</a></dt>
-<dd><p>ref=[&#8220;lambsq&#8221;, &#8220;lambda&#8221;, &#8220;freq&#8221;]</p>
+<dd><p>ref=[“lambsq”, “lambda”, “freq”]</p>
 </dd></dl>
 
 </dd></dl>
@@ -1746,7 +1746,7 @@ index_label=False.</div></blockquote>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filename</strong> &#8211; str, pathlib.Path, py._path.local.LocalPath or any object with a read()
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filename</strong> – str, pathlib.Path, py._path.local.LocalPath or any object with a read()
 method (such as a file handle or StringIO)</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.VisTable object</td>
@@ -1763,7 +1763,7 @@ method (such as a file handle or StringIO)</td>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filename</strong> &#8211; str, pathlib.Path, py._path.local.LocalPath or any object with a read()
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filename</strong> – str, pathlib.Path, py._path.local.LocalPath or any object with a read()
 method (such as a file handle or StringIO)</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.VisTable object</td>
@@ -1844,7 +1844,7 @@ Available angular units are uas, mas, asec or arcsec, amin or arcmin and degree.
       <script type="text/javascript" src="../_static/jquery.js"></script>
       <script type="text/javascript" src="../_static/underscore.js"></script>
       <script type="text/javascript" src="../_static/doctools.js"></script>
-      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
   
 

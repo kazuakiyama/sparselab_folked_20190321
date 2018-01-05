@@ -180,7 +180,7 @@ Here, we summarize required python packages and external packages for Sparselab.
 <h3>1.1.1. Python Packages and Modules<a class="headerlink" href="#python-packages-and-modules" title="Permalink to this headline">¶</a></h3>
 <p>Sparselab uses <strong>numpy</strong>, <strong>scipy</strong>, <strong>matplotlib</strong>, <strong>pandas</strong>, <strong>astropy</strong>, <strong>xarray</strong>, <strong>pyds9</strong>, <strong>tqdm</strong>.
 Sparselab has been tested and developped in Python 2.7 environments provided by the <a class="reference external" href="https://www.continuum.io/anaconda-overview">Anaconda</a> package that
-includes required packages except <em>xarray*</em> and <a href="#id1"><span class="problematic" id="id2">**</span></a>pyds9*. We recommend using Anaconda for Sparselab.</p>
+includes required packages except <strong>xarray</strong> and <strong>pyds9</strong>. We recommend using Anaconda for Sparselab.</p>
 <p>You can install <strong>xarray</strong>, <strong>tqdm</strong> and <strong>pyds9</strong> with conda and/or pip as follows
 (see the official website of <a class="reference external" href="https://github.com/ericmandel/pyds9">pyds9</a> for its installation).</p>
 <div class="highlight-Bash"><div class="highlight"><pre><span></span><span class="c1"># if you have conda</span>
@@ -262,7 +262,7 @@ git clone https://github.com/eht-jp/sparselab
 </pre></div>
 </div>
 <p>If you are a Mac OS X user using MacPort, Fink, or Homebrew,
-<cite>LDFLAGS=&#8221;-L/opt/local/lib&#8221;</cite>, <cite>LDFLAGS=&#8221;-L/sw/lib&#8221;</cite> or <cite>LDFLAGS=&#8221;-L/usr/local/lib&#8221;</cite>
+<cite>LDFLAGS=”-L/opt/local/lib”</cite>, <cite>LDFLAGS=”-L/sw/lib”</cite> or <cite>LDFLAGS=”-L/usr/local/lib”</cite>
 would work, respectively.</p>
 <p>Make and compile the library.
 The internal C/Fortran Library will be compiled into python modules,
@@ -352,7 +352,7 @@ make uninstall
       <script type="text/javascript" src="jquery.js"></script>
       <script type="text/javascript" src="underscore.js"></script>
       <script type="text/javascript" src="doctools.js"></script>
-      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
   
 
