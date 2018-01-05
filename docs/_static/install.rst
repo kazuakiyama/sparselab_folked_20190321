@@ -17,7 +17,7 @@ Python Packages and Modules
 
 Sparselab uses **numpy**, **scipy**, **matplotlib**, **pandas**, **astropy**, **xarray**, **pyds9**, **tqdm**.
 Sparselab has been tested and developped in Python 2.7 environments provided by the `Anaconda`_ package that
-includes required packages except *xarray** and **pyds9*. We recommend using Anaconda for Sparselab.
+includes required packages except **xarray** and **pyds9**. We recommend using Anaconda for Sparselab.
 
 .. _Anaconda: https://www.continuum.io/anaconda-overview
 
