@@ -6,7 +6,7 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, "README.md"), encoding='utf-8') as f:
     long_description = f.read()
 
-if path.isfile("sparselab/libmfista.so"):
+if path.isfile(path.join(here, "sparselab/libmfista.so")):
     errmsg="Apparently, you have not compiled C/Fortran libraries with make."
     errmsg+=" Please install this library by 'make install' not by 'python setup.py install'"
     raise RuntimeError(errmsg)
