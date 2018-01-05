@@ -168,7 +168,6 @@
 <p>Sparselab consists of three core python modules, <strong>imdata</strong>, <strong>uvdata</strong> and <strong>imaging</strong>.</p>
 <div class="section" id="module-sparselab.imdata">
 <span id="sparselab-imdata"></span><h2>2.1. sparselab.imdata<a class="headerlink" href="#module-sparselab.imdata" title="Permalink to this headline">¶</a></h2>
-<p>This is a sub-module of sparselab handling image fits data.</p>
 <dl class="class">
 <dt id="sparselab.imdata.IMFITS">
 <em class="property">class </em><code class="descclassname">sparselab.imdata.</code><code class="descname">IMFITS</code><span class="sig-paren">(</span><em>fitsfile=None</em>, <em>uvfitsfile=None</em>, <em>source=None</em>, <em>dx=2.0</em>, <em>dy=None</em>, <em>nx=100</em>, <em>ny=None</em>, <em>nxref=None</em>, <em>nyref=None</em>, <em>angunit='uas'</em>, <em>**args</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.imdata.IMFITS" title="Permalink to this definition">¶</a></dt>
@@ -735,7 +734,6 @@ Availables are [“NRMSE”,”MSE”,”SSIM”,”DSSIM”]</li>
 </div>
 <div class="section" id="module-sparselab.uvdata">
 <span id="sparselab-uvdata"></span><h2>2.2. sparselab.uvdata<a class="headerlink" href="#module-sparselab.uvdata" title="Permalink to this headline">¶</a></h2>
-<p>This is a submodule of sparselab handling various types of Visibility data sets.</p>
 <dl class="class">
 <dt id="sparselab.uvdata.BSTable">
 <em class="property">class </em><code class="descclassname">sparselab.uvdata.</code><code class="descname">BSTable</code><span class="sig-paren">(</span><em>data=None</em>, <em>index=None</em>, <em>columns=None</em>, <em>dtype=None</em>, <em>copy=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.BSTable" title="Permalink to this definition">¶</a></dt>
@@ -1467,8 +1465,7 @@ inferred from the maximum baseline length. Availables are [“l[ambda]”,
 </div>
 <div class="section" id="sparselab-imaging">
 <h2>2.3. sparselab.imaging<a class="headerlink" href="#sparselab-imaging" title="Permalink to this headline">¶</a></h2>
-<span class="target" id="module-sparselab.imaging"></span><p>This is a submodule of sparselab for imaging static images.</p>
-<dl class="function">
+<span class="target" id="module-sparselab.imaging"></span><dl class="function">
 <dt id="sparselab.imaging.iterative_imaging">
 <code class="descclassname">sparselab.imaging.</code><code class="descname">iterative_imaging</code><span class="sig-paren">(</span><em>initimage</em>, <em>imageprm</em>, <em>Niter=10</em>, <em>dothres=True</em>, <em>threstype='hard'</em>, <em>threshold=0.3</em>, <em>doshift=True</em>, <em>shifttype='com'</em>, <em>dowinmod=False</em>, <em>imagewin=None</em>, <em>doconv=True</em>, <em>convprm={}</em>, <em>save_totalflux=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.imaging.iterative_imaging" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1537,8 +1534,6 @@ inferred from the maximum baseline length. Availables are [“l[ambda]”,
 </div>
 <div class="section" id="module-sparselab.mfista">
 <span id="sparselab-mfista"></span><h2>2.4. sparselab.mfista<a class="headerlink" href="#module-sparselab.mfista" title="Permalink to this headline">¶</a></h2>
-<p>This is a submodule of sparselab. This module is a wrapper of C library of
-MFISTA in src/mfista</p>
 <dl class="function">
 <dt id="sparselab.mfista.mfista_imaging">
 <code class="descclassname">sparselab.mfista.</code><code class="descname">mfista_imaging</code><span class="sig-paren">(</span><em>initimage</em>, <em>vistable</em>, <em>lambl1=-1.0</em>, <em>lambtv=-1</em>, <em>lambtsv=-1</em>, <em>normlambda=True</em>, <em>nonneg=True</em>, <em>looe=True</em>, <em>totalflux=None</em>, <em>fluxconst=False</em>, <em>istokes=0</em>, <em>ifreq=0</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.mfista.mfista_imaging" title="Permalink to this definition">¶</a></dt>
@@ -1597,7 +1592,6 @@ MFISTA in src/mfista</p>
 </div>
 <div class="section" id="module-sparselab.ft">
 <span id="sparselab-ft"></span><h2>2.5. sparselab.ft<a class="headerlink" href="#module-sparselab.ft" title="Permalink to this headline">¶</a></h2>
-<p>This is a submodule of sparselab for imaging static images.</p>
 <dl class="class">
 <dt id="sparselab.ft.FDFTable">
 <em class="property">class </em><code class="descclassname">sparselab.ft.</code><code class="descname">FDFTable</code><span class="sig-paren">(</span><em>data=None</em>, <em>index=None</em>, <em>columns=None</em>, <em>dtype=None</em>, <em>copy=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable" title="Permalink to this definition">¶</a></dt>
@@ -1775,8 +1769,6 @@ method (such as a file handle or StringIO)</td>
 </div>
 <div class="section" id="module-sparselab.util">
 <span id="sparselab-util"></span><h2>2.6. sparselab.util<a class="headerlink" href="#module-sparselab.util" title="Permalink to this headline">¶</a></h2>
-<p>This is a submodule of sparselab. This module saves some common functions,
-variables, and data types in the sparselab module.</p>
 <dl class="function">
 <dt id="sparselab.util.angconv">
 <code class="descclassname">sparselab.util.</code><code class="descname">angconv</code><span class="sig-paren">(</span><em>unit1='deg'</em>, <em>unit2='deg'</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.util.angconv" title="Permalink to this definition">¶</a></dt>
@@ -1788,6 +1780,12 @@ Available angular units are uas, mas, asec or arcsec, amin or arcmin and degree.
 <dt id="sparselab.util.matplotlibrc">
 <code class="descclassname">sparselab.util.</code><code class="descname">matplotlibrc</code><span class="sig-paren">(</span><em>nrows=1</em>, <em>ncols=1</em>, <em>width=250</em>, <em>height=250</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.util.matplotlibrc" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="function">
+<dt id="sparselab.util.prt">
+<code class="descclassname">sparselab.util.</code><code class="descname">prt</code><span class="sig-paren">(</span><em>obj</em>, <em>indent=''</em>, <em>output=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.util.prt" title="Permalink to this definition">¶</a></dt>
+<dd><p>a useful print function</p>
+</dd></dl>
 
 </div>
 </div>
