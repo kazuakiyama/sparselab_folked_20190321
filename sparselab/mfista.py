@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function
 '''
 This is a submodule of sparselab. This module is a wrapper of C library of
 MFISTA in src/mfista
@@ -26,9 +27,7 @@ import numpy as np
 import pandas as pd
 
 # internal LoadLibrary
-from . import uvdata
-from . import util
-from . import imdata
+from . import uvdata, util, imdata
 
 #-------------------------------------------------------------------------
 # Default Parameters

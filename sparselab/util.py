@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function
 '''
 This is a submodule of sparselab. This module saves some common functions,
 variables, and data types in the sparselab module.
@@ -71,3 +72,24 @@ def angconv(unit1="deg", unit2="deg"):
         return -1
 
     return conv
+
+
+def prt(obj, indent="", output=False):
+    '''
+    a useful print function
+    '''
+    if   type(obj) == type(""):
+        lines = obj.split("\n")
+    else:
+        if hasattr(obj, '__str__'):
+            lines = obj.__str__().split("\n")
+        elif hasattr(obj, '__repr__'):
+            lines = obj.__repr__().split("\n")
+        else:
+            lines = [""]
+    for i in xrange(len(lines)):
+        lines[i] = indent + lines[i]
+    if output:
+        return "\n".join(lines)
+    else:
+        print("\n".join(lines))

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function
 '''
 This is a submodule of sparselab for imaging static images.
 '''
@@ -25,9 +26,7 @@ from matplotlib.ticker import NullFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # internal modules
-from . import util
-from . import fortlib
-from . import imdata
+from . import util, imdata, fortlib
 
 #-------------------------------------------------------------------------
 # Default Parameters
@@ -810,7 +809,7 @@ def iterative_imaging(initimage, imageprm, Niter=10,
         if dowinmod and imagewin is not None:
             newimage = newimage.winmod(imagewin,
                                        save_totalflux=save_totalflux)
-        
+
         if doconv:
             newimage = newimage.gauss_convolve(
                 save_totalflux=save_totalflux, **convprm)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function
 '''
 This is a sub-module of sparselab handling image fits data.
 '''
@@ -152,7 +153,7 @@ class IMFITS(object):
         self.header["dy"] *= angconv
         self.data = np.zeros([self.header["ns"], self.header["nf"],
                               self.header["ny"], self.header["nx"]])
-        
+
         # Initialize from fitsfile
         if fitsfile is not None:
             self.read_fits(fitsfile)
@@ -515,7 +516,7 @@ class IMFITS(object):
         '''
         Make AIPS CC table
 
-        Arguments:
+        Args:
             istokes (integer): index for Stokes Parameter at which the image will be saved
             ifreq (integer): index for Frequency at which the image will be saved
             threshold (float): pixels with the absolute intensity smaller than this value will be ignored.
@@ -818,10 +819,10 @@ class IMFITS(object):
 
     def read_ds9reg(self):
         pass
+
     #-------------------------------------------------------------------------
     # Output some information to files
     #-------------------------------------------------------------------------
-
     def to_difmapmod(self, outfile, threshold=None, relative=True,
                      istokes=0, ifreq=0):
         '''

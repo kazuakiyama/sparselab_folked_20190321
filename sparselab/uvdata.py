@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function
 '''
 This is a submodule of sparselab handling various types of Visibility data sets.
 '''
@@ -25,13 +26,11 @@ import astropy.constants as ac
 import astropy.time as at
 import astropy.io.fits as pyfits
 
-
 # matplotlib
 import matplotlib.pyplot as plt
 
-
 # internal
-import imdata
+from . import imdata
 
 
 # ------------------------------------------------------------------------------
