@@ -15,7 +15,7 @@ clean:
 	cd src/mfista; make clean
 	rm -f sparselab/*.pyf
 	rm -f sparselab/*.pyc
-	rm -f sparselab/*.so
+	rm -f sparselab/*.so*
 
 uninstall: clean
 	cd src/lbfgsb; make uninstall
