@@ -1,9 +1,4 @@
 # INSTALLDIR
-PYTHONLIBDIR=./pythonlib
-LIBDIR=./lib
-INCLUDEDIR=./include
-BINDIR=./bin
-
 all:	install
 
 install:
@@ -18,9 +13,9 @@ clean:
 	cd src/slsqp; make clean
 	cd src/fortlib; make clean
 	cd src/mfista; make clean
-	rm -f $(PYTHONLIBDIR)/*.pyf
-	rm -f $(PYTHONLIBDIR)/*.pyc
-	rm -f $(PYTHONLIBDIR)/*.so
+	rm -f sparselab/*.pyf
+	rm -f sparselab/*.pyc
+	rm -f sparselab/*.so
 
 uninstall: clean
 	cd src/lbfgsb; make uninstall
