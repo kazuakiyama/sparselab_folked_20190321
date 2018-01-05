@@ -30,7 +30,7 @@ import astropy.io.fits as pyfits
 import matplotlib.pyplot as plt
 
 # internal
-from . import imdata
+from . import imdata, modelfit
 
 
 # ------------------------------------------------------------------------------
@@ -888,7 +888,7 @@ class _UVTable(pd.DataFrame):
 
 class VisTable(_UVTable):
     '''
-    This class is for handling two dimentional tables of full complex visibilities
+    This class is for handling two dimensional tables of full complex visibilities
     and amplitudes. The class inherits pandas.DataFrame class, so you can use this
     class like pandas.DataFrame. The class also has additional methods to edit,
     visualize and convert data.
@@ -927,17 +927,61 @@ class VisTable(_UVTable):
         '''
         self["uvdist"] = np.sqrt(self["u"] * self["u"] + self["v"] * self["v"])
 
+
+    def deblurr(self, thetamaj=1.309, thetamin=0.64, alpha=2.0, pa=78.0):
+        '''
+        This is a special function for Sgr A* data, which deblurrs
+        visibility amplitudes and removes a dominant effect of scattering effects.
+
+        This method calculates a scattering kernel based on specified parameters
+        of the lambda-square scattering law, and devide visibility amplitudes
+        and their errors by corresponding kernel amplitudes.
+
+        (see Fish et al. 2014, ApJL for a reference.)
+
+        Args: Default values are from Bower et al. 2016, ApJL
+            thetamaj=1.309, thetamin=0.64 (float):
+                Factors for the scattering power law in mas/cm^(alpha)
+            alpha=2.0 (float):
+                Index of the scattering power law
+            pa=78.0 (float)
+                Position angle of the scattering kernel in degree
+        Returns:
+            De-blurred visibility data in uvdata.VisTable object
+        '''
+        # create a table to be output
+        outtable = copy.deepcopy(self)
+
+        # calculate scattering kernel (in visibility domain)
+        kernel = modelfit.geomodel.vis_scatt(
+            u=self["u"].values,
+            v=self["v"].values,
+            nu=self["freq"].values,
+            thetamaj=thetamaj,
+            thetamin=thetamin,
+            alpha=alpha, pa=pa)
+
+        # devide amplitudes and their errors by kernel amplitudes
+        outtable.loc[:,"amp"] /= kernel
+        outtable.loc[:,"sigma"] /= kernel
+        outtable.loc[:,"weight"] = np.sqrt(1/outtable["sigma"])
+
+        return outtable
+
+
     def fit_beam(self, angunit="mas", errweight=0., ftsign=+1):
         '''
-        This function estimates the synthesized beam size at natural weighting.
+        This method estimates the synthesized beam size at natural weighting.
 
-        keywords:
+        Args:
           angunit (string):
             Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)
           errweight (float; experimental):
             index for errer weighting
           ftsign (integer):
             a sign for fourier matrix
+        Returns:
+          beam parameters in a dictionary.
         '''
         # infer the parameters of clean beam
         parm0 = _calc_bparms(self)
@@ -978,6 +1022,9 @@ class VisTable(_UVTable):
         return cb_parms
 
     def make_bstable(self, redundant=None):
+        '''
+
+        '''
         # Number of Stations
         Ndata = len(self["ch"])
 
@@ -1170,6 +1217,9 @@ class VisTable(_UVTable):
         return outtab
 
     def make_catable(self, redundant=None):
+        '''
+
+        '''
         from scipy.special import expi
         # Number of Stations
         Ndata = len(self["ch"])
@@ -1452,7 +1502,7 @@ class VisTable(_UVTable):
             this parameter decides steepness of the function
 
         Returns:
-          uvdata.VisTable object
+          uvdata.GVisTable object
         '''
         # Copy vistable for edit
         vistable = copy.deepcopy(self)
@@ -2036,7 +2086,7 @@ class GVisTable(_UVTable):
         '''
         This function estimates the synthesized beam size at natural weighting.
 
-        keywords:
+        Args:
           angunit (string):
             Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)
           errweight (float; experimental):
@@ -3664,7 +3714,7 @@ def _calc_dbeam(fitsdata, vistable, errweight=0, ftsign=+1):
     '''
     Calculate an array and total flux of dirty beam from the input visibility data
 
-    keywords:
+    Args:
       fitsdata:
         input imdata.IMFITS object
       vistable:
@@ -3725,7 +3775,7 @@ def _calc_bparms(vistable):
     '''
     Infer beam parameters (major size, minor size, position angle)
 
-    keywords:
+    Args:
       vistable: input visibility data
     '''
     # read uv information
@@ -3759,7 +3809,7 @@ def _gauss_func(X, Y, maja, mina, PA, x0=0., y0=0., scale=1.):
     '''
     Calculate 2-D gauss function
 
-    keywords:
+    Args:
       X: 2-D array of x-axis
       Y: 2-D array of y-axis
       maja (float): major size of the gauss
@@ -3785,7 +3835,7 @@ def _fit_chisq(parms, X, Y, dbeam):
     '''
     Calculate residuals of two 2-D array
 
-    keywords:
+    Args:
       parms: information of clean beam
       X: 2-D array of x-axis
       Y: 2-D array of y-axis
