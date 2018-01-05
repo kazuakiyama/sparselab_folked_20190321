@@ -95,6 +95,9 @@
 <li class="toctree-l2"><a class="reference internal" href="#module-sparselab.imdata">2.1. sparselab.imdata</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#module-sparselab.uvdata">2.2. sparselab.uvdata</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#sparselab-imaging">2.3. sparselab.imaging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-sparselab.mfista">2.4. sparselab.mfista</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-sparselab.ft">2.5. sparselab.ft</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-sparselab.util">2.6. sparselab.util</a></li>
 </ul>
 </li>
 </ul>
@@ -1529,6 +1532,261 @@ inferred from the maximum baseline length. Availables are [&#8220;l[ambda]&#8221
 <dl class="function">
 <dt id="sparselab.imaging.static_dft_stats">
 <code class="descclassname">sparselab.imaging.</code><code class="descname">static_dft_stats</code><span class="sig-paren">(</span><em>initimage</em>, <em>imagewin=None</em>, <em>vistable=None</em>, <em>amptable=None</em>, <em>bstable=None</em>, <em>catable=None</em>, <em>lambl1=1.0</em>, <em>lambtv=-1</em>, <em>lambtsv=1</em>, <em>logreg=False</em>, <em>normlambda=True</em>, <em>totalflux=None</em>, <em>fluxconst=False</em>, <em>istokes=0</em>, <em>ifreq=0</em>, <em>fulloutput=True</em>, <em>**args</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.imaging.static_dft_stats" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-sparselab.mfista">
+<span id="sparselab-mfista"></span><h2>2.4. sparselab.mfista<a class="headerlink" href="#module-sparselab.mfista" title="Permalink to this headline">¶</a></h2>
+<p>This is a submodule of sparselab. This module is a wrapper of C library of
+MFISTA in src/mfista</p>
+<dl class="function">
+<dt id="sparselab.mfista.mfista_imaging">
+<code class="descclassname">sparselab.mfista.</code><code class="descname">mfista_imaging</code><span class="sig-paren">(</span><em>initimage</em>, <em>vistable</em>, <em>lambl1=-1.0</em>, <em>lambtv=-1</em>, <em>lambtsv=-1</em>, <em>normlambda=True</em>, <em>nonneg=True</em>, <em>looe=True</em>, <em>totalflux=None</em>, <em>fluxconst=False</em>, <em>istokes=0</em>, <em>ifreq=0</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.mfista.mfista_imaging" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="sparselab.mfista.mfista_pipeline">
+<code class="descclassname">sparselab.mfista.</code><code class="descname">mfista_pipeline</code><span class="sig-paren">(</span><em>initimage, imageprm={}, lambl1s=[-1.0], lambtvs=[-1.0], lambtsvs=[-1.0], workdir='./', skip=False, sumtablefile='summary.csv', docv=False, seed=1, nfold=10, cvsumtablefile='summary.cv.csv', angunit='uas', uvunit='gl'</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.mfista.mfista_pipeline" title="Permalink to this definition">¶</a></dt>
+<dd><p>A pipeline imaging function using static_dft_imaging and related fucntions.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>initimage</strong> (<em>imdata.IMFITS object</em>) &#8211; initial image</li>
+<li><strong>imageprm</strong> (<em>dict-like; default={}</em>) &#8211; parameter sets for each imaging</li>
+<li><strong>workdir</strong> (<em>string; default = &quot;./&quot;</em>) &#8211; The directory where images and summary files will be output.</li>
+<li><strong>sumtablefile</strong> (<em>string; default = &quot;summary.csv&quot;</em>) &#8211; The name of the output csv file that summerizes results.</li>
+<li><strong>docv</strong> (<em>boolean; default = False</em>) &#8211; Do cross validation</li>
+<li><strong>seed</strong> (<em>integer; default = 1</em>) &#8211; Random seed to make CV data sets.</li>
+<li><strong>nfold</strong> (<em>integer; default = 10</em>) &#8211; Number of folds in CV.</li>
+<li><strong>cvsumtablefile</strong> (<em>string; default = &quot;cvsummary.csv&quot;</em>) &#8211; The name of the output csv file that summerizes results of CV.</li>
+<li><strong>angunit</strong> (<em>string; default = None</em>) &#8211; Angular units for plotting results.</li>
+<li><strong>uvunit</strong> (<em>string; default = None</em>) &#8211; Units of baseline lengths for plotting results.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><dl class="docutils">
+<dt>pd.DataFrame table summerising statistical quantities of each</dt>
+<dd><p class="first last">parameter set.</p>
+</dd>
+<dt>cvsumtable (if docv=True):</dt>
+<dd><p class="first last">pd.DataFrame table summerising results of cross validation.</p>
+</dd>
+</dl>
+</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">sumtable</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sparselab.mfista.mfista_plots">
+<code class="descclassname">sparselab.mfista.</code><code class="descname">mfista_plots</code><span class="sig-paren">(</span><em>outimage</em>, <em>imageprm={}</em>, <em>filename=None</em>, <em>angunit='mas'</em>, <em>uvunit='gl'</em>, <em>plotargs={'ms': 1.0}</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.mfista.mfista_plots" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="sparselab.mfista.mfista_stats">
+<code class="descclassname">sparselab.mfista.</code><code class="descname">mfista_stats</code><span class="sig-paren">(</span><em>initimage</em>, <em>vistable</em>, <em>lambl1=-1.0</em>, <em>lambtv=-1</em>, <em>lambtsv=-1</em>, <em>normlambda=True</em>, <em>nonneg=True</em>, <em>looe=True</em>, <em>totalflux=None</em>, <em>fluxconst=False</em>, <em>istokes=0</em>, <em>ifreq=0</em>, <em>fulloutput=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.mfista.mfista_stats" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-sparselab.ft">
+<span id="sparselab-ft"></span><h2>2.5. sparselab.ft<a class="headerlink" href="#module-sparselab.ft" title="Permalink to this headline">¶</a></h2>
+<p>This is a submodule of sparselab for imaging static images.</p>
+<dl class="class">
+<dt id="sparselab.ft.FDFTable">
+<em class="property">class </em><code class="descclassname">sparselab.ft.</code><code class="descname">FDFTable</code><span class="sig-paren">(</span><em>data=None</em>, <em>index=None</em>, <em>columns=None</em>, <em>dtype=None</em>, <em>copy=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">pandas.core.frame.DataFrame</span></code></p>
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.add_gaussian_source">
+<code class="descname">add_gaussian_source</code><span class="sig-paren">(</span><em>RM=0</em>, <em>fwhm=20</em>, <em>Pamp=0.0</em>, <em>Pxi=0.0</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.add_gaussian_source" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.add_point_source">
+<code class="descname">add_point_source</code><span class="sig-paren">(</span><em>RM=0</em>, <em>Pamp=0.0</em>, <em>Pxi=0.0</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.add_point_source" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.add_rectlinear_source">
+<code class="descname">add_rectlinear_source</code><span class="sig-paren">(</span><em>RMrange=[0, 0], Pamp=0.0, Pxi=0.0</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.add_rectlinear_source" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.blankFDF">
+<code class="descname">blankFDF</code><span class="sig-paren">(</span><em>dRM=1.0</em>, <em>refRM=0.0</em>, <em>Nrm=100</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.blankFDF" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.dirtybeam">
+<code class="descname">dirtybeam</code><span class="sig-paren">(</span><em>ptable</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.dirtybeam" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.dirtyfdf">
+<code class="descname">dirtyfdf</code><span class="sig-paren">(</span><em>ptable</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.dirtyfdf" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.plot">
+<code class="descname">plot</code><span class="sig-paren">(</span><em>axs=None, ls='-', marker='None', xlim=[None, None], label='', **plotargs</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.plot" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.to_csv">
+<code class="descname">to_csv</code><span class="sig-paren">(</span><em>filename</em>, <em>float_format='%22.16e'</em>, <em>index=False</em>, <em>index_label=False</em>, <em>**args</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.to_csv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Output table into csv files using pd.DataFrame.to_csv().
+Default parameter will be</p>
+<blockquote>
+<div>float_format=r&#8221;%22.16e&#8221;
+index=False
+index_label=False.</div></blockquote>
+<p>see DocStrings for pd.DataFrame.to_csv().</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filename</strong> (<em>string</em><em> or </em><em>filehandle</em>) &#8211; output filename</li>
+<li><strong>**args</strong> &#8211; other arguments of pd.DataFrame.to_csv()</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.FDFTable.update">
+<code class="descname">update</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.FDFTable.update" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="sparselab.ft.PTable">
+<em class="property">class </em><code class="descclassname">sparselab.ft.</code><code class="descname">PTable</code><span class="sig-paren">(</span><em>data=None</em>, <em>index=None</em>, <em>columns=None</em>, <em>dtype=None</em>, <em>copy=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.PTable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">pandas.core.frame.DataFrame</span></code></p>
+<dl class="method">
+<dt id="sparselab.ft.PTable.gencvtables">
+<code class="descname">gencvtables</code><span class="sig-paren">(</span><em>nfold=10</em>, <em>seed=0</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.PTable.gencvtables" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method generates self sets for N-fold cross varidations.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nfolds</strong> (<em>int</em>) &#8211; the number of folds</li>
+<li><strong>seed</strong> (<em>int</em>) &#8211; the seed number of pseudo ramdam numbers</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.PTable.observe">
+<code class="descname">observe</code><span class="sig-paren">(</span><em>fdftable</em>, <em>sigma=None</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.PTable.observe" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.PTable.plot">
+<code class="descname">plot</code><span class="sig-paren">(</span><em>axs=None, ls='none', marker='.', xlim=[None, None], ploterror=False, **plotargs</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.PTable.plot" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.PTable.rmsf_size">
+<code class="descname">rmsf_size</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.PTable.rmsf_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.PTable.to_csv">
+<code class="descname">to_csv</code><span class="sig-paren">(</span><em>filename</em>, <em>float_format='%22.16e'</em>, <em>index=False</em>, <em>index_label=False</em>, <em>**args</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.PTable.to_csv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Output table into csv files using pd.DataFrame.to_csv().
+Default parameter will be</p>
+<blockquote>
+<div>float_format=r&#8221;%22.16e&#8221;
+index=False
+index_label=False.</div></blockquote>
+<p>see DocStrings for pd.DataFrame.to_csv().</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filename</strong> (<em>string</em><em> or </em><em>filehandle</em>) &#8211; output filename</li>
+<li><strong>**args</strong> &#8211; other arguments of pd.DataFrame.to_csv()</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="sparselab.ft.PTable.update">
+<code class="descname">update</code><span class="sig-paren">(</span><em>ref='lambsq'</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.PTable.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>ref=[&#8220;lambsq&#8221;, &#8220;lambda&#8221;, &#8220;freq&#8221;]</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="sparselab.ft.read_fdftable">
+<code class="descclassname">sparselab.ft.</code><code class="descname">read_fdftable</code><span class="sig-paren">(</span><em>filename</em>, <em>**args</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.read_fdftable" title="Permalink to this definition">¶</a></dt>
+<dd><p>This fuction loads FDF table from an input csv file using pd.read_csv().</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filename</strong> &#8211; str, pathlib.Path, py._path.local.LocalPath or any object with a read()
+method (such as a file handle or StringIO)</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.VisTable object</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sparselab.ft.read_ptable">
+<code class="descclassname">sparselab.ft.</code><code class="descname">read_ptable</code><span class="sig-paren">(</span><em>filename</em>, <em>**args</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.ft.read_ptable" title="Permalink to this definition">¶</a></dt>
+<dd><p>This fuction loads FDF table from an input csv file using pd.read_csv().</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filename</strong> &#8211; str, pathlib.Path, py._path.local.LocalPath or any object with a read()
+method (such as a file handle or StringIO)</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.VisTable object</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-sparselab.util">
+<span id="sparselab-util"></span><h2>2.6. sparselab.util<a class="headerlink" href="#module-sparselab.util" title="Permalink to this headline">¶</a></h2>
+<p>This is a submodule of sparselab. This module saves some common functions,
+variables, and data types in the sparselab module.</p>
+<dl class="function">
+<dt id="sparselab.util.angconv">
+<code class="descclassname">sparselab.util.</code><code class="descname">angconv</code><span class="sig-paren">(</span><em>unit1='deg'</em>, <em>unit2='deg'</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.util.angconv" title="Permalink to this definition">¶</a></dt>
+<dd><p>return a conversion factor from unit1 to unit2
+Available angular units are uas, mas, asec or arcsec, amin or arcmin and degree.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="sparselab.util.matplotlibrc">
+<code class="descclassname">sparselab.util.</code><code class="descname">matplotlibrc</code><span class="sig-paren">(</span><em>nrows=1</em>, <em>ncols=1</em>, <em>width=250</em>, <em>height=250</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.util.matplotlibrc" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </div>

@@ -27,3 +27,24 @@ sparselab.imaging
     :members:
     :undoc-members:
     :show-inheritance:
+
+sparselab.mfista
+================
+.. automodule:: sparselab.mfista
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+sparselab.ft
+================
+.. automodule:: sparselab.ft
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+sparselab.util
+================
+.. automodule:: sparselab.util
+    :members:
+    :undoc-members:
+    :show-inheritance:
