@@ -1,11 +1,11 @@
 # INSTALLDIR
-all:	install
-
-install:
+all:
 	cd src/lbfgsb; make install
 	cd src/slsqp; make install
 	cd src/fortlib; make install
 	cd src/mfista; make install
+
+install: all
 	python setup.py install --record setup_files.log
 
 clean:
