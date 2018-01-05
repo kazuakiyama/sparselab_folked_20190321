@@ -100,9 +100,9 @@
 <li class="toctree-l2"><a class="reference internal" href="#download-install-and-update">1.2. Download, Install and Update</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#downloading-sparselab">1.2.1. Downloading Sparselab</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#installing-sparselab">1.2.2. Installing Sparselab</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#updating-sparselab">1.2.3. Updating Sparselab</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#updating-sparselab">1.3. Updating Sparselab</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../_autodoc/sparselab.html">2. References for Sparselab Modules</a></li>
@@ -209,10 +209,10 @@ The option USE_OPENMP=1 enables OpenBLAS to perform paralleled multi-threads cal
 <dt>Some Tips:</dt>
 <dd><p class="first">If you are using Ubuntu (at least after 14.04 LTS), the default OpenBLAS package,
 which is installable with <cite>apt-get</cite> or <cite>aptitude</cite>, seems compiled with
-this option, so you do not have to compile it by yourself.</p>
-<p>It seems that REDHAT or its variant (Cent OS, Scientific Linux, etc) do not have
-a package compiled with this option, so we would recommend compiling OpenMP by yourself.</p>
-<p class="last">If you are using Mac OS X (&lt;= High Sierra), unfortunately, this option is not available.
+this option (USE_OPENMP=1), so you do not have to compile it by yourself.</p>
+<p>It seems that RedHat or its variant (Cent OS, Scientific Linux, etc) do not have
+the standard package compiled with this option, so we recommend compiling OpenBLAS by yourself.</p>
+<p class="last">If you are using Mac OS X, unfortunately, this option is not available so far.
 You may use a package available in a popular package system (e.g. MacPort, Fink, Homebrew).</p>
 </dd>
 </dl>
@@ -282,9 +282,8 @@ Previously, you needed to add a PYTHONPATH to your Sparselab Directory.
 This is no longer required, because the <cite>make</cite> command will run setup.py and install
 sparselab into the package list of your Python environment.</p>
 </div>
-</div>
 <div class="section" id="updating-sparselab">
-<h2>1.3. Updating Sparselab<a class="headerlink" href="#updating-sparselab" title="Permalink to this headline">¶</a></h2>
+<h3>1.2.3. Updating Sparselab<a class="headerlink" href="#updating-sparselab" title="Permalink to this headline">¶</a></h3>
 <p><strong>We strongly recommend cleaning up the entire library before updating.</strong></p>
 <div class="highlight-Bash"><div class="highlight"><pre><span></span><span class="nb">cd</span> <span class="o">(</span>Your Sparselab Directory<span class="o">)</span>
 make uninstall
@@ -295,6 +294,7 @@ make uninstall
 </pre></div>
 </div>
 <p>Now, the repository has updated. You can follow the above section <a class="reference internal" href="#installing-sparselab">Installing Sparselab</a> for recompiling your Sparselab.</p>
+</div>
 </div>
 </div>
 
