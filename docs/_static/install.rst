@@ -55,12 +55,12 @@ Fortran/C internal libraries of Sparselab use following external libraries.
   Some Tips:
     If you are using Ubuntu (at least after 14.04 LTS), the default OpenBLAS package,
     which is installable with `apt-get` or `aptitude`, seems compiled with
-    this option, so you do not have to compile it by yourself.
+    this option (USE_OPENMP=1), so you do not have to compile it by yourself.
 
-    It seems that REDHAT or its variant (Cent OS, Scientific Linux, etc) do not have
-    a package compiled with this option, so we would recommend compiling OpenMP by yourself.
+    It seems that RedHat or its variant (Cent OS, Scientific Linux, etc) do not have
+    the standard package compiled with this option, so we recommend compiling OpenBLAS by yourself.
 
-    If you are using Mac OS X (<= High Sierra), unfortunately, this option is not available.
+    If you are using Mac OS X, unfortunately, this option is not available so far.
     You may use a package available in a popular package system (e.g. MacPort, Fink, Homebrew).
 
 2) LAPACK
@@ -90,9 +90,8 @@ You can download the code from github.
   # Clone the repository
   git clone https://github.com/eht-jp/sparselab
 
-.. _`Installing Sparselab`:
 Installing Sparselab
-------------
+--------------------
 
 For compiling the whole library, you need to work in your Sparselab directory.
 
@@ -129,7 +128,8 @@ your Python environment.
 
   make install
 
-If you can load in your python interpretator, sparselab is probably installed successfully.
+If you can load following modules in your python interpretator,
+Sparselab is probably installed successfully.
 
 .. code-block:: Python
 
@@ -137,15 +137,14 @@ If you can load in your python interpretator, sparselab is probably installed su
   from sparselab import imdata, uvdata, imaging
 
 **(IMPORTANT NOTE; 2018/01/04)**
-
 Previously, you needed to add a PYTHONPATH to your Sparselab Directory.
 This is no longer required, because the `make` command will run setup.py and install
 sparselab into the package list of your Python environment.
 
 Updating Sparselab
-==================
+------------------
 
-We recommend cleaning up the entire library before updating.
+**We strongly recommend cleaning up the entire library before updating.**
 
 .. code-block:: Bash
 
