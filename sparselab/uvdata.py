@@ -1216,7 +1216,7 @@ class VisTable(_UVTable):
             outtab[column] = BSTable.bstable_types[i](outtab[column])
         return outtab
 
-    def make_catable(self, redundant=None):
+    def make_catable(self, redundant=None, debias=True):
         '''
 
         '''
@@ -1416,21 +1416,25 @@ class VisTable(_UVTable):
                 rhosq_2 = np.nanmax([1,np.square(bl2tab.loc[0,"amp"] / bl2tab.loc[0,"sigma"])-1])
                 rhosq_3 = np.nanmax([1,np.square(bl3tab.loc[0,"amp"] / bl3tab.loc[0,"sigma"])-1])
                 rhosq_4 = np.nanmax([1,np.square(bl4tab.loc[0,"amp"] / bl4tab.loc[0,"sigma"])-1])
-                #
-                # bias estimator
-                bias = expi(-rhosq_1/2.)
-                bias+= expi(-rhosq_2/2.)
-                bias-= expi(-rhosq_3/2.)
-                bias-= expi(-rhosq_4/2.)
-                bias*= 0.5
 
                 # closure amplitudes
                 amp = bl1tab.loc[0,"amp"] * bl2tab.loc[0,"amp"] / \
                       bl3tab.loc[0,"amp"] / bl4tab.loc[0,"amp"]
-                logamp = np.log(amp) + bias
+                logamp = np.log(amp)
                 logsigma = np.sqrt(rhosq_1**-1 + rhosq_2**-1 +
                                    rhosq_3**-1 + rhosq_4**-1)
                 sigma = amp * logsigma
+
+                if debias:
+                    # bias estimator
+                    bias = expi(-rhosq_1/2.)
+                    bias+= expi(-rhosq_2/2.)
+                    bias-= expi(-rhosq_3/2.)
+                    bias-= expi(-rhosq_4/2.)
+                    bias*= 0.5
+
+                    logamp += bias
+                    amp *= np.exp(bias)
                 #
                 outtab["utc"].append(utc)
                 outtab["gsthour"].append(gsthour)
@@ -2873,10 +2877,13 @@ class BSTable(_UVTable):
         # uvdistance
         if uvdtype.lower().find("ave") * uvdtype.lower().find("mean") == 0:
             uvdist = self["uvdistave"] * conv
+            head = "Mean"
         elif uvdtype.lower().find("min") == 0:
             uvdist = self["uvdistmin"] * conv
+            head = "Minimum"
         elif uvdtype.lower().find("max") == 0:
             uvdist = self["uvdistmax"] * conv
+            head = "Maximum"
         else:
             print("[Error] uvdtype=%s is not available." % (uvdtype))
             return -1
@@ -2895,7 +2902,7 @@ class BSTable(_UVTable):
         else:
             plt.plot(uvdist, self["phase"],
                      ls=ls, marker=marker, **plotargs)
-        plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+        plt.xlabel(r"%s Baseline Length (%s)" % (head, unitlabel))
         plt.ylabel(r"Closure Phase ($^\circ$)")
         plt.xlim(0,)
         plt.ylim(-180, 180)
@@ -3399,10 +3406,13 @@ class CATable(_UVTable):
         # uvdistance
         if uvdtype.lower().find("ave") * uvdtype.lower().find("mean") == 0:
             uvdist = self["uvdistave"] * conv
+            head = "Mean"
         elif uvdtype.lower().find("min") == 0:
             uvdist = self["uvdistmin"] * conv
+            head = "Minimum"
         elif uvdtype.lower().find("max") == 0:
             uvdist = self["uvdistmax"] * conv
+            head = "Maximum"
         else:
             print("[Error] uvdtype=%s is not available." % (uvdtype))
             return -1
@@ -3418,7 +3428,7 @@ class CATable(_UVTable):
                          ls=ls, marker=marker, **plotargs)
         else:
             plt.plot(uvdist, self["logamp"], ls=ls, marker=marker, **plotargs)
-        plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+        plt.xlabel(r"%s Baseline Length (%s)" % (head,unitlabel))
         plt.ylabel(r"Log Closure Amplitude")
         plt.xlim(0,)
 
