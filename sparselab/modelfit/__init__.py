@@ -6,3 +6,4 @@ This is a sub-module of sparselab handling image fits data.
 __author__ = "Sparselab Developer Team"
 
 from . import geomodel
+from . import geomodel_theano
