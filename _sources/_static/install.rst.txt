@@ -14,10 +14,8 @@ You will also need **autoconf** and `ds9`_ for compiling the library.
 
 Python Packages and Modules
 ---------------------------
-
-Sparselab uses **numpy**, **scipy**, **matplotlib**, **pandas**, **astropy**, **xarray**, **pyds9**, **tqdm**.
-Sparselab has been tested and developped in Python 2.7 environments provided by the `Anaconda`_ package that
-includes required packages except **xarray** and **pyds9**. We recommend using Anaconda for Sparselab.
+Sparselab has been tested and developped in Python 2.7 environments provided by the `Anaconda`_ package. We recommend using Anaconda for Sparselab.
+Sparselab and related functions will use **future**, **numpy**, **scipy**, **matplotlib**, **pandas**, **astropy**, **xarray**, **pyds9**, **tqdm**, **sympy**, **theano**, **pymc3**.
 
 .. _Anaconda: https://www.continuum.io/anaconda-overview
 
@@ -27,11 +25,9 @@ You can install **xarray**, **tqdm** and **pyds9** with conda and/or pip as foll
 .. code-block:: Bash
 
   # if you have conda
-  conda install xarray
-  conda install tqdm
+  conda install future xarray tqdm sympy theano pymc3
   # You may use pip, if you do not have or want to use conda
-  pip install xarray
-  pip install tqdm
+  pip install future xarray tqdm sympy theano pymc3
 
   # to install pyds9, you can use pip command.
   pip install git+https://github.com/ericmandel/pyds9.git#egg=pyds9

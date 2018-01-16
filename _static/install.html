@@ -178,17 +178,14 @@ Here, we summarize required python packages and external packages for Sparselab.
 <p>You will also need <strong>autoconf</strong> and <a class="reference external" href="http://ds9.si.edu/site/Home.html">ds9</a> for compiling the library.</p>
 <div class="section" id="python-packages-and-modules">
 <h3>1.1.1. Python Packages and Modules<a class="headerlink" href="#python-packages-and-modules" title="Permalink to this headline">¶</a></h3>
-<p>Sparselab uses <strong>numpy</strong>, <strong>scipy</strong>, <strong>matplotlib</strong>, <strong>pandas</strong>, <strong>astropy</strong>, <strong>xarray</strong>, <strong>pyds9</strong>, <strong>tqdm</strong>.
-Sparselab has been tested and developped in Python 2.7 environments provided by the <a class="reference external" href="https://www.continuum.io/anaconda-overview">Anaconda</a> package that
-includes required packages except <strong>xarray</strong> and <strong>pyds9</strong>. We recommend using Anaconda for Sparselab.</p>
+<p>Sparselab has been tested and developped in Python 2.7 environments provided by the <a class="reference external" href="https://www.continuum.io/anaconda-overview">Anaconda</a> package. We recommend using Anaconda for Sparselab.
+Sparselab and related functions will use <strong>future</strong>, <strong>numpy</strong>, <strong>scipy</strong>, <strong>matplotlib</strong>, <strong>pandas</strong>, <strong>astropy</strong>, <strong>xarray</strong>, <strong>pyds9</strong>, <strong>tqdm</strong>, <strong>sympy</strong>, <strong>theano</strong>, <strong>pymc3</strong>.</p>
 <p>You can install <strong>xarray</strong>, <strong>tqdm</strong> and <strong>pyds9</strong> with conda and/or pip as follows
 (see the official website of <a class="reference external" href="https://github.com/ericmandel/pyds9">pyds9</a> for its installation).</p>
 <div class="highlight-Bash"><div class="highlight"><pre><span></span><span class="c1"># if you have conda</span>
-conda install xarray
-conda install tqdm
+conda install future xarray tqdm sympy theano pymc3
 <span class="c1"># You may use pip, if you do not have or want to use conda</span>
-pip install xarray
-pip install tqdm
+pip install future xarray tqdm sympy theano pymc3
 
 <span class="c1"># to install pyds9, you can use pip command.</span>
 pip install git+https://github.com/ericmandel/pyds9.git#egg<span class="o">=</span>pyds9

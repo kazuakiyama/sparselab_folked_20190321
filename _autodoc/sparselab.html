@@ -263,7 +263,7 @@ For instance, ntheta=360 (default) gives circular shifts of every 1 deg.</li>
 <li><strong>colors</strong> (<em>string</em><em>, </em><em>array-like</em>) – colors of contour levels</li>
 <li><strong>cmul</strong> – The lowest contour level. Default value is 1% of the peak intensity.</li>
 <li><strong>levels</strong> – contour level. This will be multiplied with cmul.</li>
-<li><strong>**contour_args</strong> – Arguments will be input in matplotlib.pyplot.contour</li>
+<li><strong>**contour_args</strong> – Args will be input in matplotlib.pyplot.contour</li>
 </ul>
 </td>
 </tr>
@@ -339,6 +339,20 @@ Availables are [“prewitt”,”sobel”,”scharr”,”roberts”,”canny”
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">imdata.IMFITS object</p>
 </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="sparselab.imdata.IMFITS.from_geomodel">
+<code class="descname">from_geomodel</code><span class="sig-paren">(</span><em>geomodel</em>, <em>istokes=0</em>, <em>ifreq=0</em>, <em>overwrite=True</em>, <em>usetheano=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.imdata.IMFITS.from_geomodel" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>modelfunc</strong> (<em>func</em><em>, </em><em>must be lambda x</em><em>,</em><em>y</em>) – a function to compute brightness at x, y (in rad).
+The unit of brightness must be Jy/rad^2</td>
 </tr>
 </tbody>
 </table>
@@ -436,7 +450,7 @@ amin or arcmin, degree)</li>
 <li><strong>vmin</strong> (<em>string</em>) – minimum value of the color contour in Jy/pixel</li>
 <li><strong>istokes</strong> (<em>integer</em>) – index for Stokes Parameter at which the image will be plotted</li>
 <li><strong>ifreq</strong> (<em>integer</em>) – index for Frequency at which the image will be plotted</li>
-<li><strong>**imshow_args</strong> – Arguments will be input in matplotlib.pyplot.imshow</li>
+<li><strong>**imshow_args</strong> – Args will be input in matplotlib.pyplot.imshow</li>
 </ul>
 </td>
 </tr>
@@ -994,18 +1008,19 @@ visualize and convert data.</p>
 <dt id="sparselab.uvdata.GVisTable.fit_beam">
 <code class="descname">fit_beam</code><span class="sig-paren">(</span><em>angunit='mas'</em>, <em>errweight=0.0</em>, <em>ftsign=1</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.GVisTable.fit_beam" title="Permalink to this definition">¶</a></dt>
 <dd><p>This function estimates the synthesized beam size at natural weighting.</p>
-<dl class="docutils">
-<dt>keywords:</dt>
-<dd><dl class="first last docutils">
-<dt>angunit (string):</dt>
-<dd>Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)</dd>
-<dt>errweight (float; experimental):</dt>
-<dd>index for errer weighting</dd>
-<dt>ftsign (integer):</dt>
-<dd>a sign for fourier matrix</dd>
-</dl>
-</dd>
-</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>angunit</strong> (<em>string</em>) – Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)</li>
+<li><strong>errweight</strong> (<em>float; experimental</em>) – index for errer weighting</li>
+<li><strong>ftsign</strong> (<em>integer</em>) – a sign for fourier matrix</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -1109,6 +1124,19 @@ Defaults are {‘ls’: “none”, ‘marker’: “.”}</li>
 <em class="property">class </em><code class="descclassname">sparselab.uvdata.</code><code class="descname">UVFITS</code><span class="sig-paren">(</span><em>infile</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.UVFITS" title="Permalink to this definition">¶</a></dt>
 <dd><p>This is a class to load uvfits data and edit data sets before making tables
 for imaging.</p>
+<p>The instance of this class can be initialized by loading an uvfits file.
+Currently, this function can read only single-source uvfits file with
+AIPS AN, FQ tables. The data will be uv-sorted after data loading.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>infile</strong> (<em>string</em>) – input uvfits file</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.UVFITS object</td>
+</tr>
+</tbody>
+</table>
 <dl class="method">
 <dt id="sparselab.uvdata.UVFITS.make_vistable">
 <code class="descname">make_vistable</code><span class="sig-paren">(</span><em>flag=True</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.UVFITS.make_vistable" title="Permalink to this definition">¶</a></dt>
@@ -1135,6 +1163,8 @@ single-source uvfits file.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>infile</strong> (<em>string</em>) – input uvfits file</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.UVFITS object</td>
 </tr>
 </tbody>
 </table>
@@ -1173,21 +1203,23 @@ in full complex visibilities over specified frequency and time segments.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>self</strong> (<em>uvarray.uvfits object</em>) – input uvfits data</li>
 <li><strong>dofreq</strong> (<em>int; default = 0</em>) – <dl class="docutils">
-<dt>Parameter for multi-frequency data.</dt>
+<dt>Parameter for multi-frequency data sets.</dt>
 <dd>dofreq = 0: calculate weights and sigmas over IFs and channels
 dofreq = 1: calculate weights and sigmas over channels at each IF
 dofreq = 2: calculate weights and sigmas at each IF and Channel</dd>
 </dl>
 </li>
 <li><strong>solint</strong> (<em>float; default = 120.</em>) – solution interval in sec</li>
+<li><strong>minpoint</strong> (<em>int; default=2</em>) – A minimum number of points that weight will be estimated.
+For data points that do not have surrounding data points more than
+this value, data will be flagged.</li>
 </ul>
 </td>
 </tr>
 </tbody>
 </table>
-<p>Output: uvdata.UVFITS object</p>
+<p>Returns: uvdata.UVFITS object</p>
 </dd></dl>
 
 </dd></dl>
@@ -1196,7 +1228,7 @@ dofreq = 2: calculate weights and sigmas at each IF and Channel</dd>
 <dt id="sparselab.uvdata.VisTable">
 <em class="property">class </em><code class="descclassname">sparselab.uvdata.</code><code class="descname">VisTable</code><span class="sig-paren">(</span><em>data=None</em>, <em>index=None</em>, <em>columns=None</em>, <em>dtype=None</em>, <em>copy=False</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">sparselab.uvdata._UVTable</span></code></p>
-<p>This class is for handling two dimentional tables of full complex visibilities
+<p>This class is for handling two dimensional tables of full complex visibilities
 and amplitudes. The class inherits pandas.DataFrame class, so you can use this
 class like pandas.DataFrame. The class also has additional methods to edit,
 visualize and convert data.</p>
@@ -1234,21 +1266,56 @@ using a spline interpolation</li>
 </dd></dl>
 
 <dl class="method">
-<dt id="sparselab.uvdata.VisTable.fit_beam">
-<code class="descname">fit_beam</code><span class="sig-paren">(</span><em>angunit='mas'</em>, <em>errweight=0.0</em>, <em>ftsign=1</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.fit_beam" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function estimates the synthesized beam size at natural weighting.</p>
+<dt id="sparselab.uvdata.VisTable.deblurr">
+<code class="descname">deblurr</code><span class="sig-paren">(</span><em>thetamaj=1.309</em>, <em>thetamin=0.64</em>, <em>alpha=2.0</em>, <em>pa=78.0</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.deblurr" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a special function for Sgr A* data, which deblurrs
+visibility amplitudes and removes a dominant effect of scattering effects.</p>
+<p>This method calculates a scattering kernel based on specified parameters
+of the lambda-square scattering law, and devide visibility amplitudes
+and their errors by corresponding kernel amplitudes.</p>
+<p>(see Fish et al. 2014, ApJL for a reference.)</p>
 <dl class="docutils">
-<dt>keywords:</dt>
+<dt>Args: Default values are from Bower et al. 2006, ApJL</dt>
 <dd><dl class="first last docutils">
-<dt>angunit (string):</dt>
-<dd>Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)</dd>
-<dt>errweight (float; experimental):</dt>
-<dd>index for errer weighting</dd>
-<dt>ftsign (integer):</dt>
-<dd>a sign for fourier matrix</dd>
+<dt>thetamaj=1.309, thetamin=0.64 (float):</dt>
+<dd>Factors for the scattering power law in mas/cm^(alpha)</dd>
+<dt>alpha=2.0 (float):</dt>
+<dd>Index of the scattering power law</dd>
+<dt>pa=78.0 (float)</dt>
+<dd>Position angle of the scattering kernel in degree</dd>
 </dl>
 </dd>
 </dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">De-blurred visibility data in uvdata.VisTable object</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="sparselab.uvdata.VisTable.fit_beam">
+<code class="descname">fit_beam</code><span class="sig-paren">(</span><em>angunit='mas'</em>, <em>errweight=0.0</em>, <em>ftsign=1</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.fit_beam" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method estimates the synthesized beam size at natural weighting.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>angunit</strong> (<em>string</em>) – Angular unit (uas, mas, asec or arcsec, amin or arcmin, degree)</li>
+<li><strong>errweight</strong> (<em>float; experimental</em>) – index for errer weighting</li>
+<li><strong>ftsign</strong> (<em>integer</em>) – a sign for fourier matrix</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">beam parameters in a dictionary.</p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -1270,7 +1337,7 @@ this parameter decides steepness of the function</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">uvdata.VisTable object</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">uvdata.GVisTable object</p>
 </td>
 </tr>
 </tbody>
@@ -1280,12 +1347,46 @@ this parameter decides steepness of the function</li>
 <dl class="method">
 <dt id="sparselab.uvdata.VisTable.make_bstable">
 <code class="descname">make_bstable</code><span class="sig-paren">(</span><em>redundant=None</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.make_bstable" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Form bi-spectra from complex visibilities.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>redandant</strong> (<em>list of sets of redundant station IDs; default=None</em>) – If this is specified, non-redandant and non-trivial bispectra will be formed.
+This is useful for EHT-like array that have redandant stations in the same site.
+For example, if stations 1,2,3 and 4,5 are on the same sites, respectively, then
+you can specify redundant=[[1,2,3],[4,5]].</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.BSTable object</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="sparselab.uvdata.VisTable.make_catable">
-<code class="descname">make_catable</code><span class="sig-paren">(</span><em>redundant=None</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.make_catable" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<code class="descname">make_catable</code><span class="sig-paren">(</span><em>redundant=None</em>, <em>debias=True</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.make_catable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Form closure amplitudes from complex visibilities.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>redandant</strong> (<em>list of sets of redundant station IDs; default=None</em>) – If this is specified, non-redandant and non-trivial closure amplitudes will be formed.
+This is useful for EHT-like array that have redandant stations in the same site.
+For example, if stations 1,2,3 and 4,5 are on the same sites, respectively, then
+you can specify redundant=[[1,2,3],[4,5]].</li>
+<li><strong>debias</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – if debias==True, then closure amplitudes and log closure amplitudes will be debiased using
+a formula for high-SNR limits.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">uvdata.CATable object</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="sparselab.uvdata.VisTable.radplot_amp">
@@ -1357,6 +1458,22 @@ Defaults are {‘ls’: “none”, ‘marker’: “.”}.</li>
 <dt id="sparselab.uvdata.VisTable.recalc_uvdist">
 <code class="descname">recalc_uvdist</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.recalc_uvdist" title="Permalink to this definition">¶</a></dt>
 <dd><p>Re-calculate the baseline length from self[“u”] and self[“v”].</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="sparselab.uvdata.VisTable.snrcutoff">
+<code class="descname">snrcutoff</code><span class="sig-paren">(</span><em>threshold=5</em><span class="sig-paren">)</span><a class="headerlink" href="#sparselab.uvdata.VisTable.snrcutoff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Thesholding data with SNR (amp/sigma)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>threshold</strong> (<em>float; default=5</em>) – snrcutoff</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">uvdata.VisTable object</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
