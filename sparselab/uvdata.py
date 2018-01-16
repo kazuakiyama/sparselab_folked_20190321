@@ -40,12 +40,25 @@ class UVFITS():
     '''
     This is a class to load uvfits data and edit data sets before making tables
     for imaging.
-    '''
 
+    The instance of this class can be initialized by loading an uvfits file.
+    Currently, this function can read only single-source uvfits file with
+    AIPS AN, FQ tables. The data will be uv-sorted after data loading.
+
+    Args:
+      infile (string): input uvfits file
+
+    Returns:
+      uvdata.UVFITS object
+    '''
     def __init__(self, infile):
         '''
-        Load an uvfits file. Currently, this function can read only
-        single-source uvfits file. The data will be uv-sorted.
+        This is a class to load uvfits data and edit data sets before making tables
+        for imaging.
+
+        The instance of this class can be initialized by loading an uvfits file.
+        Currently, this function can read only single-source uvfits file with
+        AIPS AN, FQ tables. The data will be uv-sorted after data loading.
 
         Args:
           infile (string): input uvfits file
@@ -64,6 +77,9 @@ class UVFITS():
 
         Args:
           infile (string): input uvfits file
+
+        Returns:
+          uvdata.UVFITS object
         '''
 
         #----------------------------------------------------------------------
@@ -568,12 +584,9 @@ class UVFITS():
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
 
-        Arguments:
-          self (uvarray.uvfits object):
-            input uvfits data
-
+        Args:
           dofreq (int; default = 0):
-            Parameter for multi-frequency data.
+            Parameter for multi-frequency data sets.
               dofreq = 0: calculate weights and sigmas over IFs and channels
               dofreq = 1: calculate weights and sigmas over channels at each IF
               dofreq = 2: calculate weights and sigmas at each IF and Channel
@@ -581,7 +594,12 @@ class UVFITS():
           solint (float; default = 120.):
             solution interval in sec
 
-        Output: uvdata.UVFITS object
+          minpoint (int; default=2):
+            A minimum number of points that weight will be estimated.
+            For data points that do not have surrounding data points more than
+            this value, data will be flagged.
+
+        Returns: uvdata.UVFITS object
         '''
         # Default Averaging alldata
         doif = True
@@ -1021,9 +1039,31 @@ class VisTable(_UVTable):
                      factor, 'angunit': angunit, 'pa': PA})
         return cb_parms
 
+    def snrcutoff(self, threshold=5):
+        '''
+        Thesholding data with SNR (amp/sigma)
+
+        Args:
+            threshold (float; default=5): snrcutoff
+        Returns:
+            uvdata.VisTable object
+        '''
+        outtable = copy.deepcopy(self)
+        outtable = outtable.loc[outtable["amp"]/outtable["sigma"]>threshold, :].reset_index(drop=True)
+        return outtable
+
     def make_bstable(self, redundant=None):
         '''
+        Form bi-spectra from complex visibilities.
 
+        Args:
+            redandant (list of sets of redundant station IDs; default=None):
+                If this is specified, non-redandant and non-trivial bispectra will be formed.
+                This is useful for EHT-like array that have redandant stations in the same site.
+                For example, if stations 1,2,3 and 4,5 are on the same sites, respectively, then
+                you can specify redundant=[[1,2,3],[4,5]].
+        Returns:
+            uvdata.BSTable object
         '''
         # Number of Stations
         Ndata = len(self["ch"])
@@ -1218,7 +1258,19 @@ class VisTable(_UVTable):
 
     def make_catable(self, redundant=None, debias=True):
         '''
+        Form closure amplitudes from complex visibilities.
 
+        Args:
+            redandant (list of sets of redundant station IDs; default=None):
+                If this is specified, non-redandant and non-trivial closure amplitudes will be formed.
+                This is useful for EHT-like array that have redandant stations in the same site.
+                For example, if stations 1,2,3 and 4,5 are on the same sites, respectively, then
+                you can specify redundant=[[1,2,3],[4,5]].
+            debias (boolean, default=True):
+                if debias==True, then closure amplitudes and log closure amplitudes will be debiased using
+                a formula for high-SNR limits.
+        Returns:
+            uvdata.CATable object
         '''
         from scipy.special import expi
         # Number of Stations

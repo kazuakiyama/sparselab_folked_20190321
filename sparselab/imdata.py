@@ -20,6 +20,8 @@ import scipy.ndimage as sn
 import astropy.coordinates as coord
 import astropy.io.fits as pyfits
 from astropy.convolution import convolve_fft
+import sympy as sp
+from sympy.printing.theanocode import theano_function
 
 # matplotlib
 import matplotlib.pyplot as plt
@@ -114,7 +116,7 @@ class IMFITS(object):
         angconv = self.angconv(angunit, "deg")
         self.angunit = angunit
 
-        # get keys of arguments
+        # get keys of Args
         argkeys = args.keys()
 
         # Set header and data
@@ -141,7 +143,7 @@ class IMFITS(object):
         self.header["nxref"] = nxref
         self.header["nyref"] = nyref
 
-        # read header from arguments
+        # read header from Args
         for argkey in argkeys:
             headerkeys = self.header.keys()
             if argkey in headerkeys:
@@ -704,7 +706,7 @@ class IMFITS(object):
             index for Stokes Parameter at which the image will be plotted
           ifreq (integer):
             index for Frequency at which the image will be plotted
-          **imshow_args: Arguments will be input in matplotlib.pyplot.imshow
+          **imshow_args: Args will be input in matplotlib.pyplot.imshow
         '''
         if angunit is None:
             angunit = self.angunit
@@ -753,14 +755,14 @@ class IMFITS(object):
         '''
         plot contours of the image
 
-        Arguments:
+        Args:
           istokes (integer): index for Stokes Parameter at which the image will be plotted
           ifreq (integer): index for Frequency at which the image will be plotted
           angunit (string): Angular Unit for the axis labels (pixel, uas, mas, asec or arcsec, amin or arcmin, degree)
           colors (string, array-like): colors of contour levels
           cmul: The lowest contour level. Default value is 1% of the peak intensity.
           levels: contour level. This will be multiplied with cmul.
-          **contour_args: Arguments will be input in matplotlib.pyplot.contour
+          **contour_args: Args will be input in matplotlib.pyplot.contour
         '''
         if angunit is None:
             angunit = self.angunit
@@ -828,7 +830,7 @@ class IMFITS(object):
         '''
         Save an image into a difmap model file
 
-        Arguments:
+        Args:
           istokes (integer): index for Stokes Parameter at which the image will be saved
           ifreq (integer): index for Frequency at which the image will be saved
           threshold (float): pixels with the absolute intensity smaller than this value will be ignored.
@@ -871,7 +873,7 @@ class IMFITS(object):
         '''
         Copy the first image into the image grid specified in the secondaly input image.
 
-        Arguments:
+        Args:
           fitsdata: input imagefite.imagefits object. This image will be copied into self.
           self: input imagefite.imagefits object specifying the image grid where the orgfits data will be copied.
           save_totalflux (boolean): If true, the total flux of the image will be conserved.
@@ -920,7 +922,7 @@ class IMFITS(object):
         '''
         Gaussian Convolution
 
-        Arguments:
+        Args:
           self: input imagefite.imagefits object
           majsize (float): Major Axis Size
           minsize (float): Minor Axis Size. If None, it will be same to the Major Axis Size (Circular Gaussian)
@@ -984,7 +986,7 @@ class IMFITS(object):
         '''
         Flagging the image with DS9region file
 
-        Arguments:
+        Args:
           self: input imagefite.imagefits object
           regfile (string): input DS9 region file
           save_totalflux (boolean): If true, the total flux of the image will be conserved.
@@ -1097,7 +1099,7 @@ class IMFITS(object):
         '''
         Shift the image so that its center-of-mass position coincides with the reference pixel.
 
-        Arguments:
+        Args:
           istokes (integer):
             index for Stokes Parameter at which the image will be edited
           ifreq (integer):
@@ -1208,7 +1210,7 @@ class IMFITS(object):
         '''
         Rotate the input image
 
-        Arguments:
+        Args:
           self: input imagefite.imagefits object
           angle (float): Rotational Angle. Anti-clockwise direction will be positive (same to the Position Angle).
           deg (boolean): It true, then the unit of angle will be degree. Otherwise, it will be radian.
@@ -1250,7 +1252,7 @@ class IMFITS(object):
         '''
         Do hard-threshold the input image
 
-        Arguments:
+        Args:
           istokes (integer): index for Stokes Parameter at which the image will be edited
           ifreq (integer): index for Frequency at which the image will be edited
           threshold (float): threshold
@@ -1281,7 +1283,7 @@ class IMFITS(object):
         '''
         Do soft-threshold the input image
 
-        Arguments:
+        Args:
           istokes (integer): index for Stokes Parameter at which the image will be edited
           ifreq (integer): index for Frequency at which the image will be edited
           threshold (float): threshold
@@ -1309,6 +1311,40 @@ class IMFITS(object):
                 outfits.totalflux(istokes=istokes, ifreq=ifreq)
         outfits.update_fits()
         return outfits
+
+
+    def from_geomodel(self, geomodel, istokes=0, ifreq=0, overwrite=True, usetheano=False):
+        '''
+        Args:
+            modelfunc (func, must be lambda x,y):
+                a function to compute brightness at x, y (in rad).
+                The unit of brightness must be Jy/rad^2
+        '''
+        # copy self (for output)
+        outfits = copy.deepcopy(self)
+
+        # compile funcitons
+        x, y = sp.symbols("x y", real=True)
+        expr = geomodel.I(x, y).simplify()
+        if usetheano:
+            func = theano_function([x,y], [expr], dims={x:2, y:2}, dtypes={x: 'float64', y: 'float64'})
+        else:
+            func = sp.lambdify([x, y], expr, "numpy")
+
+        # change headers
+        dx=np.abs(self.header["dx"])*util.angconv("deg", "rad")
+        dy=np.abs(self.header["dy"])*util.angconv("deg", "rad")
+        nx=self.header["nx"]
+        ny=self.header["ny"]
+        x,y = self.get_xygrid(twodim=True, angunit="rad")
+        I = func(x,y)*dx*dy
+
+        if overwrite:
+            outfits.data[istokes,ifreq,:,:] = I
+        else:
+            outfits.data[istokes,ifreq,:,:] += I
+        return outfits
+
 
     def add_gauss(self, x0=0., y0=0., totalflux=1., majsize=1., minsize=None,
                   pa=0., istokes=0, ifreq=0, angunit=None):
