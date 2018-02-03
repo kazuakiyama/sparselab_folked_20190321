@@ -312,7 +312,7 @@ def mfista_stats(
     Verr = np.asarray(fcvtable["sigma"], dtype=np.float64)
     Vfcv = np.concatenate([Vamp*np.cos(Vpha)/Verr, Vamp*np.sin(Vpha)/Verr])
     M = Vfcv.size
-    Ndata = M/2
+    Ndata = M//2
     Vfcv *= 2/np.sqrt(M)
     del Vamp, Vpha
 
@@ -435,10 +435,10 @@ def mfista_stats(
         # full complex visibilities
         model = mfista_result.modelarr
         resid = mfista_result.residarr
-        rmod = model[0:Ndata] * np.sqrt(Ndata/2) * Verr
-        imod = model[Ndata:2*Ndata] * np.sqrt(Ndata/2) * Verr
-        rred = resid[0:Ndata] * np.sqrt(Ndata/2)
-        ired = resid[Ndata:2*Ndata] * np.sqrt(Ndata/2)
+        rmod = model[0:Ndata] * np.sqrt(Ndata//2) * Verr
+        imod = model[Ndata:2*Ndata] * np.sqrt(Ndata//2) * Verr
+        rred = resid[0:Ndata] * np.sqrt(Ndata//2)
+        ired = resid[Ndata:2*Ndata] * np.sqrt(Ndata//2)
         stats["fcvampmod"] = np.sqrt(rmod*rmod + imod*imod)
         stats["fcvphamod"] = np.angle(rmod + 1j * imod, deg=True)
         stats["fcvrmod"] = rmod

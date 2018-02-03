@@ -12,16 +12,17 @@ we would like to thank Lindy to share his idea.
 import numpy as np
 import astropy.constants as ac
 import theano
+from theano.ifelse import ifelse
 import theano.tensor as T
 from .. import util
 
 # initial variables
-x_T, y_T = T.vectors("x","y")
-u_T, v_T = T.vectors("u","v")
-u1_T, v1_T = T.vectors("u1","v1")
-u2_T, v2_T = T.vectors("u2","v2")
-u3_T, v3_T = T.vectors("u3","v3")
-u4_T, v4_T = T.vectors("u4","v4")
+x_T, y_T = T.scalars("x","y")
+u_T, v_T = T.scalars("u","v")
+u1_T, v1_T = T.scalars("u1","v1")
+u2_T, v2_T = T.scalars("u2","v2")
+u3_T, v3_T = T.scalars("u3","v3")
+u4_T, v4_T = T.scalars("u4","v4")
 
 class GeoModel(object):
     def __init__(self, Vreal=None, Vimag=None, I=None):
@@ -49,6 +50,15 @@ class GeoModel(object):
         else:
             raise ValueError("Addition can be calculated only between the same type of objects")
 
+    def __iadd__(self, other):
+        if type(self) == type(other):
+            Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) + other.Vreal(u,v)
+            Vimag = lambda u=u_T, v=v_T: self.Vimag(u,v) + other.Vimag(u,v)
+            I = lambda x=x_T, y=y_T: self.I(x,y) + other.I(x,y)
+            return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
+        else:
+            raise ValueError("Addition can be calculated only between the same type of objects")
+
     def __sub__(self, other):
         if type(self) == type(other):
             Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) - other.Vreal(u,v)
@@ -59,23 +69,42 @@ class GeoModel(object):
             raise ValueError("Subtraction can be calculated only between the same type of objects")
 
 
-    def __mul__(self, other):
-        if np.isscalar(other):
-            Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) * other
-            Vimag = lambda u=u_T, v=v_T: self.Vimag(u,v) * other
-            I = lambda x=x_T, y=y_T: self.I(x,y) * other
+    def __isub__(self, other):
+        if type(self) == type(other):
+            Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) - other.Vreal(u,v)
+            Vimag = lambda u=u_T, v=v_T: self.Vimag(u,v) - other.Vimag(u,v)
+            I = lambda x=x_T, y=y_T: self.I(x,y) - other.I(x,y)
             return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
         else:
-            raise ValueError("Multiplication can be calculated only for scalar-like objects")
+            raise ValueError("Subtraction can be calculated only between the same type of objects")
+
+
+    def __mul__(self, other):
+        Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) * other
+        Vimag = lambda u=u_T, v=v_T: self.Vimag(u,v) * other
+        I = lambda x=x_T, y=y_T: self.I(x,y) * other
+        return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
+
+
+    def __imul__(self, other):
+        Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) * other
+        Vimag = lambda u=u_T, v=v_T: self.Vimag(u,v) * other
+        I = lambda x=x_T, y=y_T: self.I(x,y) * other
+        return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
+
 
     def __truediv__(self, other):
-        if np.isscalar(other):
-            Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) / other
-            Vimag = lambda u=u_T, v=v_T: self.Vimag(u,v) / other
-            I = lambda x=x_T, y=y_T: self.I(x,y) / other
-            return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
-        else:
-            raise ValueError("Division can be calculated only for scalar-like objects")
+        Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) / other
+        Vimag = lambda u=u_T, v=v_T: self.Vimag(u,v) / other
+        I = lambda x=x_T, y=y_T: self.I(x,y) / other
+        return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
+
+
+    def __itruediv__(self, other):
+        Vreal = lambda u=u_T, v=v_T: self.Vreal(u,v) / other
+        Vimag = lambda u=u_T, v=v_T: self.Vimag(u,v) / other
+        I = lambda x=x_T, y=y_T: self.I(x,y) / other
+        return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
 
 
     def shift(self, deltax=0., deltay=0., angunit="mas"):
@@ -86,7 +115,6 @@ class GeoModel(object):
         Vimag = lambda u=u_T, v=v_T: self.Vreal(u,v) * T.sin(2*np.pi*(u*dx+v*dy)) + self.Vimag(u,v) * T.cos(2*np.pi*(u*dx+v*dy))
         I = lambda x=x_T, y=y_T: self.I(x-dx,y-dy)
         return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
-
 
     def rotate(self, deltaPA=0., deg=True):
         if deg:
@@ -112,7 +140,6 @@ class GeoModel(object):
         return GeoModel(Vreal=Vreal, Vimag=Vimag, I=I)
 
 
-    # Full complex visibilities
     def Vamp(self, u=u_T, v=v_T):
         '''
         Return theano symbolic represenation of the visibility amplitude
@@ -349,10 +376,8 @@ def Gaussian(x0=0,y0=0,totalflux=1,majsize=1,minsize=None,pa=0,angunit="mas"):
     output = GeoModel(Vreal=Vreal, I=I)
 
     # transform Gaussian, so that it will be elliptical Gaussian
-    output = T.ifelse(T.neq(totalflux,1), output * totalflux, output)
-    output = T.ifelse(T.neq(majsize,1), output.scale(hy=majsize), output)
-    output = T.ifelse(T.neq(minsize,1), output.scale(hx=minsize), output)
-    output = T.ifelse(T.neq(pa,0), output.rotate(deltaPA=pa, deg=True), output)
-    output = T.ifelse(T.neq(x0,0), output.shift(deltax=x0, deltay=0, angunit=angunit), output)
-    output = T.ifelse(T.neq(y0,0), output.shift(deltax=0, deltay=y0, angunit=angunit), output)
+    output = output * totalflux
+    output = output.scale(hx=minsize, hy=majsize)
+    output = output.rotate(deltaPA=pa, deg=True)
+    output = output.shift(deltax=x0, deltay=y0, angunit=angunit)
     return output

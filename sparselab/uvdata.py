@@ -826,9 +826,9 @@ class _UVTable(pd.DataFrame):
         elif unit1.lower().find("gl") == 0:
             conv = 1e9
         elif unit1.lower().find("m") == 0:
-            conv = ac.c.si.value / self["freq"]
+            conv = 1/(ac.c.si.value / self["freq"])
         elif unit1.lower().find("km") == 0:
-            conv = ac.c.si.value / self["freq"] / 1e3
+            conv = 1/(ac.c.si.value / self["freq"] / 1e3)
         else:
             print("Error: unit1=%s is not supported" % (unit1))
             return -1
@@ -843,9 +843,9 @@ class _UVTable(pd.DataFrame):
         elif unit2.lower().find("gl") == 0:
             conv /= 1e9
         elif unit2.lower().find("m") == 0:
-            conv /= ac.c.si.value / self["freq"]
+            conv *= ac.c.si.value / self["freq"]
         elif unit2.lower().find("km") == 0:
-            conv /= ac.c.si.value / self["freq"] / 1e3
+            conv *= ac.c.si.value / self["freq"] / 1e3
         else:
             print("Error: unit2=%s is not supported" % (unit2))
             return -1
