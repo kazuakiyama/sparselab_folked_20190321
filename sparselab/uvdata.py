@@ -25,6 +25,7 @@ import xarray as xr
 import astropy.constants as ac
 import astropy.time as at
 import astropy.io.fits as pyfits
+import theano.tensor as T
 
 # matplotlib
 import matplotlib.pyplot as plt
@@ -1051,6 +1052,73 @@ class VisTable(_UVTable):
         outtable = copy.deepcopy(self)
         outtable = outtable.loc[outtable["amp"]/outtable["sigma"]>threshold, :].reset_index(drop=True)
         return outtable
+
+    def eval_geomodel(self, geomodel, evalargs={}):
+        '''
+        Evaluate model values and output them to a new table
+
+        Args:
+            geomodel (modelfit.geomodel.GeoModel) object
+        Returns:
+            uvdata.VisTable object
+        '''
+        # create a table to be output
+        outtable = copy.deepcopy(self)
+
+        # u,v coordinates
+        u = outtable.u.values
+        v = outtable.v.values
+        outtable["amp"] = geomodel.Vamp(u,v).eval(**evalargs)
+        outtable["phase"] = geomodel.Vphase(u,v).eval(**evalargs) * 180./np.pi
+
+        return outtable
+
+    def residual_geomodel(self, geomodel, normed=True, amp=False, doeval=False, evalargs={}):
+        '''
+        Evaluate Geometric Model
+
+        Args:
+            geomodel (modelfit.geomodel.GeoModel object):
+                input model
+            normed (boolean, default=True):
+                if True, residuals will be normalized by 1 sigma error
+            amp (boolean, default=False):
+                if True, residuals will be calculated for amplitudes.
+                Otherwise, residuals will be calculate for full complex visibilities
+            eval (boolean, default=False):
+                if True, actual residual values will be calculated.
+                Otherwise, resduals will be given as a theano graph.
+        Returns:
+            ndarray (if doeval=True) or theano object (otherwise)
+        '''
+        # u,v coordinates
+        u = self.u.values
+        v = self.v.values
+        Vamp = self.amp.values
+        Vpha = self.phase.values * np.pi / 180.
+        sigma = self.sigma.values
+
+        if amp is False:
+            modVre = geomodel.Vreal(u,v)
+            modVim = geomodel.Vimag(u,v)
+            Vre = Vamp * T.cos(Vpha)
+            Vim = Vamp * T.sin(Vpha)
+            resid_re = Vre - modVre
+            resid_im = Vim - modVim
+            if normed:
+                resid_re /= sigma
+                resid_im /= sigma
+            residual = T.concatanate([resid_re, resid_im])
+        else:
+            modVamp = geomodel.Vamp(u,v)
+            residual = Vamp - modVamp
+            if normed:
+                residual /= sigma
+
+        if doeval:
+            return residual.eval(**evalargs)
+        else:
+            return residual
 
     def make_bstable(self, redundant=None):
         '''
@@ -2475,6 +2543,70 @@ class BSTable(_UVTable):
     def _constructor_sliced(self):
         return _BSSeries
 
+
+    def eval_geomodel(self, geomodel, evalargs={}):
+        '''
+        Evaluate model values and output them to a new table
+
+        Args:
+            geomodel (modelfit.geomodel.GeoModel) object
+        Returns:
+            uvdata.VisTable object
+        '''
+        # create a table to be output
+        outtable = copy.deepcopy(self)
+
+        # u,v coordinates
+        u1 = outtable.u12.values
+        v1 = outtable.v12.values
+        u2 = outtable.u23.values
+        v2 = outtable.v23.values
+        u3 = outtable.u31.values
+        v3 = outtable.v31.values
+        outtable["amp"] = geomodel.Bamp(u1,v1,u2,v2,u3,v3).eval(**evalargs)
+        outtable["phase"] = geomodel.Bphase(u1,v1,u2,v2,u3,v3).eval(**evalargs) * 180./np.pi
+        return outtable
+
+
+    def residual_geomodel(self, geomodel, normed=True, doeval=False, evalargs={}):
+        '''
+        Calculate residuals of closure phases in radian
+        for an input geometric model
+
+        Args:
+            geomodel (modelfit.geomodel.GeoModel object):
+                input model
+            normed (boolean, default=True):
+                if True, residuals will be normalized by 1 sigma error
+            eval (boolean, default=False):
+                if True, actual residual values will be calculated.
+                Otherwise, resduals will be given as a theano graph.
+        Returns:
+            ndarray (if doeval=True) or theano object (otherwise)
+        '''
+        # u,v coordinates
+        u1 = self.u12.values
+        v1 = self.v12.values
+        u2 = self.u23.values
+        v2 = self.v23.values
+        u3 = self.u31.values
+        v3 = self.v31.values
+        CP = self.phase.values * np.pi / 180.
+        sigma = self.sigma.values/self.amp.values
+
+        modCP = geomodel.Bphase(u1,v1,u2,v2,u3,v3)
+        residual = CP - modCP
+        residual = T.arctan2(T.sin(residual), T.cos(residual))
+
+        if normed:
+            residual /= sigma
+
+        if doeval:
+            return residual.eval(**evalargs)
+        else:
+            return residual
+
+
     def ave_bstable(self, Integ=300., dofreq=2, minpoint=2, uvwsep=1, k=1, flagweight=True):
         '''
         Args:
@@ -2988,6 +3120,72 @@ class CATable(_UVTable):
     @property
     def _constructor_sliced(self):
         return _CASeries
+
+
+    def eval_geomodel(self, geomodel, evalargs={}):
+        '''
+        Evaluate model values and output them to a new table
+
+        Args:
+            geomodel (modelfit.geomodel.GeoModel) object
+        Returns:
+            uvdata.VisTable object
+        '''
+        # create a table to be output
+        outtable = copy.deepcopy(self)
+
+        # u,v coordinates
+        u1 = outtable.u1.values
+        v1 = outtable.v1.values
+        u2 = outtable.u2.values
+        v2 = outtable.v2.values
+        u3 = outtable.u3.values
+        v3 = outtable.v3.values
+        u4 = outtable.u4.values
+        v4 = outtable.v4.values
+        outtable["amp"] = geomodel.Camp(u1,v1,u2,v2,u3,v3,u4,v4).eval(**evalargs)
+        outtable["logamp"] = geomodel.logCamp(u1,v1,u2,v2,u3,v3,u4,v4).eval(**evalargs)
+        return outtable
+
+
+    def residual_geomodel(self, geomodel, normed=True, doeval=False, evalargs={}):
+        '''
+        Calculate residuals of log closure amplitudes
+        for an input geometric model
+
+        Args:
+            geomodel (modelfit.geomodel.GeoModel object):
+                input model
+            normed (boolean, default=True):
+                if True, residuals will be normalized by 1 sigma error
+            eval (boolean, default=False):
+                if True, actual residual values will be calculated.
+                Otherwise, resduals will be given as a theano graph.
+        Returns:
+            ndarray (if doeval=True) or theano object (otherwise)
+        '''
+        # u,v coordinates
+        u1 = self.u1.values
+        v1 = self.v1.values
+        u2 = self.u2.values
+        v2 = self.v2.values
+        u3 = self.u3.values
+        v3 = self.v3.values
+        u4 = self.u4.values
+        v4 = self.v4.values
+        logCA = self.logamp.values
+        logsigma = self.logsigma.values
+
+        modlogCA = geomodel.logCamp(u1,v1,u2,v2,u3,v3,u4,v4)
+        residual = logCA - modlogCA
+        if normed:
+            residual /= logsigma
+
+        if doeval:
+            return residual.eval(**evalargs)
+        else:
+            return residual
+
 
     def ave_catable(self, Integ=300., dofreq=2, minpoint=2, uvwsep=1, k=1, flagweight=True):
         '''
