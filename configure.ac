@@ -18,16 +18,16 @@ AC_PROG_FC([gfortran], [95])
 # f2py in numpy
 AC_CHECK_PROGS([F2PY],
                [f2py],
-               [AC_MSG_ERROR([f2py was not found.])])
+               [f2py])
 
 
 #-------------------------------------------------------------------------------
-# Checks for FORTRAN libraries.
+# Check FORTRAN libraries.
 #-------------------------------------------------------------------------------
 AC_LANG([Fortran])
 AC_LANG_PUSH(Fortran)
 
-# Blas
+# BLAS
 AC_CHECK_LIB(openblas, dgemm,
              [blaslib="-lopenblas"],
              [AC_CHECK_LIB(blas, dgemm,
@@ -37,7 +37,7 @@ AC_CHECK_LIB(openblas, dgemm,
 )
 AC_SUBST([blaslib])
 
-# lapack
+# LAPACK
 AC_CHECK_LIB(lapack, dgesv,
              [lapacklib="-llapack"],
              [AC_MSG_ERROR([lapack was not found.])])
@@ -46,16 +46,23 @@ AC_LANG_POP(Fortran)
 
 
 #-------------------------------------------------------------------------------
-# Checks for FORTRAN libraries.
+# Check C libraries.
 #-------------------------------------------------------------------------------
 AC_LANG_PUSH(C)
+
+# FFTW 3
 AC_CHECK_LIB(fftw3, fftw_malloc,
              [fftw3lib="-lfftw3"],
              [AC_MSG_ERROR([fftw3 was not found.])]
 )
 AC_SUBST([fftw3lib])
+
 AC_LANG_POP(C)
 
+
+#-------------------------------------------------------------------------------
+# Check CPP libraries.
+#-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Checks for header files.

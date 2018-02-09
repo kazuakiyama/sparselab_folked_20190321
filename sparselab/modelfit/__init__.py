@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 '''
 This is a sub-module of sparselab handling image fits data.
 '''
 __author__ = "Sparselab Developer Team"
 
 from . import geomodel
-from . import geomodel_sp
+from .geomodel import GeoModel, Gaussian

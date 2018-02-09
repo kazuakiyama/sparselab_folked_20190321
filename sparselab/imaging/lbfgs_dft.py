@@ -26,7 +26,7 @@ from matplotlib.ticker import NullFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # internal modules
-from . import util, imdata, fortlib
+from .. import util, imdata, fortlib
 
 #-------------------------------------------------------------------------
 # Default Parameters
@@ -41,7 +41,7 @@ lbfgsbprms = {
 #-------------------------------------------------------------------------
 # Reconstract static imaging
 #-------------------------------------------------------------------------
-def static_dft_imaging(
+def imaging(
         initimage, imagewin=None,
         vistable=None, amptable=None, bstable=None, catable=None,
         lambl1=-1., lambtv=-1, lambtsv=-1, normlambda=True, nonneg=True,
@@ -218,7 +218,7 @@ def static_dft_imaging(
     )
 
     # run imaging
-    Iout = fortlib.stdftim.imaging(
+    Iout = fortlib.dftim2d.imaging(
         # Images
         iin=Iin, x=x, y=y, xidx=xidx, yidx=yidx, nx=Nx, ny=Ny,
         # UV coordinates,
@@ -247,7 +247,7 @@ def static_dft_imaging(
     return outimage
 
 
-def static_dft_stats(
+def statistics(
         initimage, imagewin=None,
         vistable=None, amptable=None, bstable=None, catable=None,
         lambl1=1., lambtv=-1, lambtsv=1, logreg=False, normlambda=True,
@@ -406,7 +406,7 @@ def static_dft_stats(
     )
 
     # calculate all
-    out = fortlib.stdftim.statistics(
+    out = fortlib.dftim2d.statistics(
         # Images
         iin=Iin, x=x, y=y, xidx=xidx, yidx=yidx, nx=Nx, ny=Ny,
         # UV coordinates,
@@ -519,7 +519,7 @@ def static_dft_stats(
     return stats
 
 
-def static_dft_plots(outimage, imageprm={}, filename=None,
+def plots(outimage, imageprm={}, filename=None,
                      angunit="mas", uvunit="ml", plotargs={'ms': 1., }):
     isinteractive = plt.isinteractive()
     backend = matplotlib.rcParams["backend"]
@@ -548,7 +548,7 @@ def static_dft_plots(outimage, imageprm={}, filename=None,
         return -1
 
     # Get model data
-    stats = static_dft_stats(outimage, fulloutput=True, **imageprm)
+    stats = statistics(outimage, fulloutput=True, **imageprm)
 
     # Open File
     if filename is not None:
@@ -787,8 +787,8 @@ def iterative_imaging(initimage, imageprm, Niter=10,
                       dowinmod=False, imagewin=None,
                       doconv=True, convprm={},
                       save_totalflux=False):
-    oldimage = static_dft_imaging(initimage, **imageprm)
-    oldcost = static_dft_stats(oldimage, fulloutput=False, **imageprm)["cost"]
+    oldimage = imaging(initimage, **imageprm)
+    oldcost = statistics(oldimage, fulloutput=False, **imageprm)["cost"]
     for i in np.arange(Niter - 1):
         newimage = copy.deepcopy(oldimage)
 
@@ -815,8 +815,8 @@ def iterative_imaging(initimage, imageprm, Niter=10,
                 save_totalflux=save_totalflux, **convprm)
 
         # Imaging Again
-        newimage = static_dft_imaging(newimage, **imageprm)
-        newcost = static_dft_stats(
+        newimage = imaging(newimage, **imageprm)
+        newcost = statistics(
             newimage, fulloutput=False, **imageprm)["cost"]
 
         if oldcost < newcost:
@@ -827,7 +827,7 @@ def iterative_imaging(initimage, imageprm, Niter=10,
     return oldimage
 
 
-def static_dft_pipeline(
+def pipeline(
         initimage,
         imagefunc=iterative_imaging,
         imageprm={},
@@ -845,7 +845,7 @@ def static_dft_pipeline(
         angunit="uas",
         uvunit="gl"):
     '''
-    A pipeline imaging function using static_dft_imaging and related fucntions.
+    A pipeline imaging function using imaging and related fucntions.
 
     Args:
         initimage (imdata.IMFITS object):
@@ -944,10 +944,10 @@ def static_dft_pipeline(
 
         filename = header + ".summary.pdf"
         filename = os.path.join(workdir, filename)
-        static_dft_plots(newimage, imageprm, filename=filename,
+        plots(newimage, imageprm, filename=filename,
                          angunit=angunit, uvunit=uvunit)
 
-        newstats = static_dft_stats(newimage, fulloutput=False, **imageprm)
+        newstats = statistics(newimage, fulloutput=False, **imageprm)
 
         # Make Summary
         tmpsum = collections.OrderedDict()
@@ -1029,11 +1029,11 @@ def static_dft_pipeline(
                 # Make Plots
                 filename = cvheader + ".t.summary.pdf"
                 filename = os.path.join(cvworkdir, filename)
-                static_dft_plots(cvnewimage, cvimageprm, filename=filename,
+                plots(cvnewimage, cvimageprm, filename=filename,
                                  angunit=angunit, uvunit=uvunit)
 
                 # Check Training data
-                trainstats = static_dft_stats(cvnewimage, fulloutput=False,
+                trainstats = statistics(cvnewimage, fulloutput=False,
                                               **cvimageprm)
 
                 # Check validating data
@@ -1050,11 +1050,11 @@ def static_dft_pipeline(
                 # Make Plots
                 filename = cvheader + ".v.summary.pdf"
                 filename = os.path.join(cvworkdir, filename)
-                static_dft_plots(cvnewimage, cvimageprm, filename=filename,
+                plots(cvnewimage, cvimageprm, filename=filename,
                                  angunit=angunit, uvunit=uvunit)
 
                 #   Check Statistics
-                validstats = static_dft_stats(cvnewimage, fulloutput=False,
+                validstats = statistics(cvnewimage, fulloutput=False,
                                               **cvimageprm)
 
                 #   Save Results

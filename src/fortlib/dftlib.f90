@@ -1,6 +1,6 @@
 module dftlib
   !$use omp_lib
-  use param, only : dp, tol, pi
+  use param, only : dp, deps, pi
   implicit none  ! BLAS function (external)
   interface
     real(kind(1d0)) function dasum(n, x, incx)
@@ -727,7 +727,7 @@ real(dp) function gradtve(xidx,yidx,I2d,Nx,Ny)
   end if
   !
   tve = sqrt(dIx*dIx+dIy*dIy)
-  if (tve > tol) then
+  if (tve > deps) then
     gradtve = gradtve - (dIx + dIy)/tve
   end if
   !
@@ -746,7 +746,7 @@ real(dp) function gradtve(xidx,yidx,I2d,Nx,Ny)
     end if
 
     tve = sqrt(dIx*dIx+dIy*dIy)
-    if (tve > tol) then
+    if (tve > deps) then
       gradtve = gradtve + dIx/tve
     end if
   end if
@@ -766,7 +766,7 @@ real(dp) function gradtve(xidx,yidx,I2d,Nx,Ny)
     end if
 
     tve = sqrt(dIx*dIx+dIy*dIy)
-    if (tve > tol) then
+    if (tve > deps) then
       gradtve = gradtve + dIy/tve
     end if
   end if

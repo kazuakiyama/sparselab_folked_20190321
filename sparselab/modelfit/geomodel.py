@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 '''
 This is a submodule of sparselab.modelfit, containing functions to
 calculate visibilities and images of some geometric models.
@@ -10,9 +13,7 @@ Lindy Blackburn's python module 'modmod', and
 we would like to thank Lindy to share his idea.
 '''
 import numpy as np
-import astropy.constants as ac
 import theano
-from theano.ifelse import ifelse
 import theano.tensor as T
 from .. import util
 
@@ -333,6 +334,7 @@ def angconv(unit1="deg", unit2="deg"):
         return -1
 
     return conv
+
 
 #-------------------------------------------------------------------------------
 # Phase for symmetric sources

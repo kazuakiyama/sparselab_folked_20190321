@@ -20,8 +20,6 @@ import scipy.ndimage as sn
 import astropy.coordinates as coord
 import astropy.io.fits as pyfits
 from astropy.convolution import convolve_fft
-import sympy as sp
-from sympy.printing.theanocode import theano_function
 
 # matplotlib
 import matplotlib.pyplot as plt
@@ -33,8 +31,6 @@ from . import fortlib, util
 # IMAGEFITS (Manupulating FITS FILES)
 #-------------------------------------------------------------------------
 class IMFITS(object):
-    ds9 = None
-    ds9region = None
     angunit = "mas"
 
     # Initialization
@@ -208,7 +204,7 @@ class IMFITS(object):
         header["nyref"] = np.float64(1.)
         header_dtype["nyref"] = np.float64
 
-        # Frequency Information
+        # Third Axis Information
         header["f"] = np.float64(229.345e9)
         header_dtype["f"] = np.float64
         header["df"] = np.float64(4e9)
@@ -439,7 +435,18 @@ class IMFITS(object):
             self.header["nf"] = self.header_dtype["nf"](1)
             self.header["nfref"] = self.header_dtype["nfref"](1)
         else:
-            print("Warning: No image data along STOKES axis.")
+            print("Warning: No image data along the Frequency axis.")
+
+        '''
+        This is for EHT imaging Library
+        for axistype in ["x,y,f"]:
+            if np.isnan(self.header[axistype]):
+                self.header[axistype] = 0.
+            if np.isnan(self.header[axistype]):
+                self.header["d%s"%(axistype)] = 0.
+            if np.isnan(self.header[axistype]):
+                self.header["n%sref"%(axistype)] = self.header["n%d"%(axistype)]/2+1
+        '''
 
         self.update_fits()
 
@@ -500,6 +507,7 @@ class IMFITS(object):
         hdulist[0].header.set("CDELT4",   np.int64(self.header["ds"]))
         hdulist[0].header.set("CRPIX4",   np.int64(self.header["nsref"]))
         hdulist[0].header.set("CROTA4",   np.int64(0))
+
 
         # Add AIPS CC Table
         if cctab:
@@ -1000,7 +1008,7 @@ class IMFITS(object):
         X, Y = np.meshgrid(xgrid, ygrid)
 
         # Check which grids should be flagged
-        pixels = _get_flagpixels(regfile, X, Y)
+        pixels = get_flagpixels(regfile, X, Y)
         pixels = (pixels == False)
         pixels = np.where(pixels)
 
@@ -1066,19 +1074,19 @@ class IMFITS(object):
                 exclusion = False
 
             if elements[0] == "box":
-                tmparea = _region_box(X, Y,
+                tmparea = region_box(X, Y,
                                       x0=np.float64(elements[1]),
                                       y0=np.float64(elements[2]),
                                       width=np.float64(elements[3]),
                                       height=np.float64(elements[4]),
                                       angle=np.float64(elements[5]))
             elif elements[0] == "circle":
-                tmparea = _region_circle(X, Y,
+                tmparea = region_circle(X, Y,
                                          x0=np.float64(elements[1]),
                                          y0=np.float64(elements[2]),
                                          radius=np.float64(elements[3]))
             elif elements[0] == "ellipse":
-                tmparea = _region_ellipse(X, Y,
+                tmparea = region_ellipse(X, Y,
                                           x0=np.float64(elements[1]),
                                           y0=np.float64(elements[2]),
                                           radius1=np.float64(elements[3]),
@@ -1634,7 +1642,7 @@ def calc_metric(fitsdata, reffitsdata, metric="NRMSE", istokes1=0, ifreq1=0, ist
 #-------------------------------------------------------------------------
 # Fllowings are subfunctions for ds9flag and read_cleanbox
 #-------------------------------------------------------------------------
-def _get_flagpixels(regfile, X, Y):
+def get_flagpixels(regfile, X, Y):
     # Read DS9-region file
     f = open(regfile)
     lines = f.readlines()
@@ -1671,19 +1679,19 @@ def _get_flagpixels(regfile, X, Y):
         else:
             exclusion = False
         if elements[0] == "box":
-            tmpkeep = _region_box(X, Y,
+            tmpkeep = region_box(X, Y,
                                   x0=np.float64(elements[1]),
                                   y0=np.float64(elements[2]),
                                   width=np.float64(elements[3]),
                                   height=np.float64(elements[4]),
                                   angle=np.float64(elements[5]))
         elif elements[0] == "circle":
-            tmpkeep = _region_circle(X, Y,
+            tmpkeep = region_circle(X, Y,
                                      x0=np.float64(elements[1]),
                                      y0=np.float64(elements[2]),
                                      radius=np.float64(elements[3]))
         elif elements[0] == "ellipse":
-            tmpkeep = _region_ellipse(X, Y,
+            tmpkeep = region_ellipse(X, Y,
                                       x0=np.float64(elements[1]),
                                       y0=np.float64(elements[2]),
                                       radius1=np.float64(elements[3]),
@@ -1698,7 +1706,7 @@ def _get_flagpixels(regfile, X, Y):
     return keep
 
 
-def _region_box(X, Y, x0, y0, width, height, angle):
+def region_box(X, Y, x0, y0, width, height, angle):
     cosa = np.cos(np.deg2rad(angle))
     sina = np.sin(np.deg2rad(angle))
     dX = X - x0
@@ -1712,11 +1720,11 @@ def _region_box(X, Y, x0, y0, width, height, angle):
     return region
 
 
-def _region_circle(X, Y, x0, y0, radius):
+def region_circle(X, Y, x0, y0, radius):
     return (X - x0) * (X - x0) + (Y - y0) * (Y - y0) <= radius * radius
 
 
-def _region_ellipse(X, Y, x0, y0, radius1, radius2, angle):
+def region_ellipse(X, Y, x0, y0, radius1, radius2, angle):
     cosa = np.cos(np.deg2rad(angle))
     sina = np.sin(np.deg2rad(angle))
     dX = X - x0

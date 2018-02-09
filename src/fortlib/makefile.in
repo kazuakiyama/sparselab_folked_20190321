@@ -12,12 +12,13 @@ else
 	FCFLAGS_DBG=
 endif
 
-FCFLAGS_OMP=-fopenmp
-FCFLAGS_BLAS=@LDFLAGS@ @blaslib@
+FCFLAGS_OMP=-lgomp
+FCFLAGS_BLAS=@blaslib@
+FCFLAGS_FINUFFT=../finufft/lib-static/libfinufft.a -lstdc++ -lfftw3 -lfftw3_omp
 FCFLAGS_LBFGSB=-L../lbfgsb -llbfgsb
 
 #    set command options
-FCFLAGS=-fPIC $(FCFLAGS_DBG) $(FCFLAGS_OPT) $(FCFLAGS_OMP)
+FCFLAGS=-fPIC $(FCFLAGS_OMP) $(FCFLAGS_DBG) @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS)
 
 #-------------------------------------------
 # F2PY
@@ -26,8 +27,8 @@ F2PYFLAGS_FC=gfortran
 
 #    other command options
 F2PYFLAGS_OPT=$(FCFLAGS_OPT)
-F2PYFLAGS_F90=-fPIC $(FCFLAGS_OMP) $(FCFLAGS_DBG) $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS)
-F2PYFLAGS_F77=-fPIC $(FCFLAGS_OMP) $(FCFLAGS_DBG) $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS)
+F2PYFLAGS_F90=-fPIC $(FCFLAGS_DBG) @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
+F2PYFLAGS_F77=-fPIC $(FCFLAGS_DBG) @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
 
 # command options for Open MP
 F2PYFLAGS_OMP=-lgomp
@@ -46,12 +47,21 @@ all: fortlib.so
 
 # Python Fortlib Module
 fortlib.so: \
-	param.f90 interp.f90 phasecon.f90 houghlib.f90 \
-	dftlib.f90 stdftim.f90 coord.f90 uvdata.f90
+	param.f90 interp.f90 \
+	phasecon.f90 houghlib.f90 \
+	image.f90 \
+	dftlib.f90 dftim2d.f90 \
+	fftlib.f90 fftim2d.f90 \
+	coord.f90 uvdata.f90
 
 	$(F2PY) $(F2PYFLAGS) -m fortlib -c \
-	param.f90 interp.f90 phasecon.f90 houghlib.f90 \
-	dftlib.f90 stdftim.f90 coord.f90 uvdata.f90
+		param.f90 interp.f90 \
+		phasecon.f90 houghlib.f90 \
+		image.f90 \
+		dftlib.f90 dftim2d.f90 \
+		fftlib.f90 fftim2d.f90 \
+		coord.f90 uvdata.f90 \
+		$(FCFLAGS_FINUFFT)
 
 install: all
 	cp -rp fortlib.*so* ../../sparselab

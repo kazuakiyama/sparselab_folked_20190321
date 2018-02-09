@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 
 # internal LoadLibrary
-from . import uvdata, util, imdata
+from .. import uvdata, util, imdata
 
 #-------------------------------------------------------------------------
 # Default Parameters
@@ -592,7 +592,7 @@ def mfista_pipeline(
         angunit="uas",
         uvunit="gl"):
     '''
-    A pipeline imaging function using static_dft_imaging and related fucntions.
+    A pipeline imaging function using imaging and related fucntions.
 
     Args:
         initimage (imdata.IMFITS object):

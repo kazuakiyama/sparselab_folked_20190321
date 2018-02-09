@@ -1,6 +1,6 @@
-module stdftim
+module dftim2d
   !$use omp_lib
-  use param, only: dp, tol
+  use param, only: dp, deps
   use dftlib, only: calc_F, grad_amppha, DFT,&
                     chisq_fcv, chisq_amp, chisq_camp, chisq_cphase,&
                     model_fcv, model_amp, model_camp, model_cphase,&
@@ -34,7 +34,7 @@ subroutine imaging( &
   isamp, uvidxamp, Vamp, Varamp, &
   iscp, uvidxcp, CP, Varcp, &
   isca, uvidxca, CA, Varca, &
-  m, factr, pgtol, &
+  m, factr, pgdeps, &
   Iout, &
   Npix, Nuv, Nfcv, Namp, Ncp, Nca &
 )
@@ -89,7 +89,7 @@ subroutine imaging( &
 
   ! Paramters related to the L-BFGS-B
   integer,  intent(in) :: m
-  real(dp), intent(in) :: factr, pgtol
+  real(dp), intent(in) :: factr, pgdeps
   !
   ! Output Image
   real(dp), intent(out) :: Iout(1:Npix)
@@ -179,7 +179,7 @@ subroutine imaging( &
           .or. task == 'START')
     ! This is the call to the L-BFGS-B code.
     call setulb ( Npix, m, Iout, lower, upper, nbd, cost, gradcost, &
-                  factr, pgtol, wa, iwa, task, iprint,&
+                  factr, pgdeps, wa, iwa, task, iprint,&
                   csave, lsave, isave, dsave )
 
     if (task(1:2) == 'FG') then
@@ -428,15 +428,15 @@ subroutine calc_cost(&
     ! calc l1norm
     if (lambl1 > 0) then
       if (logreg .eqv. .False. ) then
-        if (Iin(ipix) > tol) then
+        if (Iin(ipix) > deps) then
           gradcost(ipix) = gradcost(ipix) + lambl1
-        elseif (Iin(ipix) < -tol) then
+        elseif (Iin(ipix) < -deps) then
           gradcost(ipix) = gradcost(ipix) - lambl1
         end if
       else
-        if (logIin(ipix) > tol) then
+        if (logIin(ipix) > deps) then
           gradcost(ipix) = gradcost(ipix) + lambl1 * gradlogIin(ipix)
-        elseif (logIin(ipix) < -tol) then
+        elseif (logIin(ipix) < -deps) then
           gradcost(ipix) = gradcost(ipix) - lambl1 * gradlogIin(ipix)
         end if
       end if
@@ -739,15 +739,15 @@ subroutine statistics( &
     ! calc l1norm
     if (lambl1 > 0) then
       if (logreg .eqv. .False. ) then
-        if (Iin(ipix) > tol) then
+        if (Iin(ipix) > deps) then
           gradcost(ipix) = gradcost(ipix) + lambl1
-        elseif (Iin(ipix) < -tol) then
+        elseif (Iin(ipix) < -deps) then
           gradcost(ipix) = gradcost(ipix) - lambl1
         end if
       else
-        if (logIin(ipix) > tol) then
+        if (logIin(ipix) > deps) then
           gradcost(ipix) = gradcost(ipix) + lambl1 * gradlogIin(ipix)
-        elseif (logIin(ipix) < -tol) then
+        elseif (logIin(ipix) < -deps) then
           gradcost(ipix) = gradcost(ipix) - lambl1 * gradlogIin(ipix)
         end if
       end if

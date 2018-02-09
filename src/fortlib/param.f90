@@ -18,8 +18,8 @@ module param
   integer, parameter :: lgt = kind(.true.)
 
   !frequently used mathematical constants (with precision to spare):
-  real(dp), parameter :: mtol= huge(1d0)
-  real(dp), parameter :: tol= epsilon(1d0)
+  real(dp), parameter :: dhug = huge(1d0)
+  real(dp), parameter :: deps = epsilon(1d0)
   real(dp), parameter :: pi=4*atan(1d0)
   complex(dpc), parameter :: i_dpc=dcmplx(0d0,1d0)
 end module
