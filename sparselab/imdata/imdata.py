@@ -696,7 +696,7 @@ class IMFITS(object):
     #-------------------------------------------------------------------------
     # Plotting
     #-------------------------------------------------------------------------
-    def imshow(self, logscale=False, angunit=None,
+    def imshow(self, logscale=False, angunit=None, dyrange=100,
                vmin=None, istokes=0, ifreq=0, **imshow_args):
         '''
         plot contours of the image
@@ -726,11 +726,11 @@ class IMFITS(object):
             imextent = self.get_imextent(angunit)
 
         if logscale:
-            plotdata = np.log(self.data[istokes, ifreq])
+            plotdata = np.log10(self.data[istokes, ifreq])
             if vmin is None:
-                vmin_scaled = np.log(0.001 * self.peak(istokes, ifreq))
+                vmin_scaled = np.log10(self.peak(istokes, ifreq)/dyrange)
             else:
-                vmin_scaled = np.log(vmin)
+                vmin_scaled = np.log10(vmin)
             plotdata[np.where(plotdata < vmin_scaled)] = vmin_scaled
             plt.imshow(plotdata, extent=imextent, origin="lower",
                        vmin=vmin_scaled, **imshow_args)

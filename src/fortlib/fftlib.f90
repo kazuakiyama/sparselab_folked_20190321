@@ -5,7 +5,7 @@ module fftlib
 
   ! Parameters related to NuFFT
   !   FINUFFT's numerical accracy is around 1d-13
-  real(dp), parameter :: ffteps=1d-10
+  real(dp), parameter :: ffteps=1d-12
 
   interface
     subroutine finufft2d1_f(nj,xj,yj,cj,iflag,eps,ms,mt,fk,ier)

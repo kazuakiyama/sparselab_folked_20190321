@@ -10,7 +10,7 @@ module fftim2d
                    tv_e, tv_grade,&
                    tsv_e, tsv_grade,&
                    mem_e, mem_grade,&
-                   comreg
+                   comreg, zeroeps
   implicit none
 contains
 !-------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ subroutine imaging(&
   real(dp) :: fnorm ! normalization factor for chisquares
 
   ! variables and parameters tuning L-BFGS-B
-  integer,  parameter   :: iprint = 1
+  integer,  parameter   :: iprint = -1
   character(len=60)     :: task, csave
   logical               :: lsave(4)
   integer               :: isave(44)
@@ -197,6 +197,9 @@ subroutine imaging(&
                   csave, lsave, isave, dsave )
 
     if (task(1:2) == 'FG') then
+      ! thresholding
+      where(abs(Iout)<zeroeps) Iout=0d0
+
       ! Calculate cost function and gradcostent of cost function
       call calc_cost(&
         Iout,xidx,yidx,Nxref,Nyref,Nx,Ny,&
@@ -215,10 +218,13 @@ subroutine imaging(&
       ! to STOP L-BFGS-B iterations
       if (isave(30) > Niter) then
         task='STOP: TOTAL ITERATION NUMBER EXCEEDS LIMIT'
+      else if (mod(isave(30),100) == 0) then
+        print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
       end if
 
       ! If we have a flag to STOP the L-BFGS-B algorithm, print it out.
       if (task(1:4) .eq. 'STOP') then
+        print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
         write (6,*) task
       end if
     end if
@@ -227,6 +233,7 @@ subroutine imaging(&
   ! deallocate arrays
   deallocate(Vfcv)
   deallocate(iwa,wa,lower,upper,nbd)
+  where(abs(Iout)<zeroeps) Iout=0d0
 end subroutine
 !
 !-------------------------------------------------------------------------------

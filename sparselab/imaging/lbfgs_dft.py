@@ -33,7 +33,7 @@ from .. import util, imdata, fortlib
 #-------------------------------------------------------------------------
 lbfgsbprms = {
     "m": 10,
-    "factr": 1e1,
+    "factr": 1e7,
     "pgtol": 0.
 }
 

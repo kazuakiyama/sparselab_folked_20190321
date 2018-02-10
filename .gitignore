@@ -8,7 +8,10 @@ src/fortutils/fortlib.so.dSYM
 config.log
 config.status
 configure
-src/*/makefile
+src/fortlib/makefile
+src/lbfgsb/makefile
+src/mfista/makefile
+src/slsqp/makefile
 autom4te.cache
 include
 *.so

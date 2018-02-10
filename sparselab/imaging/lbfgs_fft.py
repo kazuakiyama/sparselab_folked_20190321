@@ -32,7 +32,7 @@ from .. import util, imdata, fortlib
 # Default Parameters
 #-------------------------------------------------------------------------
 lbfgsbprms = {
-    "m": 10,
+    "m": 5,
     "factr": 1e1,
     "pgtol": 0.
 }
@@ -84,7 +84,7 @@ def imaging(
         print("log transform will be applied to regularization functions.")
         transtype = np.int32(1)
         if transprm is None:
-            transprm = np.finfo(np.float64).eps
+            transprm = 1e-10
         elif transprm <= 0:
             raise ValueError("transprm must be positive.")
         else:
@@ -232,8 +232,8 @@ def imaging(
             fluxscale = (fluxscale)**transprm
 
         lambl1_sim = lambl1 / (fluxscale * Nyx)
-        lambtv_sim = lambtv / (fluxscale * Nyx)
-        lambtsv_sim = lambtsv / (fluxscale**2 * Nyx)
+        lambtv_sim = lambtv / (4 * fluxscale * Nyx)
+        lambtsv_sim = lambtsv / (4 *fluxscale**2 * Nyx)
         lambmem_sim = lambmem / (fluxscale*np.log(fluxscale) * Nyx)
     else:
         lambl1_sim = lambl1

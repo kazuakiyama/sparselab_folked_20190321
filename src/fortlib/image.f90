@@ -1,7 +1,9 @@
 module image
   !$use omp_lib
-  use param, only : dp, dpc, pi, i_dpc, deps
+  use param, only : dp, dpc, pi, i_dpc
   implicit none
+  ! Epsiron for Zero judgement
+  real(dp), parameter :: zeroeps=1d-10
 contains
 !-------------------------------------------------------------------------------
 ! Copy 1D image vector from/to 2D/3D image vector
@@ -66,7 +68,7 @@ subroutine log_fwd(thres,I1d,I1dout,N)
   !$OMP   FIRSTPRIVATE(N,thres,I1d) &
   !$OMP   PRIVATE(i)
   do i=1,N
-    if (abs(I1d(i)) > deps) then
+    if (abs(I1d(i)) > zeroeps) then
       I1dout(i)=(log(abs(I1d(i))+thres)-log(thres)) * sign(1d0,I1d(i))
     else
       I1dout(i) = 0d0
@@ -90,7 +92,7 @@ subroutine log_inv(thres,I1d,I1dout,N)
   !$OMP   FIRSTPRIVATE(N,thres,I1d) &
   !$OMP   PRIVATE(i)
   do i=1,N
-    if (abs(I1d(i)) > deps) then
+    if (abs(I1d(i)) > zeroeps) then
       I1dout(i) = thres*(exp(abs(I1d(i)))-1)*sign(1d0,I1d(i))
     else
       I1dout(i) = 0d0
@@ -114,7 +116,7 @@ subroutine log_grad(thres,I1d,gradreg,N)
   !$OMP   FIRSTPRIVATE(N,thres) &
   !$OMP   PRIVATE(i)
   do i=1,N
-    if (abs(I1d(i)) > deps) then
+    if (abs(I1d(i)) > zeroeps) then
       gradreg(i) = gradreg(i)/(abs(I1d(i)) + thres)
     else
       gradreg(i) = 0d0
@@ -138,7 +140,7 @@ subroutine gamma_fwd(gamma,I1d,I1dout,N)
   !$OMP   FIRSTPRIVATE(N,gamma,I1d) &
   !$OMP   PRIVATE(i)
   do i=1,N
-    if (abs(I1d(i)) > deps) then
+    if (abs(I1d(i)) > zeroeps) then
       I1dout(i)=abs(I1d(i))**gamma * sign(1d0,I1d(i))
     else
       I1dout(i) = 0d0
@@ -162,7 +164,7 @@ subroutine gamma_inv(gamma,I1d,I1dout,N)
   !$OMP   FIRSTPRIVATE(N,gamma,I1d) &
   !$OMP   PRIVATE(i)
   do i=1,N
-    if (abs(I1d(i)) > deps) then
+    if (abs(I1d(i)) > zeroeps) then
       I1dout(i) = abs(I1d(i))**(1/gamma) * sign(1d0,I1d(i))
     else
       I1dout(i) = 0d0
@@ -186,7 +188,7 @@ subroutine gamma_grad(gamma,I1d,gradreg,N)
   !$OMP   FIRSTPRIVATE(N,gamma) &
   !$OMP   PRIVATE(i)
   do i=1,N
-    if (abs(I1d(i)) > deps) then
+    if (abs(I1d(i)) > zeroeps) then
       gradreg(i) = gradreg(i) * gamma * abs(I1d(i))**(gamma-1) * sign(1d0,I1d(i))
     else
       gradreg(i) = 0d0
@@ -206,11 +208,7 @@ real(dp) function l1_e(I)
   implicit none
   real(dp),intent(in) :: I
   !
-  if (abs(I) > deps) then
-    l1_e = abs(I)
-  else
-    l1_e = 0
-  end if
+  l1_e = abs(I)
 end function
 !
 ! gradient of l1-norm
@@ -220,7 +218,7 @@ real(dp) function l1_grade(I)
   !
   real(dp),intent(in) :: I
   !
-  if (abs(I) > deps) then
+  if (abs(I) > zeroeps) then
     l1_grade = sign(1d0,I)
   else
     l1_grade = 0
@@ -233,10 +231,10 @@ real(dp) function mem_e(I)
   implicit none
   !
   real(dp),intent(in) :: I
-  if (abs(I) < deps) then
-    mem_e = 0d0
-  else
+  if (abs(I) > zeroeps) then
     mem_e = abs(I)*log(abs(I))
+  else
+    mem_e = 0d0
   end if
 end function
 !
@@ -246,10 +244,10 @@ real(dp) function mem_grade(I)
   implicit none
   !
   real(dp),intent(in) :: I
-  if (abs(I) < deps) then
-    mem_grade = 0d0
-  else
+  if (abs(I) > zeroeps) then
     mem_grade = (log(abs(I))+1) * sign(1d0,I)
+  else
+    mem_grade = 0d0
   end if
 end function
 !
@@ -328,7 +326,7 @@ real(dp) function tv_grade(xidx,yidx,I2d,Nx,Ny)
   end if
   !
   tv_e = sqrt(dIx*dIx+dIy*dIy)
-  if (tv_e > deps) then
+  if (tv_e > zeroeps) then
     tv_grade = tv_grade - (dIx + dIy)/tv_e
   end if
   !
@@ -347,7 +345,7 @@ real(dp) function tv_grade(xidx,yidx,I2d,Nx,Ny)
     end if
 
     tv_e = sqrt(dIx*dIx+dIy*dIy)
-    if (tv_e > deps) then
+    if (tv_e > zeroeps) then
       tv_grade = tv_grade + dIx/tv_e
     end if
   end if
@@ -367,7 +365,7 @@ real(dp) function tv_grade(xidx,yidx,I2d,Nx,Ny)
     end if
 
     tv_e = sqrt(dIx*dIx+dIy*dIy)
-    if (tv_e > deps) then
+    if (tv_e > zeroeps) then
       tv_grade = tv_grade + dIy/tv_e
     end if
   end if
@@ -487,7 +485,7 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
     diy = yidx(ipix) - Nyref
 
     ! take a alpha
-    if (abs(I1d(ipix)) > deps) then
+    if (abs(I1d(ipix)) > zeroeps) then
       Ip = abs(I1d(ipix))**alpha
     else
       Ip = 0
@@ -500,7 +498,7 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
   end do
   !$OMP END PARALLEL DO
 
-  if (abs(sumI) > deps) then
+  if (abs(sumI) > zeroeps) then
     ! calculate cost function
     cost = cost + sqrt(sumx*sumx+sumy*sumy)/sumI
 
@@ -515,7 +513,7 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
       diy = yidx(ipix) - Nyref
 
       ! gradient of sums
-      if (abs(I1d(ipix)) > deps) then
+      if (abs(I1d(ipix)) > zeroeps) then
         gradsumI = alpha*abs(I1d(ipix))**(alpha-1)*sign(1d0,I1d(ipix))
       else
         gradsumI = 0
