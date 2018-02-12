@@ -65,7 +65,7 @@ class CATable(UVTable):
         Evaluate model values and output them to a new table
 
         Args:
-            geomodel (modelfit.geomodel.GeoModel) object
+            geomodel (geomodel.geomodel.GeoModel) object
         Returns:
             uvdata.VisTable object
         '''
@@ -92,7 +92,7 @@ class CATable(UVTable):
         for an input geometric model
 
         Args:
-            geomodel (modelfit.geomodel.GeoModel object):
+            geomodel (geomodel.geomodel.GeoModel object):
                 input model
             normed (boolean, default=True):
                 if True, residuals will be normalized by 1 sigma error

@@ -14,7 +14,7 @@ __author__ = "Sparselab Developper Team"
 from . import imdata
 from . import uvdata
 from . import imaging
-from . import modelfit
+from . import geomodel
 
 # Faraday Tomography
 from . import ft

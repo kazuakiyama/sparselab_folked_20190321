@@ -117,7 +117,7 @@ class VisTable(UVTable):
         outtable = copy.deepcopy(self)
 
         # calculate scattering kernel (in visibility domain)
-        kernel = modelfit.geomodel.vis_scatt(
+        kernel = geomodel.geomodel.vis_scatt(
             u=self["u"].values,
             v=self["v"].values,
             nu=self["freq"].values,
@@ -203,7 +203,7 @@ class VisTable(UVTable):
         Evaluate model values and output them to a new table
 
         Args:
-            geomodel (modelfit.geomodel.GeoModel) object
+            geomodel (geomodel.geomodel.GeoModel) object
         Returns:
             uvdata.VisTable object
         '''
@@ -223,7 +223,7 @@ class VisTable(UVTable):
         Evaluate Geometric Model
 
         Args:
-            geomodel (modelfit.geomodel.GeoModel object):
+            geomodel (geomodel.geomodel.GeoModel object):
                 input model
             normed (boolean, default=True):
                 if True, residuals will be normalized by 1 sigma error

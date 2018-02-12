@@ -5,7 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 '''
-This is a submodule of sparselab.modelfit, containing functions to
+This is a submodule of sparselab.geomodel, containing functions to
 calculate visibilities and images of some geometric models.
 
 Here, we note that the whole design of this module is imspired by
@@ -396,7 +396,7 @@ def phaseshift(u,v,x0=0,y0=0,angunit="mas"):
 #-------------------------------------------------------------------------------
 def Gaussian(x0=0,y0=0,totalflux=1,majsize=1,minsize=None,pa=0,angunit="mas"):
     '''
-    Create modelfit.geomodel.GeoModel Object for the specified Gaussian
+    Create geomodel.geomodel.GeoModel Object for the specified Gaussian
     Args:
         x0=0.0, y0=0.0: position of the centorid
         totalflux=1.0: total flux of the Gaussian
@@ -404,7 +404,7 @@ def Gaussian(x0=0,y0=0,totalflux=1,majsize=1,minsize=None,pa=0,angunit="mas"):
         pa: Position Angle of the Gaussian in degree
         angunit="mas": angular unit of x0, y0, majsize, minsize (uas, mas, asec, amin, deg, rad)
     Returns:
-        modelfit.geomodel.GeoModel Object for the specified Gaussian
+        geomodel.geomodel.GeoModel Object for the specified Gaussian
     '''
     if minsize is None:
         minsize = majsize
