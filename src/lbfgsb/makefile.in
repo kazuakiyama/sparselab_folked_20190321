@@ -1,8 +1,26 @@
 .SUFFIXES: .f .o
 #-------------------------------------------------------------------------------
+# Check OS
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+  OSTYPE="LINUX"
+else
+  ifeq ($(UNAME_S),Darwin)
+    OSTYPE="OSX"
+	else
+	  OSTYPE="OSX"
+	endif  
+endif
+#-------------------------------------------------------------------------------
 # Fortran Compiler
 FC=@FC@
-FCFLAGS_OPT=-O2
+
+# Optimization Flag
+ifeq ($(OSTYPE),"LINUX")
+  FCFLAGS_OPT=-Ofast -march=native
+else
+  FCFLAGS_OPT=-O2 -march=core2
+endif
 
 # command options for Debugging
 DBG_FLAG=@dbg_flag@
