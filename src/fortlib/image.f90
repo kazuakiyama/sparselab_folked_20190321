@@ -5,6 +5,8 @@ module image
   ! Epsiron for Zero judgement
   real(dp), parameter :: zeroeps=1d-10
 contains
+!
+!
 !-------------------------------------------------------------------------------
 ! Copy 1D image vector from/to 2D/3D image vector
 !-------------------------------------------------------------------------------
@@ -238,7 +240,7 @@ real(dp) function mem_e(I)
   end if
 end function
 !
-! gradient of mem
+! gradient of MEM
 !
 real(dp) function mem_grade(I)
   implicit none
@@ -514,7 +516,11 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
 
       ! gradient of sums
       if (abs(I1d(ipix)) > zeroeps) then
-        gradsumI = alpha*abs(I1d(ipix))**(alpha-1)*sign(1d0,I1d(ipix))
+        if (abs(alpha) - 1 < zeroeps) then
+          gradsumI = sign(1d0,I1d(ipix))
+        else
+          gradsumI = alpha*abs(I1d(ipix))**(alpha-1)*sign(1d0,I1d(ipix))
+        end if
       else
         gradsumI = 0
       end if
@@ -528,5 +534,232 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
     !$OMP END PARALLEL DO
   end if
 end subroutine
+!
+!
+!-------------------------------------------------------------------------------
+! A convinient function to compute regularization functions
+! for python interfaces
+!-------------------------------------------------------------------------------
+subroutine I2d_l1(I2d,cost,costmap,gradmap,Nx,Ny)
+  implicit none
 
+  integer, intent(in)  :: Nx,Ny
+  real(dp), intent(in) :: I2d(Nx,Ny)
+  real(dp), intent(out):: cost,costmap(Nx,Ny),gradmap(Nx,Ny)
+
+  integer :: ixy,ix,iy
+
+  ! initialize output
+  cost = 0d0
+  costmap(:,:) = 0d0
+  gradmap(:,:) = 0d0
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,I2d) &
+  !$OMP   PRIVATE(ixy,ix,iy) &
+  !$OMP   REDUCTION(+:cost,costmap,gradmap)
+  do ixy=1, Nx*Ny
+    call ixy2ixiy(ixy,ix,iy,Nx)
+    costmap(ix,iy) = l1_e(I2d(ix,iy))
+    gradmap(ix,iy) = l1_grade(I2d(ix,iy))
+    cost = cost + costmap(ix,iy)
+  end do
+  !$OMP END PARALLEL DO
+end subroutine
+!
+!
+subroutine I2d_mem(I2d,cost,costmap,gradmap,Nx,Ny)
+  implicit none
+
+  integer, intent(in)  :: Nx,Ny
+  real(dp), intent(in) :: I2d(Nx,Ny)
+  real(dp), intent(out):: cost,costmap(Nx,Ny),gradmap(Nx,Ny)
+
+  integer :: ixy,ix,iy
+
+  ! initialize output
+  cost = 0d0
+  costmap(:,:) = 0d0
+  gradmap(:,:) = 0d0
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,I2d) &
+  !$OMP   PRIVATE(ixy,ix,iy) &
+  !$OMP   REDUCTION(+:cost,costmap,gradmap)
+  do ixy=1, Nx*Ny
+    call ixy2ixiy(ixy,ix,iy,Nx)
+    costmap(ix,iy) = mem_e(I2d(ix,iy))
+    gradmap(ix,iy) = mem_grade(I2d(ix,iy))
+    cost = cost+costmap(ix,iy)
+  end do
+  !$OMP END PARALLEL DO
+end subroutine
+!
+!
+subroutine I2d_tv(I2d,cost,costmap,gradmap,Nx,Ny)
+  implicit none
+
+  integer, intent(in)  :: Nx,Ny
+  real(dp), intent(in) :: I2d(Nx,Ny)
+  real(dp), intent(out):: cost,costmap(Nx,Ny),gradmap(Nx,Ny)
+
+  integer :: ixy,ix,iy
+
+  ! initialize output
+  cost = 0d0
+  costmap(:,:) = 0d0
+  gradmap(:,:) = 0d0
+
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,I2d) &
+  !$OMP   PRIVATE(ixy,ix,iy) &
+  !$OMP   REDUCTION(+:cost,costmap,gradmap)
+  do ixy=1, Nx*Ny
+    call ixy2ixiy(ixy,ix,iy,Nx)
+    costmap(ix,iy) = tv_e(ix,iy,I2d,Nx,Ny)
+    gradmap(ix,iy) = tv_grade(ix,iy,I2d,Nx,Ny)
+    cost = cost+costmap(ix,iy)
+  end do
+  !$OMP END PARALLEL DO
+end subroutine
+!
+!
+subroutine I2d_tsv(I2d,cost,costmap,gradmap,Nx,Ny)
+  implicit none
+
+  integer, intent(in)  :: Nx,Ny
+  real(dp), intent(in) :: I2d(Nx,Ny)
+  real(dp), intent(out):: cost,costmap(Nx,Ny),gradmap(Nx,Ny)
+
+  integer :: ixy,ix,iy
+
+  ! initialize output
+  cost = 0d0
+  costmap(:,:) = 0d0
+  gradmap(:,:) = 0d0
+
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,I2d) &
+  !$OMP   PRIVATE(ixy,ix,iy) &
+  !$OMP   REDUCTION(+:cost,costmap,gradmap)
+  do ixy=1, Nx*Ny
+    call ixy2ixiy(ixy,ix,iy,Nx)
+    costmap(ix,iy) = tsv_e(ix,iy,I2d,Nx,Ny)
+    gradmap(ix,iy) = tsv_grade(ix,iy,I2d,Nx,Ny)
+    cost = cost+costmap(ix,iy)
+  end do
+  !$OMP END PARALLEL DO
+end subroutine
+!
+!
+subroutine I2d_com(I2d,Nxref,Nyref,alpha,cost,costmap,gradmap,Nx,Ny)
+  implicit none
+
+  integer, intent(in)  :: Nx,Ny
+  real(dp), intent(in) :: I2d(Nx,Ny),Nxref,Nyref,alpha
+  real(dp), intent(out):: cost,costmap(Nx,Ny),gradmap(Nx,Ny)
+
+  integer :: ixy,ix,iy
+  real(dp) :: dix,diy, sumx, sumy, sumI, gradsumI, gradsumx, gradsumy,Ip
+
+  ! initialize output
+  cost = 0d0
+  costmap(:,:) = 0d0
+  gradmap(:,:) = 0d0
+
+  ! initialize sums
+  sumx = 0d0
+  sumy = 0d0
+  sumI = 0d0
+
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nxref,Nyref,I2d,alpha) &
+  !$OMP   PRIVATE(ixy,ix,iy,dix,diy,Ip) &
+  !$OMP   REDUCTION(+:sumx,sumy,sumI,costmap)
+  do ixy=1, Nx*Ny
+    call ixy2ixiy(ixy,ix,iy,Nx)
+
+    ! pixel from the reference pixel
+    dix = ix - Nxref
+    diy = iy - Nyref
+
+    ! take a alpha
+    if (abs(I2d(ix,iy)) > zeroeps) then
+      Ip = abs(I2d(ix,iy))**alpha
+    else
+      Ip = 0
+    end if
+
+    ! calculate sum
+    costmap(ix,iy) = sqrt((Ip*dix)**2 +(Ip*diy)**2)
+    sumx = sumx + Ip * dix
+    sumy = sumy + Ip * diy
+    sumI = sumI + Ip
+  end do
+  !$OMP END PARALLEL DO
+
+  if (abs(sumI) > zeroeps) then
+    ! calculate cost function
+    cost = sqrt(sumx*sumx+sumy*sumy)/sumI
+
+    ! calculate gradient of cost function
+    !$OMP PARALLEL DO DEFAULT(SHARED) &
+    !$OMP   FIRSTPRIVATE(Nx,Ny,Nxref,Nyref,alpha,I2d,sumx,sumy,sumI,cost) &
+    !$OMP   PRIVATE(ixy,ix,iy,dix,diy,gradsumI,gradsumx,gradsumy) &
+    !$OMP   REDUCTION(+:gradmap)
+    do ixy=1, Nx*Ny
+      call ixy2ixiy(ixy,ix,iy,Nx)
+      costmap(ix,iy) = costmap(ix,iy)/sumI
+
+      ! pixel from the reference pixel
+      dix = ix - Nxref
+      diy = iy - Nyref
+
+      ! gradient of sums
+      if (abs(I2d(ix,iy)) > zeroeps) then
+        if (abs(alpha) - 1 < zeroeps) then
+          gradsumI = sign(1d0,I2d(ix,iy))
+        else
+          gradsumI = alpha*abs(I2d(ix,iy))**(alpha-1)*sign(1d0,I2d(ix,iy))
+        end if
+      else
+        gradsumI = 0
+      end if
+      gradsumx = gradsumI*dix
+      gradsumy = gradsumI*diy
+
+      ! calculate gradint of cost function
+      gradmap(ix,iy) = gradmap(ix,iy) + cost*gradsumI/sumI
+      gradmap(ix,iy) = gradmap(ix,iy) + (sumx*gradsumx+sumy*gradsumy)/(cost*sumI**3)
+    end do
+    !$OMP END PARALLEL DO
+  else
+    costmap(:,:) = 0d0
+  end if
+end subroutine
+!
+!
+!-------------------------------------------------------------------------------
+! A convinient function to compute regularization functions
+! for python interfaces
+!-------------------------------------------------------------------------------
+subroutine ixy2ixiy(ixy,ix,iy,Nx)
+  implicit none
+
+  ! arguments
+  integer, intent(in):: ixy,Nx
+  integer, intent(out):: ix,iy
+  !
+  ix = mod(ixy-1,Nx)+1
+  iy = (ixy-1)/Nx+1
+end subroutine
+
+
+subroutine ixiy2ixy(ix,iy,ixy,Nx)
+  implicit none
+
+  ! arguments
+  integer, intent(in):: ix,iy,Nx
+  integer, intent(out):: ixy
+  !
+  ixy = ix + (iy-1) * Nx
+end subroutine
 end module
