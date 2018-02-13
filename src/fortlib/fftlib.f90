@@ -1,11 +1,11 @@
 module fftlib
   !$use omp_lib
   use param, only : dp, dpc, pi, i_dpc
-  use image, only: I1d_I2d_fwd, I1d_I2d_inv
+  use image, only: I1d_I2d_fwd, I1d_I2d_inv, zeroeps
   implicit none
 
   ! Parameters related to NuFFT
-  !   FINUFFT's numeril accracy is around 1d-13
+  !   FINUFFT's numerical accracy is around 1d-13
   real(dp), parameter :: ffteps=1d-12
 
   interface
@@ -45,7 +45,7 @@ subroutine NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
   !     0: positive (the standard in Radio Astronomy)
   !     1: negative (the textbook standard; e.g. TMS)
   integer,  parameter :: iflag=0
-  !   Numeril Accuracy required for FINUFFT
+  !   numerical Accuracy required for FINUFFT
   real(dp),  parameter :: eps=ffteps
   !   error log
   integer :: ier
@@ -76,7 +76,7 @@ subroutine NUFFT_adj(u,v,Vcmp,I2d,Nx,Ny,Nuv)
   !     0: positive (the textbook standard TMS)
   !     1: negative (the standard in Radio Astronomy)
   integer, parameter:: iflag=1
-  !   Numeril Accuracy required for FINUFFT
+  !   numerical Accuracy required for FINUFFT
   real(dp),  parameter :: eps=ffteps
   !   error log
   integer :: ier
@@ -516,6 +516,8 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   I2d(:,:)=0d0
   !   copy image
   call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
+  !   hard thresholding with zero eps
+  where (abs(I2d) < zeroeps) I2d=0d0
 
   ! Forward Non-unifrom Fast Fourier Transform
   !   allocate array
@@ -596,5 +598,354 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   residi = dimag(resid)
 
   deallocate(resid,model)
+end subroutine
+
+
+subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
+                     u,v,&
+                     uvidxamp,Vamp,Varamp,&
+                     chisq,gradchisq,model,resid,&
+                     Npix,Nuv,Namp)
+  implicit none
+  ! Image
+  integer,  intent(in) :: Npix, Nx, Ny
+  real(dp), intent(in) :: Iin(Npix)
+  real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
+                                        ! 1 = the leftmost/lowermost pixel
+  integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
+
+  ! NuFFT-ed visibilities
+  integer,  intent(in) :: Nuv
+  real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
+  ! Data
+  integer,  intent(in):: Namp           ! Number of data
+  integer,  intent(in):: uvidxamp(Namp) ! UV Index of amp data
+  real(dp), intent(in):: Vamp(Namp)     ! Full complex visibility (amp) data
+  real(dp), intent(in):: Varamp(Namp)   ! variances of amp data
+  ! Outputs
+  real(dp), intent(out):: chisq             ! chisquare
+  real(dp), intent(out):: model(Namp)       ! Model Vector
+  real(dp), intent(out):: resid(Namp)       ! Residual Vector
+  real(dp), intent(out):: gradchisq(Npix)   ! its adjoint FT provides
+                                            ! the gradient of chisquare
+
+  ! allocatable arrays
+  real(dp), allocatable :: I2d(:,:),gradchisq2d(:,:)
+  real(dp), allocatable :: Vresre(:),Vresim(:)
+  complex(dpc), allocatable :: Vcmp(:)
+
+  ! other factors
+  real(dp):: factor
+  integer:: uvidx
+
+  ! loop variables
+  integer :: i
+
+  ! Copy 1d image to 2d image
+  !   allocate array
+  allocate(I2d(Nx,Ny))
+  I2d(:,:)=0d0
+  !   copy image
+  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
+  !   hard thresholding with zero eps
+  where (abs(I2d) < zeroeps) I2d=0d0
+
+  ! Forward Non-unifrom Fast Fourier Transform
+  !   allocate array
+  allocate(Vcmp(Nuv))
+  Vcmp(:) = dcmplx(0d0,0d0)
+  !   Forward NUFFT
+  call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
+  deallocate(I2d)
+
+  ! Compute Chisquare
+  !  allocate array
+  allocate(Vresre(Nuv),Vresim(Nuv))
+  Vresre(:) = 0d0
+  Vresim(:) = 0d0
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Namp,uvidxamp,Vcmp,Vamp,Varamp) &
+  !$OMP   PRIVATE(i,uvidx,factor),&
+  !$OMP   REDUCTION(+:chisq,Vresre,Vresim,resid,model)
+  do i=1, Namp
+    ! pick up uv index
+    uvidx = abs(uvidxamp(i))
+
+    ! take residual
+    model(i) = abs(Vcmp(uvidx))
+    resid(i) = Vamp(i) - model(i)
+
+    ! compute chisquare
+    chisq = chisq + resid(i)**2/Varamp(i)
+
+    ! compute residual vector
+    factor = -2*resid(i)/Varamp(i)/model(i)
+    Vresre(uvidx) = Vresre(uvidx) + factor * dreal(Vcmp(uvidx))
+    Vresim(uvidx) = Vresim(uvidx) + factor * dimag(Vcmp(uvidx))
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vcmp)
+
+  ! Adjoint Non-unifrom Fast Fourier Transform
+  !  this will provide gradient of chisquare functions
+  allocate(gradchisq2d(Nx,Ny))
+  gradchisq2d(:,:) = 0d0
+  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
+  deallocate(Vresre,Vresim)
+
+  ! copy the gradient of chisquare into that of cost functions
+  call I1d_I2d_inv(xidx,yidx,gradchisq,gradchisq2d,Npix,Nx,Ny)
+  deallocate(gradchisq2d)
+end subroutine
+
+
+subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
+                     u,v,&
+                     uvidxca,CA,Varca,&
+                     chisq,gradchisq,model,resid,&
+                     Npix,Nuv,Nca)
+  implicit none
+  ! Image
+  integer,  intent(in) :: Npix, Nx, Ny
+  real(dp), intent(in) :: Iin(Npix)
+  real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
+                                        ! 1 = the leftmost/lowermost pixel
+  integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
+
+  ! NuFFT-ed visibilities
+  integer,  intent(in) :: Nuv
+  real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
+  ! Data
+  integer,  intent(in):: Nca           ! Number of data
+  integer,  intent(in):: uvidxca(4,Nca) ! UV Index of ca data
+  real(dp), intent(in):: CA(Nca)     ! Full complex visibility (ca) data
+  real(dp), intent(in):: Varca(Nca)   ! variances of ca data
+  ! Outputs
+  real(dp), intent(out):: chisq             ! chisquare
+  real(dp), intent(out):: model(Nca)       ! Model Vector
+  real(dp), intent(out):: resid(Nca)       ! Residual Vector
+  real(dp), intent(out):: gradchisq(Npix)   ! its adjoint FT provides
+                                            ! the gradient of chisquare
+
+  ! allocatable arrays
+  real(dp), allocatable :: I2d(:,:),gradchisq2d(:,:)
+  real(dp), allocatable :: Vresre(:),Vresim(:)
+  complex(dpc), allocatable :: Vcmp(:)
+
+  ! other factors
+  real(dp):: factor
+  real(dp):: Vamp1, Vamp2, Vamp3, Vamp4
+  complex(dpc):: Vcmp1, Vcmp2, Vcmp3, Vcmp4
+  integer:: uvidx1, uvidx2, uvidx3, uvidx4
+
+  ! loop variables
+  integer :: i
+
+  ! Copy 1d image to 2d image
+  !   allocate array
+  allocate(I2d(Nx,Ny))
+  I2d(:,:)=0d0
+  !   copy image
+  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
+  !   hard thresholding with zero eps
+  where (abs(I2d) < zeroeps) I2d=0d0
+
+  ! Forward Non-unifrom Fast Fourier Transform
+  !   allocate array
+  allocate(Vcmp(Nuv))
+  Vcmp(:) = dcmplx(0d0,0d0)
+  !   Forward NUFFT
+  call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
+  deallocate(I2d)
+
+  ! Compute Chisquare
+  !  allocate array
+  allocate(Vresre(Nuv),Vresim(Nuv))
+  Vresre(:) = 0d0
+  Vresim(:) = 0d0
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nca,uvidxca,Vcmp,CA,Varca) &
+  !$OMP   PRIVATE(i,&
+  !$OMP           uvidx1,uvidx2,uvidx3,uvidx4,&
+  !$OMP           Vcmp1,Vcmp2,Vcmp3,Vcmp4,&
+  !$OMP           Vamp1,Vamp2,Vamp3,Vamp4),&
+  !$OMP   REDUCTION(+:chisq,Vresre,Vresim,resid,model)
+  do i=1, Nca
+    ! pick up uv index
+    uvidx1 = abs(uvidxca(1,i))
+    uvidx2 = abs(uvidxca(2,i))
+    uvidx3 = abs(uvidxca(3,i))
+    uvidx4 = abs(uvidxca(4,i))
+
+    ! pick up full complex visibilities
+    Vcmp1 = Vcmp(uvidx1)
+    Vcmp2 = Vcmp(uvidx2)
+    Vcmp3 = Vcmp(uvidx3)
+    Vcmp4 = Vcmp(uvidx4)
+    Vamp1 = abs(Vcmp1)
+    Vamp2 = abs(Vcmp2)
+    Vamp3 = abs(Vcmp3)
+    Vamp4 = abs(Vcmp4)
+
+    ! calculate model log closure amplitude and residual
+    model(i) = log(Vamp1)+log(Vamp2)-log(Vamp3)-log(Vamp4)
+    resid(i) = CA(i) - model(i)
+
+    ! compute chisquare
+    chisq = chisq + resid(i)**2/Varca(i)
+
+    ! compute residual vectors
+    factor = -2*resid(i)/Varca(i)
+    ! re
+    Vresre(uvidx1) = Vresre(uvidx1) + factor / Vamp1**2 * dreal(Vcmp1)
+    Vresre(uvidx2) = Vresre(uvidx2) + factor / Vamp2**2 * dreal(Vcmp2)
+    Vresre(uvidx3) = Vresre(uvidx3) - factor / Vamp3**2 * dreal(Vcmp3)
+    Vresre(uvidx4) = Vresre(uvidx4) - factor / Vamp4**2 * dreal(Vcmp4)
+    ! im
+    Vresim(uvidx1) = Vresim(uvidx1) + factor / Vamp1**2 * dimag(Vcmp1)
+    Vresim(uvidx2) = Vresim(uvidx2) + factor / Vamp2**2 * dimag(Vcmp2)
+    Vresim(uvidx3) = Vresim(uvidx3) - factor / Vamp3**2 * dimag(Vcmp3)
+    Vresim(uvidx4) = Vresim(uvidx4) - factor / Vamp4**2 * dimag(Vcmp4)
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vcmp)
+
+  ! Adjoint Non-unifrom Fast Fourier Transform
+  !  this will provide gradient of chisquare functions
+  allocate(gradchisq2d(Nx,Ny))
+  gradchisq2d(:,:) = 0d0
+  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
+  deallocate(Vresre,Vresim)
+
+  ! copy the gradient of chisquare into that of cost functions
+  call I1d_I2d_inv(xidx,yidx,gradchisq,gradchisq2d,Npix,Nx,Ny)
+  deallocate(gradchisq2d)
+end subroutine
+
+
+subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
+                     u,v,&
+                     uvidxcp,CP,Varcp,&
+                     chisq,gradchisq,model,resid,&
+                     Npix,Nuv,Ncp)
+  implicit none
+  ! Image
+  integer,  intent(in) :: Npix, Nx, Ny
+  real(dp), intent(in) :: Iin(Npix)
+  real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
+                                        ! 1 = the leftmost/lowermost pixel
+  integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
+
+  ! NuFFT-ed visibilities
+  integer,  intent(in) :: Nuv
+  real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
+  ! Data
+  integer,  intent(in):: Ncp           ! Number of data
+  integer,  intent(in):: uvidxcp(4,Ncp) ! UV Index of cp data
+  real(dp), intent(in):: CP(Ncp)     ! Full complex visibility (ca) data
+  real(dp), intent(in):: Varcp(Ncp)   ! variances of ca data
+  ! Outputs
+  real(dp), intent(out):: chisq             ! chisquare
+  real(dp), intent(out):: model(Ncp)       ! Model Vector
+  real(dp), intent(out):: resid(Ncp)       ! Residual Vector
+  real(dp), intent(out):: gradchisq(Npix)   ! its adjoint FT provides
+                                            ! the gradient of chisquare
+
+  ! allocatable arrays
+  real(dp), allocatable :: I2d(:,:),gradchisq2d(:,:)
+  real(dp), allocatable :: Vresre(:),Vresim(:)
+  complex(dpc), allocatable :: Vcmp(:)
+
+  ! other factors
+  real(dp):: factor
+  real(dp):: Vampsq1, Vampsq2, Vampsq3
+  complex(dpc):: Vcmp1, Vcmp2, Vcmp3
+  integer:: uvidx1, uvidx2, uvidx3
+  integer:: sign1, sign2, sign3
+
+  ! loop variables
+  integer :: i
+
+  ! Copy 1d image to 2d image
+  !   allocate array
+  allocate(I2d(Nx,Ny))
+  I2d(:,:)=0d0
+  !   copy image
+  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
+  !   hard thresholding with zero eps
+  where (abs(I2d) < zeroeps) I2d=0d0
+
+  ! Forward Non-unifrom Fast Fourier Transform
+  !   allocate array
+  allocate(Vcmp(Nuv))
+  Vcmp(:) = dcmplx(0d0,0d0)
+  !   Forward NUFFT
+  call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
+  deallocate(I2d)
+
+  ! Compute Chisquare
+  !  allocate array
+  allocate(Vresre(Nuv),Vresim(Nuv))
+  Vresre(:) = 0d0
+  Vresim(:) = 0d0
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Ncp,uvidxcp,Vcmp,CP,Varcp) &
+  !$OMP   PRIVATE(i,&
+  !$OMP           uvidx1,uvidx2,uvidx3,&
+  !$OMP           Vcmp1,Vcmp2,Vcmp3,&
+  !$OMP           Vampsq1,Vampsq2,Vampsq3,&
+  !$OMP           sign1,sign2,sign3),&
+  !$OMP   REDUCTION(+:chisq,Vresre,Vresim,model,resid)
+  do i=1, Ncp
+    ! pick up uv index
+    uvidx1 = abs(uvidxcp(1,i))
+    uvidx2 = abs(uvidxcp(2,i))
+    uvidx3 = abs(uvidxcp(3,i))
+
+    ! pick up full complex visibilities
+    Vcmp1 = Vcmp(uvidx1)
+    Vcmp2 = Vcmp(uvidx2)
+    Vcmp3 = Vcmp(uvidx3)
+    sign1 = sign(1,uvidxcp(1,i))
+    sign2 = sign(1,uvidxcp(2,i))
+    sign3 = sign(1,uvidxcp(3,i))
+    Vampsq1 = abs(Vcmp1)**2
+    Vampsq2 = abs(Vcmp2)**2
+    Vampsq3 = abs(Vcmp3)**2
+
+    ! calculate model closure phases and residual
+    model(i) = atan2(dimag(Vcmp1),dreal(Vcmp1))*sign1
+    model(i) = atan2(dimag(Vcmp2),dreal(Vcmp2))*sign2 + model(i)
+    model(i) = atan2(dimag(Vcmp3),dreal(Vcmp3))*sign3 + model(i)
+    resid(i) = CP(i) - model(i)
+    resid(i) = atan2(sin(resid(i)),cos(resid(i)))
+
+    ! compute chisquare
+    chisq = chisq + resid(i)**2/Varcp(i)
+
+    ! compute residual vectors
+    factor = -2*resid(i)/Varcp(i)
+
+    Vresre(uvidx1) = Vresre(uvidx1) - factor/Vampsq1*dimag(Vcmp1)*sign1
+    Vresre(uvidx2) = Vresre(uvidx2) - factor/Vampsq2*dimag(Vcmp2)*sign2
+    Vresre(uvidx3) = Vresre(uvidx3) - factor/Vampsq3*dimag(Vcmp3)*sign3
+
+    Vresim(uvidx1) = Vresim(uvidx1) + factor/Vampsq1*dreal(Vcmp1)*sign1
+    Vresim(uvidx2) = Vresim(uvidx2) + factor/Vampsq2*dreal(Vcmp2)*sign2
+    Vresim(uvidx3) = Vresim(uvidx3) + factor/Vampsq3*dreal(Vcmp3)*sign3
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vcmp)
+
+  ! Adjoint Non-unifrom Fast Fourier Transform
+  !  this will provide gradient of chisquare functions
+  allocate(gradchisq2d(Nx,Ny))
+  gradchisq2d(:,:) = 0d0
+  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
+  deallocate(Vresre,Vresim)
+
+  ! copy the gradient of chisquare into that of cost functions
+  call I1d_I2d_inv(xidx,yidx,gradchisq,gradchisq2d,Npix,Nx,Ny)
+  deallocate(gradchisq2d)
 end subroutine
 end module
