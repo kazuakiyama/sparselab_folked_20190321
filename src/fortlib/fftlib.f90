@@ -1,10 +1,11 @@
 module fftlib
   !$use omp_lib
   use param, only : dp, dpc, pi, i_dpc
+  use image, only: I1d_I2d_fwd, I1d_I2d_inv
   implicit none
 
   ! Parameters related to NuFFT
-  !   FINUFFT's numerical accracy is around 1d-13
+  !   FINUFFT's numeril accracy is around 1d-13
   real(dp), parameter :: ffteps=1d-12
 
   interface
@@ -44,7 +45,7 @@ subroutine NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
   !     0: positive (the standard in Radio Astronomy)
   !     1: negative (the textbook standard; e.g. TMS)
   integer,  parameter :: iflag=0
-  !   Numerical Accuracy required for FINUFFT
+  !   Numeril Accuracy required for FINUFFT
   real(dp),  parameter :: eps=ffteps
   !   error log
   integer :: ier
@@ -75,7 +76,7 @@ subroutine NUFFT_adj(u,v,Vcmp,I2d,Nx,Ny,Nuv)
   !     0: positive (the textbook standard TMS)
   !     1: negative (the standard in Radio Astronomy)
   integer, parameter:: iflag=1
-  !   Numerical Accuracy required for FINUFFT
+  !   Numeril Accuracy required for FINUFFT
   real(dp),  parameter :: eps=ffteps
   !   error log
   integer :: ier
@@ -211,30 +212,30 @@ subroutine chisq_fcv(Vcmp,&
 
   complex(dpc):: resid
   real(dp):: factor
-  integer:: uvidx, ifcv
+  integer:: uvidx, i
 
   !$OMP PARALLEL DO DEFAULT(SHARED) &
   !$OMP   FIRSTPRIVATE(Nfcv,fnorm,uvidxfcv,Vcmp,Vfcv,Varfcv) &
-  !$OMP   PRIVATE(ifcv,uvidx,resid,factor),&
+  !$OMP   PRIVATE(i,uvidx,resid,factor),&
   !$OMP   REDUCTION(+:chisq,Vresre,Vresim)
-  do ifcv=1, Nfcv
+  do i=1, Nfcv
     ! pick up uv index
-    uvidx = abs(uvidxfcv(ifcv))
+    uvidx = abs(uvidxfcv(i))
 
     ! take residual
-    if (uvidxfcv(ifcv) > 0) then
-      resid = Vfcv(ifcv) - Vcmp(uvidx)
+    if (uvidxfcv(i) > 0) then
+      resid = Vfcv(i) - Vcmp(uvidx)
     else
-      resid = Vfcv(ifcv) - dconjg(Vcmp(uvidx))
+      resid = Vfcv(i) - dconjg(Vcmp(uvidx))
     end if
 
     ! compute chisquare
-    chisq = chisq + abs(resid)**2/Varfcv(ifcv)/fnorm
+    chisq = chisq + abs(resid)**2/Varfcv(i)/fnorm
 
     ! compute residual vector
-    factor = -2/Varfcv(ifcv)/fnorm
+    factor = -2/Varfcv(i)/fnorm
     Vresre(uvidx) = Vresre(uvidx) + factor*dreal(resid)
-    Vresim(uvidx) = Vresim(uvidx) + factor*dimag(resid)*sign(1,uvidxfcv(ifcv))
+    Vresim(uvidx) = Vresim(uvidx) + factor*dimag(resid)*sign(1,uvidxfcv(i))
   end do
   !$OMP END PARALLEL DO
 end subroutine
@@ -264,25 +265,25 @@ subroutine chisq_amp(Vcmp,&
                                             !   the gradient of chisquare)
 
   real(dp):: resid, factor, model
-  integer:: uvidx, iamp
+  integer:: uvidx, i
 
   !$OMP PARALLEL DO DEFAULT(SHARED) &
   !$OMP   FIRSTPRIVATE(Namp,fnorm,uvidxamp,Vcmp,Vamp,Varamp) &
-  !$OMP   PRIVATE(iamp,uvidx,resid,factor,model),&
+  !$OMP   PRIVATE(i,uvidx,resid,factor,model),&
   !$OMP   REDUCTION(+:chisq,Vresre,Vresim)
-  do iamp=1, Namp
+  do i=1, Namp
     ! pick up uv index
-    uvidx = abs(uvidxamp(iamp))
+    uvidx = abs(uvidxamp(i))
 
     ! take residual
     model = abs(Vcmp(uvidx))
-    resid = Vamp(iamp) - model
+    resid = Vamp(i) - model
 
     ! compute chisquare
-    chisq = chisq + resid**2/Varamp(iamp)/fnorm
+    chisq = chisq + resid**2/Varamp(i)/fnorm
 
     ! compute residual vector
-    factor = -2*resid/Varamp(iamp)/model/fnorm
+    factor = -2*resid/Varamp(i)/model/fnorm
     Vresre(uvidx) = Vresre(uvidx) + factor * dreal(Vcmp(uvidx))
     Vresim(uvidx) = Vresim(uvidx) + factor * dimag(Vcmp(uvidx))
   end do
@@ -317,21 +318,21 @@ subroutine chisq_ca(Vcmp,&
   real(dp):: Vamp1, Vamp2, Vamp3, Vamp4
   complex(dpc):: Vcmp1, Vcmp2, Vcmp3, Vcmp4
   integer:: uvidx1, uvidx2, uvidx3, uvidx4
-  integer:: ica
+  integer:: i
 
   !$OMP PARALLEL DO DEFAULT(SHARED) &
   !$OMP   FIRSTPRIVATE(Nca,fnorm,uvidxca,Vcmp,CA,Varca) &
-  !$OMP   PRIVATE(ica,model,resid,&
+  !$OMP   PRIVATE(i,model,resid,&
   !$OMP           uvidx1,uvidx2,uvidx3,uvidx4,&
   !$OMP           Vcmp1,Vcmp2,Vcmp3,Vcmp4,&
   !$OMP           Vamp1,Vamp2,Vamp3,Vamp4),&
   !$OMP   REDUCTION(+:chisq,Vresre,Vresim)
-  do ica=1, Nca
+  do i=1, Nca
     ! pick up uv index
-    uvidx1 = abs(uvidxca(1,ica))
-    uvidx2 = abs(uvidxca(2,ica))
-    uvidx3 = abs(uvidxca(3,ica))
-    uvidx4 = abs(uvidxca(4,ica))
+    uvidx1 = abs(uvidxca(1,i))
+    uvidx2 = abs(uvidxca(2,i))
+    uvidx3 = abs(uvidxca(3,i))
+    uvidx4 = abs(uvidxca(4,i))
 
     ! pick up full complex visibilities
     Vcmp1 = Vcmp(uvidx1)
@@ -345,13 +346,13 @@ subroutine chisq_ca(Vcmp,&
 
     ! calculate model log closure amplitude and residual
     model = log(Vamp1)+log(Vamp2)-log(Vamp3)-log(Vamp4)
-    resid = CA(ica) - model
+    resid = CA(i) - model
 
     ! compute chisquare
-    chisq = chisq + resid**2/Varca(ica)/fnorm
+    chisq = chisq + resid**2/Varca(i)/fnorm
 
     ! compute residual vectors
-    factor = -2*resid/Varca(ica)/fnorm
+    factor = -2*resid/Varca(i)/fnorm
     ! re
     Vresre(uvidx1) = Vresre(uvidx1) + factor / Vamp1**2 * dreal(Vcmp1)
     Vresre(uvidx2) = Vresre(uvidx2) + factor / Vamp2**2 * dreal(Vcmp2)
@@ -394,30 +395,30 @@ subroutine chisq_cp(Vcmp,&
   real(dp):: Vampsq1, Vampsq2, Vampsq3
   complex(dpc):: Vcmp1, Vcmp2, Vcmp3
   integer:: uvidx1, uvidx2, uvidx3
-  integer:: icp
+  integer:: i
   integer:: sign1, sign2, sign3
 
   !$OMP PARALLEL DO DEFAULT(SHARED) &
   !$OMP   FIRSTPRIVATE(Ncp,fnorm,uvidxcp,Vcmp,CP,Varcp) &
-  !$OMP   PRIVATE(icp,model,resid,&
+  !$OMP   PRIVATE(i,model,resid,&
   !$OMP           uvidx1,uvidx2,uvidx3,&
   !$OMP           Vcmp1,Vcmp2,Vcmp3,&
   !$OMP           Vampsq1,Vampsq2,Vampsq3,&
   !$OMP           sign1,sign2,sign3),&
   !$OMP   REDUCTION(+:chisq,Vresre,Vresim)
-  do icp=1, Ncp
+  do i=1, Ncp
     ! pick up uv index
-    uvidx1 = abs(uvidxcp(1,icp))
-    uvidx2 = abs(uvidxcp(2,icp))
-    uvidx3 = abs(uvidxcp(3,icp))
+    uvidx1 = abs(uvidxcp(1,i))
+    uvidx2 = abs(uvidxcp(2,i))
+    uvidx3 = abs(uvidxcp(3,i))
 
     ! pick up full complex visibilities
     Vcmp1 = Vcmp(uvidx1)
     Vcmp2 = Vcmp(uvidx2)
     Vcmp3 = Vcmp(uvidx3)
-    sign1 = sign(1,uvidxcp(1,icp))
-    sign2 = sign(1,uvidxcp(2,icp))
-    sign3 = sign(1,uvidxcp(3,icp))
+    sign1 = sign(1,uvidxcp(1,i))
+    sign2 = sign(1,uvidxcp(2,i))
+    sign3 = sign(1,uvidxcp(3,i))
     Vampsq1 = abs(Vcmp1)**2
     Vampsq2 = abs(Vcmp2)**2
     Vampsq3 = abs(Vcmp3)**2
@@ -426,14 +427,14 @@ subroutine chisq_cp(Vcmp,&
     model = atan2(dimag(Vcmp1),dreal(Vcmp1))*sign1
     model = atan2(dimag(Vcmp2),dreal(Vcmp2))*sign2 + model
     model = atan2(dimag(Vcmp3),dreal(Vcmp3))*sign3 + model
-    resid = CP(icp) - model
+    resid = CP(i) - model
     resid = atan2(sin(resid),cos(resid))
 
     ! compute chisquare
-    chisq = chisq + resid**2/Varcp(icp)/fnorm
+    chisq = chisq + resid**2/Varcp(i)/fnorm
 
     ! compute residual vectors
-    factor = -2*resid/Varcp(icp)/fnorm
+    factor = -2*resid/Varcp(i)/fnorm
 
     Vresre(uvidx1) = Vresre(uvidx1) - factor/Vampsq1*dimag(Vcmp1)*sign1
     Vresre(uvidx2) = Vresre(uvidx2) - factor/Vampsq2*dimag(Vcmp2)*sign2
@@ -444,5 +445,156 @@ subroutine chisq_cp(Vcmp,&
     Vresim(uvidx3) = Vresim(uvidx3) + factor/Vampsq3*dreal(Vcmp3)*sign3
   end do
   !$OMP END PARALLEL DO
+end subroutine
+!
+!
+!-------------------------------------------------------------------------------
+! Functions to compute chisquares and also residual vectors
+!-------------------------------------------------------------------------------
+subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
+                     u,v,&
+                     uvidxfcv,Vfcvr,Vfcvi,Varfcv,&
+                     chisq,gradchisq,modelr,modeli,residr,residi,&
+                     Npix,Nuv,Nfcv)
+  implicit none
+  ! Image
+  integer,  intent(in) :: Npix, Nx, Ny
+  real(dp), intent(in) :: Iin(Npix)
+  real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
+                                        ! 1 = the leftmost/lowermost pixel
+  integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
+
+  ! NuFFT-ed visibilities
+  integer,  intent(in) :: Nuv
+  real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
+  ! Data
+  integer,  intent(in):: Nfcv                     ! Number of data
+  integer,  intent(in):: uvidxfcv(Nfcv)           ! UV Index of FCV data
+  real(dp), intent(in):: Vfcvr(Nfcv),Vfcvi(Nfcv)  ! Full complex visibility (FCV) data
+  real(dp), intent(in):: Varfcv(Nfcv)             ! variances of FCV data
+  ! Outputs
+  real(dp), intent(out):: chisq                        ! chisquare
+  real(dp), intent(out):: modelr(Nfcv), modeli(Nfcv)  ! Model Vector
+  real(dp), intent(out):: residr(Nfcv), residi(Nfcv)  ! Residual Vector
+  real(dp), intent(out):: gradchisq(Npix)   !   its adjoint FT provides
+                                            !   the gradient of chisquare
+
+  ! allocatable arrays
+  real(dp), allocatable :: I2d(:,:),gradchisq2d(:,:)
+  real(dp), allocatable :: Vresre(:),Vresim(:)
+  complex(dpc), allocatable :: Vcmp(:)
+  complex(dpc), allocatable :: Vfcv(:),resid(:),model(:)
+
+  ! other factors
+  real(dp):: factor
+  integer:: uvidx
+
+  ! loop variables
+  integer :: i
+
+  ! initialize full complex visibilities
+  !   allocate arrays
+  allocate(Vfcv(Nfcv))
+  Vfcv = dcmplx(Vfcvr,Vfcvi)
+  !   shift tracking center of full complex visibilities from the reference
+  !   pixel to the center of the image
+  write(*,*) 'Shift Tracking Center of Full complex visibilities.'
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(u,v,Nxref,Nyref,Nx,Ny,Nfcv) &
+  !$OMP   PRIVATE(i)
+  do i=1,Nfcv
+    call phashift_r2c(u(abs(uvidxfcv(i))) * sign(1,uvidxfcv(i)),&
+                      v(abs(uvidxfcv(i))) * sign(1,uvidxfcv(i)),&
+                      Nxref,Nyref,Nx,Ny,&
+                      Vfcv(i),Vfcv(i))
+  end do
+  !$OMP END PARALLEL DO
+
+  ! Copy 1d image to 2d image
+  !   allocate array
+  allocate(I2d(Nx,Ny))
+  I2d(:,:)=0d0
+  !   copy image
+  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
+
+  ! Forward Non-unifrom Fast Fourier Transform
+  !   allocate array
+  allocate(Vcmp(Nuv))
+  Vcmp(:) = dcmplx(0d0,0d0)
+  !   Forward NUFFT
+  call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
+  deallocate(I2d)
+
+  ! Compute Chisquare
+  !  allocate array
+  allocate(model(Nfcv),resid(Nfcv))
+  resid(:) = dcmplx(0d0,0d0)
+  model(:) = dcmplx(0d0,0d0)
+  allocate(Vresre(Nuv),Vresim(Nuv))
+  Vresre(:) = 0d0
+  Vresim(:) = 0d0
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nfcv,uvidxfcv,Vcmp,Vfcv,Varfcv) &
+  !$OMP   PRIVATE(i,uvidx,factor),&
+  !$OMP   REDUCTION(+:chisq,Vresre,Vresim,resid,model)
+  do i=1, Nfcv
+    ! pick up uv index
+    uvidx = abs(uvidxfcv(i))
+
+    ! take residual
+    if (uvidxfcv(i) > 0) then
+      model(i) = Vcmp(uvidx)
+    else
+      model(i) = dconjg(Vcmp(uvidx))
+    end if
+    resid(i) = Vfcv(i) - model(i)
+
+    ! compute chisquare
+    chisq = chisq + abs(resid(i))**2/Varfcv(i)
+
+    ! compute residual vector
+    factor = -2/Varfcv(i)
+    Vresre(uvidx) = Vresre(uvidx) + factor*dreal(resid(i))
+    Vresim(uvidx) = Vresim(uvidx) + factor*dimag(resid(i))*sign(1,uvidxfcv(i))
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vfcv)
+  deallocate(Vcmp)
+
+  ! Adjoint Non-unifrom Fast Fourier Transform
+  !  this will provide gradient of chisquare functions
+  allocate(gradchisq2d(Nx,Ny))
+  gradchisq2d(:,:) = 0d0
+  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
+  deallocate(Vresre,Vresim)
+
+  ! copy the gradient of chisquare into that of cost functions
+  call I1d_I2d_inv(xidx,yidx,gradchisq,gradchisq2d,Npix,Nx,Ny)
+  deallocate(gradchisq2d)
+
+  !   shift tracking center of full complex visibilities from the reference
+  !   pixel to the center of the image
+  write(*,*) 'Shift Tracking Center of Model and Residual visibilities.'
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(u,v,Nxref,Nyref,Nx,Ny,Nfcv) &
+  !$OMP   PRIVATE(i)
+  do i=1,Nfcv
+    call phashift_c2r(u(abs(uvidxfcv(i))) * sign(1,uvidxfcv(i)),&
+                      v(abs(uvidxfcv(i))) * sign(1,uvidxfcv(i)),&
+                      Nxref,Nyref,Nx,Ny,&
+                      resid(i),resid(i))
+    call phashift_c2r(u(abs(uvidxfcv(i))) * sign(1,uvidxfcv(i)),&
+                      v(abs(uvidxfcv(i))) * sign(1,uvidxfcv(i)),&
+                      Nxref,Nyref,Nx,Ny,&
+                      model(i),model(i))
+  end do
+  !$OMP END PARALLEL DO
+
+  modelr = dreal(model)
+  modeli = dimag(model)
+  residr = dreal(resid)
+  residi = dimag(resid)
+
+  deallocate(resid,model)
 end subroutine
 end module
