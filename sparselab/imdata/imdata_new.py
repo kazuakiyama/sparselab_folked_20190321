@@ -1534,7 +1534,7 @@ class IMFITS(object):
             sgny = 1
 
         # calculate circle hough transform
-        H = fortlib.hough_lib.circle_hough(self.data[istokes, ifreq],
+        H = fortlib.houghlib.circle_hough(self.data[istokes, ifreq],
                                            sgnx * xgrid, sgny * ygrid,
                                            radius, np.int32(ntheta))
         isfort = np.isfortran(H)

@@ -453,9 +453,10 @@ subroutine calc_cost(&
   if (lambtv > 0 .or. lambtsv > 0) then
     call I1d_I2d_fwd(xidx,yidx,Iin_reg,I2d,Npix,Nx,Ny)
   end if
-  ! Single pixel based regularizations
+
+  ! Compute regularization term
   !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem, I2d) &
+  !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem, lambtv, lambtsv, I2d) &
   !$OMP   PRIVATE(ipix) &
   !$OMP   REDUCTION(+: reg, gradreg)
   do ipix=1, Npix
@@ -497,10 +498,6 @@ subroutine calc_cost(&
   ! add regularization function and its gradient to cost function and its gradient.
   cost = cost + reg
   call daxpy(Npix, 1d0, gradreg, 1, gradcost, 1) ! gradcost := gradreg + gradcos
-  !write(*,*) 'reg',reg
-  !write(*,*) 'gradreg',gradreg(1)
-  !write(*,*) 'cost',cost
-  !write(*,*) 'gradcost',gradcost(1)
 
   ! deallocate arrays
   deallocate(gradreg,Iin_reg)
