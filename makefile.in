@@ -2,6 +2,7 @@
 all:
 	cd src/lbfgsb; make install
 	cd src/slsqp; make install
+	cd src/finufft; make lib
 	cd src/fortlib; make install
 	cd src/mfista; make install
 
@@ -11,6 +12,7 @@ install: all
 clean:
 	cd src/lbfgsb; make clean
 	cd src/slsqp; make clean
+	cd src/finufft; make clean
 	cd src/fortlib; make clean
 	cd src/mfista; make clean
 	rm -f sparselab/*.pyf

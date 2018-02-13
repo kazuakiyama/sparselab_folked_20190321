@@ -13,7 +13,10 @@ AC_CONFIG_SRCDIR([src/mfista/blas.h])
 AC_PROG_CC
 
 # Fortran Compiler
-AC_PROG_FC([gfortran], [95])
+AC_PROG_FC
+
+# CPP Compiler
+AC_PROG_CXX
 
 # f2py in numpy
 AC_CHECK_PROGS([F2PY],
@@ -97,8 +100,9 @@ AC_SUBST([dbg_flag])
 #-------------------------------------------------------------------------------
 # Makefiles
 AC_CONFIG_FILES([makefile
-                 src/fortlib/makefile
                  src/lbfgsb/makefile
-                 src/mfista/makefile
-                 src/slsqp/makefile])
+                 src/slsqp/makefile
+                 src/finufft/makefile
+                 src/fortlib/makefile
+                 src/mfista/makefile])
 AC_OUTPUT

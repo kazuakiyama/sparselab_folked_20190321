@@ -17,23 +17,47 @@
 # 4) If you want 32 bit integers in the FINUFFT library interface instead of
 #    int64, add flag -DINTERFACE32 (experimental; C,F,M,O interfaces will break)
 
+# Check OS
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+  OSTYPE="LINUX"
+else
+  ifeq ($(UNAME_S),Darwin)
+    OSTYPE="OSX"
+	else
+	  OSTYPE="OSX"
+	endif
+endif
+
+# Optimization Flag
+ifeq ($(OSTYPE),"LINUX")
+  OPTFLAGS=-Ofast -funroll-loops -march=native
+else
+  OPTFLAGS=-O2 -funroll-loops -march=core2
+endif
+
 # compilers...
-CXX=g++
-CC=gcc
-FC=gfortran
+CXX=@CXX@
+CC=@CC@
+FC=@FC@
 # for non-C++ compilers to be able to link to library...
 CLINK=-lstdc++
 FLINK=-lstdc++
 
 # basic compile flags for single-threaded, double precision...
-CXXFLAGS = -fPIC -Ofast -funroll-loops -march=native -DNEED_EXTERN_C
-CFLAGS = -fPIC -Ofast -funroll-loops -march=native
-FFLAGS = -fPIC -O3 -funroll-loops -march=native
+CXXFLAGS = -fPIC $(OPTFLAGS) -DNEED_EXTERN_C @LDFLAGS@
+CFLAGS = -fPIC $(OPTFLAGS) @LDFLAGS@
+FFLAGS = -fPIC $(OPTFLAGS) @LDFLAGS@
+
 # Now MFLAGS are for MATLAB MEX compilation, OFLAGS for octave mkoctfile:
-MFLAGS = -largeArrayDims -lrt
-# Mac users instead should use something like this:
-#MFLAGS = -largeArrayDims -L/usr/local/gfortran/lib -lgfortran -lm
+ifeq ($(OSTYPE),"LINUX")
+  MFLAGS = -largeArrayDims -lrt
+else
+  # Mac users instead should use something like this:
+  MFLAGS = -largeArrayDims -lgfortran -lm
+endif
 OFLAGS = -lrt
+
 # location of MATLAB's mex compiler...
 MEX=mex
 # Mac users instead should use something like this:
@@ -114,8 +138,9 @@ usage:
 	$(FC) -c $(FFLAGS) $< -o $@
 
 # build the library...
-lib: lib-static/libfinufft.a lib/libfinufft.so
-	echo "lib-static/libfinufft.a and lib/libfinufft.so built"
+lib: lib-static/libfinufft.a
+	#echo "lib-static/libfinufft.a and lib/libfinufft.so built"
+	echo "lib-static/libfinufft.a"
 lib-static/libfinufft.a: $(OBJS) $(HEADERS)
 	ar rcs lib-static/libfinufft.a $(OBJS)
 lib/libfinufft.so: $(OBJS) $(HEADERS)
