@@ -33,7 +33,7 @@ endif
 ifeq ($(OSTYPE),"LINUX")
   OPTFLAGS=-Ofast -funroll-loops -march=native
 else
-  OPTFLAGS=-O2 -funroll-loops -march=core2
+  OPTFLAGS=-Ofast -funroll-loops -march=core2
 endif
 
 # compilers...

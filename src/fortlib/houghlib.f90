@@ -1,4 +1,4 @@
-module hough_lib
+module houghlib
   !$use omp_lib
   use param, only: dp, pi
   use interp, only: splie2, splin2grid

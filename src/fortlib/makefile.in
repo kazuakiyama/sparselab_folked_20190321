@@ -1,67 +1,126 @@
 .SUFFIXES: .f90 .o
 #-------------------------------------------------------------------------------
+# Check OS
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+  OSTYPE="LINUX"
+else
+  ifeq ($(UNAME_S),Darwin)
+    OSTYPE="OSX"
+	else
+	  OSTYPE="OSX"
+	endif
+endif
+#-------------------------------------------------------------------------------
 # Fortran Compiler
 FC=@FC@
-FCFLAGS_OPT=-O2
+
+# Optimization Flag
+ifeq ($(OSTYPE),"LINUX")
+  FCFLAGS_OPT=-Ofast -march=native
+else
+  FCFLAGS_OPT=-Ofast -march=core2
+endif
 
 # command options for Debugging
 DBG_FLAG=@dbg_flag@
+FCFLAGS_DBG=
 ifeq ($(DBG_FLAG),True)
-	FCFLAGS_DBG=-g -Wall -pedantic -fbounds-check -O -Wuninitialized -ffpe-trap=invalid,zero,overflow -fbacktrace
-else
-	FCFLAGS_DBG=
+	FCFLAGS_DBG+=-g
+	FCFLAGS_DBG+=-Wall
+	FCFLAGS_DBG+=-pedantic
+	FCFLAGS_DBG+=-fbounds-check
+	FCFLAGS_DBG+=-O
+	FCFLAGS_DBG+=-Wuninitialized
+	FCFLAGS_DBG+=-ffpe-trap=invalid,zero,overflow
+	FCFLAGS_DBG+=-fbacktrace
 endif
 
-FCFLAGS_OMP=-lgomp
+# other ocmmand options
+FCFLAGS_OMP=-fopenmp
 FCFLAGS_BLAS=@blaslib@
 FCFLAGS_FINUFFT=../finufft/lib-static/libfinufft.a -lstdc++ @fftw3lib@ @fftw3thlib@
 FCFLAGS_LBFGSB=-L../lbfgsb -llbfgsb
 
-#    set command options
-FCFLAGS=-fPIC $(FCFLAGS_OMP) $(FCFLAGS_DBG) @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS)
+# set command options
+FCFLAGS=-fPIC
+FCFLAGS+=$(FCFLAGS_OPT)
+FCFLAGS+=$(FCFLAGS_DBG)
+#FCFLAGS+=@LDFLAGS@
+#FCFLAGS+=$(FCFLAGS_FINUFFT)
+#FCFLAGS+=$(FCFLAGS_LBFGSB)
+#FCFLAGS+=$(FCFLAGS_BLAS)
+FCFLAGS+=$(FCFLAGS_OMP)
 
 #-------------------------------------------
 # F2PY
 F2PY=@F2PY@
-F2PYFLAGS_FC=gfortran
+F2PYFLAGS_FC=@FC@
+
+ifeq ($(OSTYPE),"LINUX")
+  F2PYFLAGS_OPT=-Ofast
+else
+  F2PYFLAGS_OPT=-Ofast
+endif
+ifeq ($(OSTYPE),"LINUX")
+  F2PYFLAGS_ARCH=-march=native
+else
+  F2PYFLAGS_ARCH=-march=core2
+endif
 
 #    other command options
-F2PYFLAGS_OPT=$(FCFLAGS_OPT)
-F2PYFLAGS_F90=-fPIC $(FCFLAGS_DBG) @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
-F2PYFLAGS_F77=-fPIC $(FCFLAGS_DBG) @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
+#F2PYFLAGS_F90=-fPIC $(FCFLAGS_DBG) @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
+#F2PYFLAGS_F77=-fPIC $(FCFLAGS_DBG) @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
 
 # command options for Open MP
 F2PYFLAGS_OMP=-lgomp
 
 #    BIDING ABOVE OPTIONS
-F2PYFLAGS=--fcompiler=$(F2PYFLAGS_FC) \
-		  --opt="$(F2PYFLAGS_OPT)" \
-		  --f90flags="$(F2PYFLAGS_F90)" \
-		  --f77flags="$(F2PYFLAGS_F77)" \
-		  @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(F2PYFLAGS_OMP)
+F2PYFLAGS=--fcompiler="$(F2PYFLAGS_FC)"
+F2PYFLAGS+=--opt="$(F2PYFLAGS_OPT)"
+F2PYFLAGS+=--arch="$(F2PYFLAGS_ARCH)"
+F2PYFLAGS+=@LDFLAGS@
+F2PYFLAGS+=$(FCFLAGS_FINUFFT)
+F2PYFLAGS+=$(FCFLAGS_LBFGSB)
+F2PYFLAGS+=$(FCFLAGS_BLAS)
+F2PYFLAGS+=$(F2PYFLAGS_OMP)
+
+F2PYFLAGS2=--fcompiler="$(F2PYFLAGS_FC)"
+F2PYFLAGS2+=--opt="$(F2PYFLAGS_OPT)"
+F2PYFLAGS2+=--arch="$(F2PYFLAGS_ARCH)"
+F2PYFLAGS2+=@LDFLAGS@
+F2PYFLAGS2+=-lfortlib
+F2PYFLAGS2+=$(FCFLAGS_FINUFFT)
+F2PYFLAGS2+=$(FCFLAGS_LBFGSB)
+F2PYFLAGS2+=$(FCFLAGS_BLAS)
+F2PYFLAGS2+=$(F2PYFLAGS_OMP)
 
 #-------------------------------------------------------------------------------
 # Main description
 #-------------------------------------------------------------------------------
+SRCS=param.f90
+SRCS+=interp.f90 phasecon.f90 houghlib.f90
+SRCS+=image.f90 fftlib.f90 fftim2d.f90
+SRCS+=dftlib.f90 dftim2d.f90
+SRCS+=coord.f90 uvdata.f90
+
+OBJS=param.o
+OBJS+=interp.o phasecon.o houghlib.o
+OBJS+=image.o fftlib.o fftim2d.o
+OBJS+=dftlib.o dftim2d.o
+OBJS+=coord.o uvdata.o
+
 all: fortlib.so
 
-# Python Fortlib Module
-fortlib.so: \
-	param.f90 interp.f90 \
-	phasecon.f90 houghlib.f90 \
-	image.f90 \
-	dftlib.f90 dftim2d.f90 \
-	fftlib.f90 fftim2d.f90 \
-	coord.f90 uvdata.f90
+.f90.o: $(SRCS)
+	$(FC) -Wall -c $< $(FCFLAGS)
 
-	$(F2PY) $(F2PYFLAGS) -m fortlib -c \
-		param.f90 interp.f90 \
-		phasecon.f90 houghlib.f90 \
-		image.f90 \
-		dftlib.f90 dftim2d.f90 \
-		fftlib.f90 fftim2d.f90 \
-		coord.f90 uvdata.f90 \
-		$(FCFLAGS_FINUFFT)
+libfortlib.a: $(OBJS)
+	ar rsc libfortlib.a $(OBJS)
+
+# Python Fortlib Module
+fortlib.so: $(SRCS)
+	$(F2PY) -m fortlib -c $(SRCS) $(F2PYFLAGS)
 
 install: all
 	cp -rp fortlib.*so* ../../sparselab
@@ -72,6 +131,7 @@ clean:
 	rm -f *.mod
 	rm -f *.o
 	rm -f *.pyf
+	rm -f *.a
 
 uninstall: clean
 	rm -f makefile

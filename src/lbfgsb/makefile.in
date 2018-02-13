@@ -9,7 +9,7 @@ else
     OSTYPE="OSX"
 	else
 	  OSTYPE="OSX"
-	endif  
+	endif
 endif
 #-------------------------------------------------------------------------------
 # Fortran Compiler
@@ -19,7 +19,7 @@ FC=@FC@
 ifeq ($(OSTYPE),"LINUX")
   FCFLAGS_OPT=-Ofast -march=native
 else
-  FCFLAGS_OPT=-O2 -march=core2
+  FCFLAGS_OPT=-Ofast -march=core2
 endif
 
 # command options for Debugging
