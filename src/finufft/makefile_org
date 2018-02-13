@@ -37,17 +37,17 @@ else
 endif
 
 # compilers...
-CXX=@CXX@
-CC=@CC@
-FC=@FC@
+CXX=g++
+CC=gcc
+FC=gfortran
 # for non-C++ compilers to be able to link to library...
 CLINK=-lstdc++
 FLINK=-lstdc++
 
 # basic compile flags for single-threaded, double precision...
-CXXFLAGS = -fPIC $(OPTFLAGS) -DNEED_EXTERN_C @LDFLAGS@
-CFLAGS = -fPIC $(OPTFLAGS) @LDFLAGS@
-FFLAGS = -fPIC $(OPTFLAGS) @LDFLAGS@
+CXXFLAGS = -fPIC $(OPTFLAGS) -DNEED_EXTERN_C -L/opt/local/lib
+CFLAGS = -fPIC $(OPTFLAGS) -L/opt/local/lib
+FFLAGS = -fPIC $(OPTFLAGS) -L/opt/local/lib
 
 # Now MFLAGS are for MATLAB MEX compilation, OFLAGS for octave mkoctfile:
 ifeq ($(OSTYPE),"LINUX")
@@ -78,7 +78,7 @@ REQ_TOL = 1e-12
 CHECK_TOL = 1e-11
 endif
 FFTW = fftw3$(SUFFIX)
-LIBSFFT = @fftw3lib@ -lm
+LIBSFFT = -l$(FFTW) -lm
 
 # multi-threaded libs & flags needed...
 ifneq ($(OMP),OFF)
@@ -87,7 +87,7 @@ CFLAGS += -fopenmp
 FFLAGS += -fopenmp
 MFLAGS += -lgomp -D_OPENMP
 OFLAGS += -lgomp
-LIBSFFT += @fftw3thlib@
+LIBSFFT += -l$(FFTW)_threads
 endif
 
 # ======================================================================

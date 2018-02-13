@@ -25,3 +25,4 @@ dist
 sparselab.egg-info
 setup_files.log
 *.o2
+conf*.file

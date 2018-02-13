@@ -14,7 +14,7 @@ endif
 
 FCFLAGS_OMP=-lgomp
 FCFLAGS_BLAS=@blaslib@
-FCFLAGS_FINUFFT=../finufft/lib-static/libfinufft.a -lstdc++ -lfftw3 -lfftw3_omp
+FCFLAGS_FINUFFT=../finufft/lib-static/libfinufft.a -lstdc++ @fftw3lib@ @fftw3thlib@
 FCFLAGS_LBFGSB=-L../lbfgsb -llbfgsb
 
 #    set command options
@@ -38,7 +38,7 @@ F2PYFLAGS=--fcompiler=$(F2PYFLAGS_FC) \
 		  --opt="$(F2PYFLAGS_OPT)" \
 		  --f90flags="$(F2PYFLAGS_F90)" \
 		  --f77flags="$(F2PYFLAGS_F77)" \
-		  $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(F2PYFLAGS_OMP)
+		  @LDFLAGS@ $(FCFLAGS_LBFGSB) $(FCFLAGS_BLAS) $(F2PYFLAGS_OMP)
 
 #-------------------------------------------------------------------------------
 # Main description

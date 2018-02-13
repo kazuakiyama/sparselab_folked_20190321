@@ -60,6 +60,16 @@ AC_CHECK_LIB(fftw3, fftw_malloc,
 )
 AC_SUBST([fftw3lib])
 
+AC_CHECK_LIB(fftw3_omp, fftw_init_threads,
+  [fftw3thlib="-lfftw3_omp"],
+  [AC_CHECK_LIB(fftw3_threads, fftw_init_threads,
+    [fftw3thlib="-lfftw3_threads"],
+    [AC_MSG_ERROR([fftw3_threads nor fftw3_omp was not found.])]
+  )]
+)
+
+AC_SUBST([fftw3thlib])
+
 AC_LANG_POP(C)
 
 
