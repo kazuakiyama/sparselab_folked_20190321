@@ -34,7 +34,7 @@ subroutine imaging( &
   isamp, uvidxamp, Vamp, Varamp, &
   iscp, uvidxcp, CP, Varcp, &
   isca, uvidxca, CA, Varca, &
-  m, factr, pgdeps, &
+  m, factr, pgtol, &
   Iout, &
   Npix, Nuv, Nfcv, Namp, Ncp, Nca &
 )
@@ -89,7 +89,7 @@ subroutine imaging( &
 
   ! Paramters related to the L-BFGS-B
   integer,  intent(in) :: m
-  real(dp), intent(in) :: factr, pgdeps
+  real(dp), intent(in) :: factr, pgtol
   !
   ! Output Image
   real(dp), intent(out) :: Iout(1:Npix)
@@ -179,7 +179,7 @@ subroutine imaging( &
           .or. task == 'START')
     ! This is the call to the L-BFGS-B code.
     call setulb ( Npix, m, Iout, lower, upper, nbd, cost, gradcost, &
-                  factr, pgdeps, wa, iwa, task, iprint,&
+                  factr, pgtol, wa, iwa, task, iprint,&
                   csave, lsave, isave, dsave )
 
     if (task(1:2) == 'FG') then
