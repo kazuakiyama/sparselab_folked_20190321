@@ -220,6 +220,19 @@ subroutine imaging(&
         task='STOP: TOTAL ITERATION NUMBER EXCEEDS LIMIT'
       else if (mod(isave(30),100) == 0) then
         print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
+        !print '("Iteration :",I5,"/",I5)',isave(30),Niter
+        !print '("  Cost Function         ",D13.6)',cost
+        !print '("  Chi-Square Total      ",D13.6)',chisq
+        !print '("    Complex Visibilities",D13.6)',chisq_fcv
+        !print '("    Amplitudes          ",D13.6)',chisq_amp
+        !print '("    Closure Phase       ",D13.6)',chisq_cp
+        !print '("    Closure Amplitudes  ",D13.6)',chisq_ca
+        !print '("  Reguarization Function",D13.6)',reg
+        !print '("    Center of Mass:     ",D13.6)',reg_com
+        !print '("    l1-norm             ",D13.6)',reg_l1
+        !print '("    tv                  ",D13.6)',reg_tv
+        !print '("    tsv                 ",D13.6)',reg_tsv
+        !print '("    mem                 ",D13.6)',reg_mem
       end if
 
       ! If we have a flag to STOP the L-BFGS-B algorithm, print it out.
@@ -341,68 +354,55 @@ subroutine calc_cost(&
   ! Initialize
   !   scalars
   chisq = 0d0
-  !
-  !   allocatable arrays
-  allocate(I2d(Nx,Ny),gradchisq2d(Nx,Ny))
-  allocate(Vresre(Nuv),Vresim(Nuv),Vcmp(Nuv))
-  I2d(:,:)=0d0
-  gradchisq2d(:,:) = 0d0
-  Vresre(:) = 0d0
-  Vresim(:) = 0d0
-  Vcmp(:) = dcmplx(0d0,0d0)
 
   ! Copy 1d image to 2d image
-  !write(*,*) "I1d --> I2d"
+  allocate(I2d(Nx,Ny))
+  I2d(:,:)=0d0
   call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
 
   ! Forward Non-unifrom Fast Fourier Transform
-  !write(*,*) "NUFFT_fwd"
+  allocate(Vcmp(Nuv))
+  Vcmp(:) = dcmplx(0d0,0d0)
   call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
-  !write(*,*) "  Vcmp:",Vcmp(1:5)
+  deallocate(I2d)
+
+  ! allocate residual vectors
+  allocate(Vresre(Nuv),Vresim(Nuv))
+  Vresre(:) = 0d0
+  Vresim(:) = 0d0
 
   ! Full complex visibility
-  !write(*,*) "chisq_fcv"
   if (isfcv .eqv. .True.) then
     call chisq_fcv(Vcmp,uvidxfcv,Vfcv,Varfcv,fnorm,chisq,Vresre,Vresim,Nuv,Nfcv)
   end if
-  !write(*,*) "  chisq:",chisq
 
   ! Amplitudes
-  !write(*,*) "chisq_amp"
   if (isamp .eqv. .True.) then
     call chisq_amp(Vcmp,uvidxamp,Vamp,Varamp,fnorm,chisq,Vresre,Vresim,Nuv,Namp)
   end if
-  !write(*,*) "  chisq:",chisq
 
   ! Log closure amplitudes
-  !write(*,*) "chisq_ca"
   if (isca .eqv. .True.) then
     call chisq_ca(Vcmp,uvidxca,CA,Varca,fnorm,chisq,Vresre,Vresim,Nuv,Nca)
   end if
-  !write(*,*) "  chisq:",chisq
 
   ! Closure phases
-  !write(*,*) "chisq_cp"
   if (iscp .eqv. .True.) then
     call chisq_cp(Vcmp,uvidxcp,CP,Varcp,fnorm,chisq,Vresre,Vresim,Nuv,Ncp)
   end if
-  !write(*,*) "  chisq:",chisq
+  deallocate(Vcmp)
 
   ! Adjoint Non-unifrom Fast Fourier Transform
   !  this will provide gradient of chisquare functions
+  allocate(gradchisq2d(Nx,Ny))
+  gradchisq2d(:,:) = 0d0
   call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
-  !write(*,*) 'gradchisq2d',gradchisq2d(1,1)
-
+  deallocate(Vresre,Vresim)
 
   ! copy the gradient of chisquare into that of cost functions
   cost = chisq
   call I1d_I2d_inv(xidx,yidx,gradcost,gradchisq2d,Npix,Nx,Ny)
-  !write(*,*) 'cost',cost
-  !write(*,*) 'gradcost',gradcost(1)
-
-  ! deallocate array
-  deallocate(I2d,gradchisq2d)
-  deallocate(Vresre,Vresim,Vcmp)
+  deallocate(gradchisq2d)
 
   !------------------------------------
   ! Centoroid Regularizer
@@ -456,7 +456,8 @@ subroutine calc_cost(&
 
   ! Compute regularization term
   !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem, lambtv, lambtsv, I2d) &
+  !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem, lambtv, lambtsv,&
+  !$OMP                I2d, xidx, yidx) &
   !$OMP   PRIVATE(ipix) &
   !$OMP   REDUCTION(+: reg, gradreg)
   do ipix=1, Npix

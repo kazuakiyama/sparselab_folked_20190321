@@ -17,9 +17,9 @@ FC=@FC@
 
 # Optimization Flag
 ifeq ($(OSTYPE),"LINUX")
-  FCFLAGS_OPT=-Ofast -march=native
+  FCFLAGS_OPT=-O3 -march=native
 else
-  FCFLAGS_OPT=-Ofast -march=core2
+  FCFLAGS_OPT=-O3 -march=core2
 endif
 
 # command options for Debugging
@@ -58,9 +58,9 @@ F2PY=@F2PY@
 F2PYFLAGS_FC=@FC@
 
 ifeq ($(OSTYPE),"LINUX")
-  F2PYFLAGS_OPT=-Ofast
+  F2PYFLAGS_OPT=-O3
 else
-  F2PYFLAGS_OPT=-Ofast
+  F2PYFLAGS_OPT=-O3
 endif
 ifeq ($(OSTYPE),"LINUX")
   F2PYFLAGS_ARCH=-march=native
