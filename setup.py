@@ -25,5 +25,5 @@ setup(
     package_data={'sparselab': ['*.so']},
     install_requires = [
         "future","numpy","scipy","matplotlib","pandas","xarray",
-        "scikit-image","astropy","tqdm","sympy","theano","pymc3"]
+        "scikit-image","astropy","tqdm","sympy","theano","pymc3>=3.3"]
 )
