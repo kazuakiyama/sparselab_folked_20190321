@@ -210,7 +210,11 @@ real(dp) function l1_e(I)
   implicit none
   real(dp),intent(in) :: I
   !
-  l1_e = abs(I)
+  !l1_e = abs(I+e)
+  !
+  ! Smooth L1 (where alpha = 1/zeroeps)
+  !l1_e = zeroeps * (log(1+exp(-I/zeroeps)) + log(1+exp(I/zeroeps)))
+  l1_e = sqrt(I**2+zeroeps)
 end function
 !
 ! gradient of l1-norm
@@ -220,11 +224,15 @@ real(dp) function l1_grade(I)
   !
   real(dp),intent(in) :: I
   !
-  if (abs(I) > zeroeps) then
-    l1_grade = sign(1d0,I)
-  else
-    l1_grade = 0
-  end if
+  !if (abs(I) > zeroeps) then
+  !  l1_grade = sign(1d0,I)
+  !else
+  !  l1_grade = 0
+  !end if
+  !
+  ! Smooth L1 (where alpha = 1/zeroeps)
+  !l1_grade = 1/(1+exp(-I/zeroeps)) - 1/(1+exp(I/zeroeps))
+  l1_grade = I/l1_e(I)
 end function
 !
 ! MEM
@@ -233,11 +241,17 @@ real(dp) function mem_e(I)
   implicit none
   !
   real(dp),intent(in) :: I
-  if (abs(I) > zeroeps) then
-    mem_e = abs(I)*log(abs(I))
-  else
-    mem_e = 0d0
-  end if
+  real(dp) :: absI
+  !
+  !if (abs(I) > zeroeps) then
+  !  mem_e = abs(I)*log(abs(I))
+  !else
+  !  mem_e = 0d0
+  !end if
+  !
+  ! differentiable MEM
+  absI = l1_e(I)
+  mem_e = absI * log(absI)
 end function
 !
 ! gradient of MEM
@@ -246,11 +260,18 @@ real(dp) function mem_grade(I)
   implicit none
   !
   real(dp),intent(in) :: I
-  if (abs(I) > zeroeps) then
-    mem_grade = (log(abs(I))+1) * sign(1d0,I)
-  else
-    mem_grade = 0d0
-  end if
+  real(dp) :: absI, gradabsI
+
+  !if (abs(I) > zeroeps) then
+  !  mem_grade = (log(abs(I))+1) * sign(1d0,I)
+  !else
+  !  mem_grade = 0d0
+  !end if
+  !
+  ! differentiable MEM
+  absI = l1_e(I)
+  gradabsI = l1_grade(I)
+  mem_grade = gradabsI * (1+log(absI))
 end function
 !
 ! Isotropic Total Variation
@@ -283,7 +304,11 @@ real(dp) function tv_e(xidx,yidx,I2d,Nx,Ny)
     dIy = I2d(i1,j2) - I2d(i1,j1)
   end if
   !
-  tv_e = sqrt(dIx*dIx+dIy*dIy)
+  ! Literal TV
+  !tv_e = sqrt(dIx*dIx+dIy*dIy)
+  !
+  ! smooth TV
+  tv_e = sqrt(dIx*dIx+dIy*dIy+zeroeps)
 end function
 !
 ! Gradient of Isotropic Total Variation
@@ -327,10 +352,14 @@ real(dp) function tv_grade(xidx,yidx,I2d,Nx,Ny)
     dIy = I2d(i1,j2) - I2d(i1,j1)
   end if
   !
-  tv_e = sqrt(dIx*dIx+dIy*dIy)
-  if (tv_e > zeroeps) then
-    tv_grade = tv_grade - (dIx + dIy)/tv_e
-  end if
+  !tv_e = sqrt(dIx*dIx+dIy*dIy)
+  !if (tv_e > zeroeps) then
+  !  tv_grade = tv_grade - (dIx + dIy)/tv_e
+  !end if
+  !
+  ! Smooth TV
+  tv_e = sqrt(dIx*dIx+dIy*dIy+zeroeps)
+  tv_grade = tv_grade - (dIx + dIy)/tv_e
   !
   !-------------------------------------
   ! (i1,j1)-(i0,j1), (i0,j2)-(i0,j1)
@@ -346,10 +375,14 @@ real(dp) function tv_grade(xidx,yidx,I2d,Nx,Ny)
       dIy = I2d(i0,j2) - I2d(i0,j1)
     end if
 
-    tv_e = sqrt(dIx*dIx+dIy*dIy)
-    if (tv_e > zeroeps) then
-      tv_grade = tv_grade + dIx/tv_e
-    end if
+    !tv_e = sqrt(dIx*dIx+dIy*dIy)
+    !if (tv_e > zeroeps) then
+    !  tv_grade = tv_grade + dIx/tv_e
+    !end if
+    !
+    ! Smooth TV
+    tv_e = sqrt(dIx*dIx+dIy*dIy+zeroeps)
+    tv_grade = tv_grade + dIx/tv_e
   end if
   !
   !-------------------------------------
@@ -366,10 +399,14 @@ real(dp) function tv_grade(xidx,yidx,I2d,Nx,Ny)
       dIx = I2d(i2,j0) - I2d(i1,j0)
     end if
 
-    tv_e = sqrt(dIx*dIx+dIy*dIy)
-    if (tv_e > zeroeps) then
-      tv_grade = tv_grade + dIy/tv_e
-    end if
+    !tv_e = sqrt(dIx*dIx+dIy*dIy)
+    !if (tv_e > zeroeps) then
+    !  tv_grade = tv_grade + dIy/tv_e
+    !end if
+    !
+    ! Smooth TV
+    tv_e = sqrt(dIx*dIx+dIy*dIy+zeroeps)
+    tv_grade = tv_grade + dIx/tv_e
   end if
   !
 end function
@@ -470,6 +507,7 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
   real(dp) :: dix, diy, Ip
   real(dp) :: sumx, sumy, sumI
   real(dp) :: gradsumx, gradsumy, gradsumI
+  real(dp) :: reg
   !
   integer :: ipix
 
@@ -487,12 +525,12 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
     diy = yidx(ipix) - Nyref
 
     ! take a alpha
-    if (abs(I1d(ipix)) > zeroeps) then
-      Ip = abs(I1d(ipix))**alpha
+    if (abs(alpha-1)<zeroeps) then
+      Ip = l1_e(I1d(ipix))
     else
-      Ip = 0
+      Ip = l1_e(I1d(ipix))**alpha
     end if
-
+    
     ! calculate sum
     sumx = sumx + Ip * dix
     sumy = sumy + Ip * diy
@@ -500,39 +538,41 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
   end do
   !$OMP END PARALLEL DO
 
-  if (abs(sumI) > zeroeps) then
-    ! calculate cost function
-    cost = cost + sqrt(sumx*sumx+sumy*sumy)/sumI
+  ! Smooth Version
+  !
+  ! calculate cost function
+  !   need zeroeps for smoothing sqrt,
+  reg = sqrt((sumx/(sumI))**2+(sumy/(sumI))**2+zeroeps)
+  cost = cost + reg
 
-    ! calculate gradient of cost function
-    !$OMP PARALLEL DO DEFAULT(SHARED) &
-    !$OMP   FIRSTPRIVATE(xidx,yidx,Nxref,Nyref,alpha,I1d,Npix,sumx,sumy,sumI,cost) &
-    !$OMP   PRIVATE(ipix,dix,diy,gradsumI,gradsumx,gradsumy) &
-    !$OMP   REDUCTION(+:gradcost)
-    do ipix=1, Npix
-      ! pixel from the reference pixel
-      dix = xidx(ipix) - Nxref
-      diy = yidx(ipix) - Nyref
+  ! calculate gradient of cost function
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(xidx,yidx,Nxref,Nyref,alpha,I1d,Npix,sumx,sumy,sumI,reg) &
+  !$OMP   PRIVATE(ipix,dix,diy,gradsumI,gradsumx,gradsumy) &
+  !$OMP   REDUCTION(+:gradcost)
+  do ipix=1, Npix
+    ! pixel from the reference pixel
+    dix = xidx(ipix) - Nxref
+    diy = yidx(ipix) - Nyref
 
-      ! gradient of sums
-      if (abs(I1d(ipix)) > zeroeps) then
-        if (abs(alpha) - 1 < zeroeps) then
-          gradsumI = sign(1d0,I1d(ipix))
-        else
-          gradsumI = alpha*abs(I1d(ipix))**(alpha-1)*sign(1d0,I1d(ipix))
-        end if
-      else
-        gradsumI = 0
-      end if
-      gradsumx = gradsumI*dix
-      gradsumy = gradsumI*diy
+    ! gradient of sum
+    if (abs(alpha-1)<zeroeps) then
+      gradsumI = l1_grade(I1d(ipix))
+    else
+      gradsumI = alpha*l1_grade(I1d(ipix))**(alpha-1)
+    end if
 
-      ! calculate gradint of cost function
-      gradcost(ipix) = gradcost(ipix) + cost*gradsumI/sumI
-      gradcost(ipix) = gradcost(ipix) + (sumx*gradsumx+sumy*gradsumy)/(cost*sumI**3)
-    end do
-    !$OMP END PARALLEL DO
-  end if
+    gradsumx = gradsumI*dix
+    gradsumy = gradsumI*diy
+
+    ! gradient of sumx/sumI or sumy/sumI
+    gradsumx = (sumI*gradsumx - gradsumI*sumx)/sumI**2
+    gradsumy = (sumI*gradsumy - gradsumI*sumy)/sumI**2
+
+    ! calculate gradint of cost function
+    gradcost(ipix) = gradcost(ipix) + (sumx/sumI*gradsumx+sumy/sumI*gradsumy)/reg
+  end do
+  !$OMP END PARALLEL DO
 end subroutine
 !
 !

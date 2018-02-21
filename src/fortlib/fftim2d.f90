@@ -110,7 +110,7 @@ subroutine imaging(&
   real(dp) :: fnorm ! normalization factor for chisquares
 
   ! variables and parameters tuning L-BFGS-B
-  integer,  parameter   :: iprint = -1
+  integer,  parameter   :: iprint = 2
   character(len=60)     :: task, csave
   logical               :: lsave(4)
   integer               :: isave(44)
@@ -198,7 +198,7 @@ subroutine imaging(&
 
     if (task(1:2) == 'FG') then
       ! thresholding
-      where(abs(Iout)<zeroeps) Iout=0d0
+      !where(abs(Iout)<zeroeps) Iout=0d0
 
       ! Calculate cost function and gradcostent of cost function
       call calc_cost(&
@@ -246,7 +246,7 @@ subroutine imaging(&
   ! deallocate arrays
   deallocate(Vfcv)
   deallocate(iwa,wa,lower,upper,nbd)
-  where(abs(Iout)<zeroeps) Iout=0d0
+  !where(abs(Iout)<zeroeps) Iout=0d0
 end subroutine
 !
 !-------------------------------------------------------------------------------
