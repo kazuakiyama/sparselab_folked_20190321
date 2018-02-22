@@ -110,7 +110,7 @@ subroutine imaging(&
   real(dp) :: fnorm ! normalization factor for chisquares
 
   ! variables and parameters tuning L-BFGS-B
-  integer,  parameter   :: iprint = 2
+  integer,  parameter   :: iprint = -1
   character(len=60)     :: task, csave
   logical               :: lsave(4)
   integer               :: isave(44)
@@ -234,14 +234,10 @@ subroutine imaging(&
         !print '("    tsv                 ",D13.6)',reg_tsv
         !print '("    mem                 ",D13.6)',reg_mem
       end if
-
-      ! If we have a flag to STOP the L-BFGS-B algorithm, print it out.
-      if (task(1:4) .eq. 'STOP') then
-        print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
-        write (6,*) task
-      end if
     end if
   end do
+  print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
+  write (6,*) task
 
   ! deallocate arrays
   deallocate(Vfcv)
