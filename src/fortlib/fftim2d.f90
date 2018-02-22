@@ -432,6 +432,7 @@ subroutine calc_cost(&
   Iin_reg(:) = 0d0
   if (lambtv > 0 .or. lambtsv > 0) then
     allocate(I2d(Nx,Ny))
+    I2d(:,:)=0d0
   end if
 
   ! Transform Image

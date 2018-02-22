@@ -532,6 +532,7 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
   !
   ! calculate cost function
   !   need zeroeps for smoothing sqrt,
+  sumI = sumI + zeroeps
   reg = sqrt((sumx/(sumI))**2+(sumy/(sumI))**2+zeroeps)
   cost = cost + reg
 
@@ -549,7 +550,7 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
     if (abs(alpha-1)<zeroeps) then
       gradsumI = l1_grade(I1d(ipix))
     else
-      gradsumI = alpha*l1_grade(I1d(ipix))**(alpha-1)
+      gradsumI = alpha*l1_e(I1d(ipix))**(alpha-1)*l1_grade(I1d(ipix))
     end if
 
     gradsumx = gradsumI*dix
