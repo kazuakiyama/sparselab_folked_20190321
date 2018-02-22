@@ -71,9 +71,10 @@ clean:
 
 install: all
 	mkdir -p $(PYTHONLIBDIR)
-	cp -p libmfista_dft.so $(PYTHONLIBDIR)
-	cp -p libmfista_fft.so $(PYTHONLIBDIR)
+	cp -p libmfista_*.so $(PYTHONLIBDIR)
+	cp -p libmfista_*.so $(PYTHONLIBDIR)/imaging
 
 uninstall: clean
 	rm -f makefile
-	rm -f $(PYTHONLIBDIR)/libmfista.so
+	rm -f $(PYTHONLIBDIR)/libmfista*.so
+	rm -f $(PYTHONLIBDIR)/imaging/libmfista*.so

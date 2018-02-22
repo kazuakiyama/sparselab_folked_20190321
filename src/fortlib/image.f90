@@ -210,10 +210,7 @@ real(dp) function l1_e(I)
   implicit none
   real(dp),intent(in) :: I
   !
-  !l1_e = abs(I+e)
-  !
   ! Smooth L1 (where alpha = 1/zeroeps)
-  !l1_e = zeroeps * (log(1+exp(-I/zeroeps)) + log(1+exp(I/zeroeps)))
   l1_e = sqrt(I**2+zeroeps)
 end function
 !
@@ -224,14 +221,7 @@ real(dp) function l1_grade(I)
   !
   real(dp),intent(in) :: I
   !
-  !if (abs(I) > zeroeps) then
-  !  l1_grade = sign(1d0,I)
-  !else
-  !  l1_grade = 0
-  !end if
-  !
   ! Smooth L1 (where alpha = 1/zeroeps)
-  !l1_grade = 1/(1+exp(-I/zeroeps)) - 1/(1+exp(I/zeroeps))
   l1_grade = I/l1_e(I)
 end function
 !
@@ -530,7 +520,7 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
     else
       Ip = l1_e(I1d(ipix))**alpha
     end if
-    
+
     ! calculate sum
     sumx = sumx + Ip * dix
     sumy = sumy + Ip * diy
