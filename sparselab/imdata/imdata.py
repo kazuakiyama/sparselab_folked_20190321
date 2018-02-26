@@ -967,8 +967,8 @@ class IMFITS(object):
         Y1 = (X - x0) * sinpa + (Y - y0) * cospa
         majsig = majsize / np.sqrt(2 * np.log(2)) / 2 * scale
         minsig = minsize / np.sqrt(2 * np.log(2)) / 2 * scale
-        gauss = np.exp(-X1 * X1 / 2 / minsig / minsig -
-                       Y1 * Y1 / 2 / majsig / majsig)
+        gauss = np.exp(-X1 * X1 / 2 / minsig / minsig - Y1 * Y1 / 2 / majsig / majsig)
+        gauss/= 2*np.pi*majsig*minsig
 
         # Replace nan with zero
         gauss[np.isnan(gauss)] = 0
@@ -1245,8 +1245,8 @@ class IMFITS(object):
                 My = newimage.shape[0]
                 Mx = newimage.shape[1]
                 # take the center of the rotated image
-                outfits.data[istokes, ifreq] = newimage[np.around(My / 2 - Ny / 2):np.around(My / 2 - Ny / 2) + Ny,
-                                                        np.around(Mx / 2 - Nx / 2):np.around(Mx / 2 - Nx / 2) + Nx]
+                outfits.data[istokes, ifreq] = newimage[My // 2 - Ny // 2:My // 2 - Ny // 2 + Ny,
+                                                        Mx // 2 - Nx // 2:Mx // 2 - Nx // 2 + Nx]
                 # Flux Scaling
                 if save_totalflux:
                     totalflux = self.totalflux(istokes=istokes, ifreq=ifreq)
