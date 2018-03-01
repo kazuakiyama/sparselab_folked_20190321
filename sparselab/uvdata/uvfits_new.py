@@ -186,26 +186,6 @@ class UVFITS(object):
         # Load OBSERVER
         self.observer = ghdu.header["OBSERVER"]
 
-    def write_fits(self, filename, overwrite=True):
-        '''
-        save to uvfits file. The data will be uv-sorted.
-
-        Args:
-          infile (string or pyfits.HDUList object): input uvfits data
-
-        Returns:
-          uvdata.UVFITS object
-        '''
-        if self.ismultisrc:
-            raise ValueError("Sorry, this library currently can not create multi-source UVFITS data.")
-
-        hdulist = []
-        hdulist.append(self._create_ghdu_single())
-        hdulist.append(self._create_fqtab())
-        hdulist += self._create_antab()
-        hdulist = pf.HDUList(hdulist)
-        hdulist.writeto(filename, overwrite=overwrite)
-
     def _read_arraydata(self, ANtabs):
         subarrays = {}
         subarrids = ANtabs.keys()
@@ -307,7 +287,7 @@ class UVFITS(object):
         # Here I note that we assume equinox of coordinates will be J2000.0
         # which is the currend default of acd.SkyCoord (Feb 28 2018)
         radec = acd.SkyCoord(ra=[ghdu.header.get("CRVAL6")], dec=[ghdu.header.get("CRVAL7")],
-                             #equinox="J%d"%(srcdata.sutable.loc[0,"equinox"]),
+                             equinox="J%f"%(srcdata.sutable.loc[0,"equinox"]),
                              unit="deg",
                              frame="icrs")
         srcdata.sutable["radec"] = radec.to_string("hmsdms")
@@ -355,7 +335,7 @@ class UVFITS(object):
             srcdata.lsrvel = SUtab.data["LSRVEL"]
             srcdata.restfreq = SUtab.data["RESTFREQ"]
             radec = acd.SkyCoord(ra=SUtab.data["RAEPO"], dec=SUtab.data["DECEPO"],
-                                 #equinox=srcdata.sutable["equinox"],
+                                 equinox="J%f"%(srcdata.sutable.loc[0,"equinox"]),
                                  unit="deg",
                                  frame="icrs")
             srcdata.sutable["radec"] = radec.to_string("hmsdms")
@@ -449,6 +429,26 @@ class UVFITS(object):
 
         self.visdata = visdata
 
+    def write_fits(self, filename, overwrite=True):
+        '''
+        save to uvfits file. The data will be uv-sorted.
+
+        Args:
+          infile (string or pyfits.HDUList object): input uvfits data
+
+        Returns:
+          uvdata.UVFITS object
+        '''
+        if self.ismultisrc:
+            raise ValueError("Sorry, this library currently can not create multi-source UVFITS data.")
+
+        hdulist = []
+        hdulist.append(self._create_ghdu_single())
+        hdulist.append(self._create_fqtab())
+        hdulist += self._create_antab()
+        hdulist = pf.HDUList(hdulist)
+        hdulist.writeto(filename, overwrite=overwrite)
+
     def _create_ghdu_single(self):
         # Generate Randam Group
         parnames = []
@@ -467,8 +467,8 @@ class UVFITS(object):
         srcname = self.sources[frqsel].sutable.loc[0, "source"]
         radec = self.sources[frqsel].sutable.loc[0, "radec"]
         equinox = self.sources[frqsel].sutable.loc[0, "equinox"]
-        #radec = acd.SkyCoord(radec, equinox=equinox, frame="icrs")
-        radec = acd.SkyCoord(radec, frame="icrs")
+        radec = acd.SkyCoord(radec, equinox="J%f"%(equinox), frame="icrs")
+        #radec = acd.SkyCoord(radec, frame="icrs")
         if len(self.sources[frqsel].surestfreq) != 0:
             restfreq = self.sources[frqsel].surestfreq[0, 0]
         else:
@@ -855,7 +855,6 @@ class UVFITS(object):
             hdus.append(hdu)
         return hdus
 
-
     def avspc(self, dofreq=0, minpoint=2):
         '''
         This method will recalculate sigmas and weights of data from scatter
@@ -909,15 +908,101 @@ class UVFITS(object):
                 outfits.fqsetup.fqtables[frqsel] = newtable
         return outfits
 
+    def uvw_recalc(self):
+        '''
+        This method will recalculate uvw coordinates, using utc information,
+        source coordinates, and station locations.
+
+        This function would be not accurate as uvw-recalculation functions in
+        AIPS (UVFIX) and VEDA, which are using the latest parameters like EOPs.
+
+        So, we do not guarantee that this function will provide accurate
+        uvw coordinates enough for astrometric VLBI observations.
+        '''
+        print("Start UVW recalculation")
+
+        # Copy data
+        outfits = copy.deepcopy(self)
+        utctime = at.Time(np.datetime_as_string(outfits.visdata.coord["utc"]), scale="utc")
+        frqsels = sorted(set(outfits.visdata.coord["freqsel"]))
+        Ndata = outfits.visdata.coord.shape[0]
+
+        # arrays to be used to compute uvw
+        alpha = np.zeros(Ndata, dtype=np.float64)
+        delta = np.zeros(Ndata, dtype=np.float64)
+        dx = np.zeros(Ndata, dtype=np.float64)
+        dy = np.zeros(Ndata, dtype=np.float64)
+        dz = np.zeros(Ndata, dtype=np.float64)
+
+        # calc GST
+        print("  (1/4) Compute GST from UTC")
+        gsthour = np.float64(utctime.sidereal_time('apparent', 'greenwich').hour)
+
+        # compute alpha & delta
+        print("  (2/4) Compute RA, DEC of the Sources in GCRS")
+        for frqsel in frqsels:
+            idx1 = outfits.visdata.coord["freqsel"]==frqsel
+            srcs = sorted(set(outfits.visdata.coord.loc[idx1,"source"]))
+            for src in srcs:
+                srctab = outfits.sources[frqsel].sutable
+                radec = srctab.loc[srctab["id"]==src, "radec"].values
+                equinox = srctab.loc[srctab["id"]==src, "equinox"].values
+                radec = acd.SkyCoord(radec, equinox="J%f"%(equinox), frame="icrs")
+                #
+                idx2 = outfits.visdata.coord["source"]==src
+                idx3 = np.where(idx1&idx2)
+                utctmp = utctime[idx3]
+                radec = radec.transform_to(acd.GCRS(obstime=utctmp))
+                alpha[idx3] = radec.ra.rad
+                delta[idx3] = radec.dec.rad
+
+        # compute baseline vectors
+        print("  (3/4) Compute Baseline Vectors")
+        subarrays = sorted(set(outfits.visdata.coord["subarray"]))
+        for subarray in subarrays:
+            idx1 = outfits.visdata.coord["subarray"] == subarray
+
+            # get antenna ids
+            ants = sorted(set(outfits.visdata.coord.loc[idx1,"ant1"]))
+            ants+= sorted(set(outfits.visdata.coord.loc[idx1,"ant2"]))
+            ants = sorted(set(ants))
+
+            # antenna table
+            arrdata = outfits.subarrays[subarray].antable
+            for ant in ants:
+                idx2 = outfits.visdata.coord["ant1"] == ant
+                idx3 = outfits.visdata.coord["ant2"] == ant
+                idx2 = idx1 & idx2
+                idx3 = idx1 & idx3
+
+                # get xyz coordinates
+                x,y,z = arrdata.loc[arrdata["id"]==ant, ["x","y","z"]].values[0]/ac.c.si.value
+                if True in idx2:
+                    idx2 = np.where(idx2)
+                    dx[idx2]+=x
+                    dy[idx2]+=y
+                    dz[idx2]+=z
+                if True in idx3:
+                    idx3 = np.where(idx3)
+                    dx[idx3]-=x
+                    dy[idx3]-=y
+                    dz[idx3]-=z
+
+        # compute uvw vectors
+        print("  (4/4) Compute uvw coordinates")
+        u,v,w = fortlib.coord.calc_uvw(gsthour,alpha,delta,dx,dy,dz)
+        outfits.visdata.coord["usec"] = u
+        outfits.visdata.coord["vsec"] = v
+        outfits.visdata.coord["wsec"] = w
+
+        return outfits
+
     def weightcal(self, dofreq=0, solint=120., minpoint=2):
         '''
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
 
         Arguments:
-          self (uvarray.uvfits object):
-            input uvfits data
-
           dofreq (int; default = 0):
             Parameter for multi-frequency data.
               dofreq = 0: calculate weights and sigmas over IFs and channels
@@ -944,16 +1029,12 @@ class UVFITS(object):
                 minpoint=np.int32(minpoint)).T)
         return outfits
 
-
     def weightcal_slow(self, dofreq=0, solint=120., minpoint=2):
         '''
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
 
         Arguments:
-          self (uvarray.uvfits object):
-            input uvfits data
-
           dofreq (int; default = 0):
             Parameter for multi-frequency data.
               dofreq = 0: calculate weights and sigmas over IFs and channels
@@ -1102,7 +1183,6 @@ class UVFITS(object):
 
         return outfits
 
-
     def select_stokes(self, stokes="I"):
         '''
         Pick up single polarization data
@@ -1110,7 +1190,9 @@ class UVFITS(object):
         Args:
           stokes (string; default="I"):
             Output stokes parameters.
-            Availables are ["I", "Q", "U", "V", "LL", "RR", "RL", "LR"].
+            Availables are ["I", "Q", "U", "V",
+                            "LL", "RR", "RL", "LR",
+                            "XX", "YY", "XY", "YX"].
 
         Output: uvdata.UVFITS object
         '''
