@@ -1,109 +1,115 @@
 module fftim3d
   !$use omp_lib
-  use param, only: dp, deps
-  use fftlib, only: calc_F, grad_amppha, DFT,&
-                    chisq_fcv, chisq_amp, chisq_camp, chisq_cphase,&
-                    model_fcv, model_amp, model_camp, model_cphase,&
-                    tv, tsv, gradtve, gradtsve, calc_I2d
-  use image, only:
+  use param, only: dp, dpc, deps
+  use fftlib, only: NUFFT_fwd, NUFFT_adj, NUFFT_adj_resid, phashift_r2c,&
+                    chisq_fcv, chisq_amp, chisq_ca, chisq_cp
+  use image, only: I1d_I2d_fwd, I1d_I2d_inv,&
+                   log_fwd, log_grad,&
+                   gamma_fwd, gamma_grad,&
+                   l1_e, l1_grade,&
+                   tv_e, tv_grade,&
+                   tsv_e, tsv_grade,&
+                   mem_e, mem_grade,&
+                   comreg, zeroeps
+  use image3d, only: I1d_I3d_fwd,I1d_I3d_inv
   implicit none
-
-  ! BLAS function (external)
-  interface
-    real(kind(1d0)) function dasum(n, x, incx)
-      integer,         intent(in) :: n, incx
-      real(kind(1d0)), intent(in) :: x(n)
-    end function
-  end interface
-
-  interface
-    real(kind(1d0)) function ddot(n, x, incx, y, incy)
-      integer,         intent(in) :: n, incx, incy
-      real(kind(1d0)), intent(in) :: x(n), y(n)
-    end function
-  end interface
 contains
-!
 !-------------------------------------------------------------------------------
 ! Imaging Routine
 !-------------------------------------------------------------------------------
-!
-subroutine dynamic_imaging(
-  Iin, x, y, xidx, yidx, Nx, Ny, Nz, u, v, &
-  lambl1, lambtv, lambtsv, nonneg, logreg, Niter, &
-  isfcv, uvidxfcv, Vfcvr, Vfcvi, Varfcv, &
-  isamp, uvidxamp, Vamp, Varamp, &
-  iscp, uvidxcp, CP, Varcp, &
-  isca, uvidxca, CA, Varca, &
-  m, factr, pgdeps, &
-  Iout, &
-  Npix, Nuv, Nfcv, Namp, Ncp, Nca &
+subroutine imaging(&
+  Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
+  u,v,&
+  lambl1,lambtv,lambtsv,lambmem,lambcom,&
+  Niter,nonneg,transtype,transprm,pcom,&
+  isfcv,uvidxfcv,Vfcvr,Vfcvi,Varfcv,&
+  isamp,uvidxamp,Vamp,Varamp,&
+  iscp,uvidxcp,CP,Varcp,&
+  isca,uvidxca,CA,Varca,&
+  m,factr,pgtol,&
+  Iout,&
+  Npix,Nuv,Nuvs,Nfcv,Namp,Ncp,Nca&
 )
+  !
+  ! Core function of three-dimensional imaging
+  !
   implicit none
-
   ! Image
   integer,  intent(in) :: Npix, Nx, Ny, Nz
-  real(dp), intent(in) :: Iin(Npix, Nz)
-  real(dp), intent(in) :: x(Npix, Nz),y(Npix, Nz) ! xy coordinates in radian.
-  integer,  intent(in) :: xidx(Npix), yidx(Npix)
+  real(dp), intent(in) :: Iin(Npix)
+  real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
+                                        ! 1 = the leftmost/lowermost pixel
+  integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
 
-  ! uv coordinate
+  ! uv coordinates
   integer,  intent(in) :: Nuv
-  real(dp), intent(in) :: u(Nuv, Nz), v(Nuv, Nz)  ! uv coordinates in wavelength
+  integer,  intent(in) :: Nuvs(Nz)
+  real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
 
-  ! Imaging parameters
-  real(dp), intent(in) :: lambl1  ! imaging parameter for L1-norm
-  real(dp), intent(in) :: lambtv  ! imaging parameter for iso-TV
-  real(dp), intent(in) :: lambtsv ! imaging parameter for TSV
-  logical,  intent(in) :: nonneg  ! if nonneg > 0, the image will be solved
-                                  ! with a non-negative condition
-  logical,  intent(in) :: logreg  ! regularize image in log domain
-  integer,  intent(in) :: Niter   ! the number of iterations
+  ! Regularization Parameters
+  real(dp), intent(in) :: lambl1  ! Regularization Parameter for L1-norm
+  real(dp), intent(in) :: lambtv  ! Regularization Parameter for iso-TV
+  real(dp), intent(in) :: lambtsv ! Regularization Parameter for TSV
+  real(dp), intent(in) :: lambmem ! Regularization Parameter for MEM
+  real(dp), intent(in) :: lambcom ! Regularization Parameter for Center of Mass
+
+  ! Imaging Parameter
+  integer,  intent(in) :: Niter     ! iteration number
+  logical,  intent(in) :: nonneg    ! if nonneg > 0, the image will be solved
+                                    ! with a non-negative condition
+  integer,  intent(in) :: transtype ! 0: No transform
+                                    ! 1: log correction
+                                    ! 2: gamma correction
+  real(dp), intent(in) :: transprm  ! transtype=1: theshold for log
+                                    ! transtype=2: power of gamma correction
+  real(dp), intent(in) :: pcom      ! power weight of C.O.M regularization
 
   ! Parameters related to full complex visibilities
-  logical,  intent(in) :: isfcv
-  integer,  intent(in) :: Nfcv
-  integer,  intent(in) :: uvidxfcv(Nfcv, Nz, Nz) ! uvidx
-  real(dp), intent(in) :: Vfcvr(Nfcv, Nz), Vfcvi(Nfcv) ! Real and Imag parts of data
-  real(dp), intent(in) :: Varfcv(Nfcv, Nz) ! Variance
+  logical,      intent(in) :: isfcv           ! is data?
+  integer,      intent(in) :: Nfcv            ! number of data
+  integer,      intent(in) :: uvidxfcv(Nfcv)  ! uvidx
+  real(dp),     intent(in) :: Vfcvr(Nfcv)     ! data
+  real(dp),     intent(in) :: Vfcvi(Nfcv)     ! data
+  real(dp),     intent(in) :: Varfcv(Nfcv)    ! variance
 
   ! Parameters related to amplitude
-  logical,  intent(in) :: isamp
-  integer,  intent(in) :: Namp
-  integer,  intent(in) :: uvidxamp(Namp, Nz)
-  real(dp), intent(in) :: Vamp(Namp, Nz)
-  real(dp), intent(in) :: Varamp(Namp, Nz)
+  logical,  intent(in) :: isamp           ! is amplitudes?
+  integer,  intent(in) :: Namp            ! Number of data
+  integer,  intent(in) :: uvidxamp(Namp)  ! uvidx
+  real(dp), intent(in) :: Vamp(Namp)      ! data
+  real(dp), intent(in) :: Varamp(Namp)    ! variance
 
   ! Parameters related to the closure phase
-  logical,  intent(in) :: iscp
-  integer,  intent(in) :: Ncp
-  integer,  intent(in) :: uvidxcp(3,Ncp, Nz)
-  real(dp), intent(in) :: CP(Ncp, Nz)
-  real(dp), intent(in) :: Varcp(Ncp, Nz)
+  logical,  intent(in) :: iscp            ! is closure phases?
+  integer,  intent(in) :: Ncp             ! Number of data
+  integer,  intent(in) :: uvidxcp(3,Ncp)  ! uvidx
+  real(dp), intent(in) :: CP(Ncp)         ! data
+  real(dp), intent(in) :: Varcp(Ncp)      ! variance
 
   ! Parameters related to the closure amplitude
-  logical,  intent(in) :: isca
-  integer,  intent(in) :: Nca
-  integer,  intent(in) :: uvidxca(4,Nca, Nz)
-  real(dp), intent(in) :: CA(Nca, Nz)
-  real(dp), intent(in) :: Varca(Nca, Nz)
+  logical,  intent(in) :: isca            ! is closure amplitudes?
+  integer,  intent(in) :: Nca             ! Number of data
+  integer,  intent(in) :: uvidxca(4,Nca)  ! uvidx
+  real(dp), intent(in) :: CA(Nca)         ! data
+  real(dp), intent(in) :: Varca(Nca)      ! variance
 
   ! Paramters related to the L-BFGS-B
   integer,  intent(in) :: m
-  real(dp), intent(in) :: factr, pgdeps
+  real(dp), intent(in) :: factr, pgtol
   !
   ! Output Image
-  real(dp), intent(out) :: Iout(1:Npix, 1:Nz)
+  real(dp), intent(out) :: Iout(Npix)
+
+  ! full complex visibilities to be used for calculations
+  complex(dpc), allocatable :: Vfcv(:)
 
   ! chisquare and grad chisq
-  real(dp) :: cost
-  real(dp) :: gradcost(1:Npix, 1:Nz)
+  real(dp) :: cost              ! cost function
+  real(dp) :: gradcost(1:Npix)  ! its gradient
 
   ! Number of Data
-  integer :: Ndata
-
-  ! Fourier Matrix
-  real(dp), allocatable :: Freal(:,:,:), Fimag(:,:,:)
+  integer :: Ndata  ! number of data
+  real(dp) :: fnorm ! normalization factor for chisquares
 
   ! variables and parameters tuning L-BFGS-B
   integer,  parameter   :: iprint = 1
@@ -112,10 +118,22 @@ subroutine dynamic_imaging(
   integer               :: isave(44)
   real(dp)              :: dsave(29)
   integer,  allocatable :: nbd(:),iwa(:)
+
+  ! multiple images
   real(dp), allocatable :: lower(:),upper(:),wa(:)
+  complex(dpc), allocatable :: I2d(:,:)
+  !integer,  allocatable :: Nuvs(:)
+  complex(dpc), allocatable :: Vcmp(:)
 
   ! loop variables
-  integer :: iuv, iz
+  integer :: i, iz, Nstart, Nend
+  real(dp) :: u_tmp, v_tmp
+
+  !-------------------------------------
+  ! Initialize Data
+  !-------------------------------------
+  allocate(Vcmp(Nuv))
+  Vcmp(:) = dcmplx(0d0,0d0)
 
   ! Check Ndata
   Ndata = 0
@@ -131,35 +149,38 @@ subroutine dynamic_imaging(
   if (isca .eqv. .True.) then
     Ndata = Ndata + Nca
   end if
+  fnorm = real(Ndata)
+  write(*,*) 'Number of Data          ', Ndata
+  write(*,*) 'Number of uv coordinates', Nuv
 
-  !-------------------------------------
-  ! Preperation
-  !-------------------------------------
-  ! allocate vectors and arrays
-  !write(*,*) 'stdftim.imaging: Allocate Freal, Fimag'
-  allocate(Freal(Npix, Nuv), Fimag(Npix, Nuv))
-  !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Nuv, Nz) &
-  !$OMP   PRIVATE(iuv, iz)
-  do iz=1,Nz
-    do iuv=1,Nuv
-      Freal(1:Npix,i) = 0d0
-      Fimag(1:Npix,i) = 0d0
+  ! copy images (Iin -> Iout)
+  write(*,*) 'Initialize the parameter vector'
+  call dcopy(Npix,Iin,1,Iout,1)
+
+  ! shift tracking center of full complex visibilities from the reference pixel
+  ! to the center of the image
+  allocate(Vfcv(Nfcv))
+  Vfcv = dcmplx(Vfcvr,Vfcvi)
+  if (isfcv .eqv. .True.) then
+    write(*,*) 'Shift Tracking Center of Full complex visibilities.'
+    !write(*,*) 'Vfcv before',Vfcv(1)
+    !$OMP PARALLEL DO DEFAULT(SHARED) &
+    !$OMP   FIRSTPRIVATE(u,v,Nxref,Nyref,Nx,Ny,Nfcv) &
+    !$OMP   PRIVATE(i,u_tmp,v_tmp)
+    do i=1,Nfcv
+      u_tmp = u(abs(uvidxfcv(i))) * sign(1,uvidxfcv(i))
+      v_tmp = v(abs(uvidxfcv(i))) * sign(1,uvidxfcv(i))
+      call phashift_r2c(u_tmp,v_tmp,&
+                        Nxref,Nyref,Nx,Ny,&
+                        Vfcv(i),Vfcv(i))
     end do
-  end do
-  !$OMP END PARALLEL DO
-
-  ! calculate Fourier Matrix
-  !write(*,*) 'stdftim.imaging: Calc the Fourier Matrix'
-  call calc_F(x,y,u,v,Freal,Fimag,Npix,Nuv,Nz)
-
-  ! copy images
-  !write(*,*) 'stdftim.imaging: Initialize the image'
-  Iout(1:Npix, 1:Nz) = Iin(1:Npix, 1:Nz)
+    !$OMP END PARALLEL DO
+    !write(*,*) 'Vfcv after ',Vfcv(1)
+  end if
   !-------------------------------------
   ! L-BFGS-B
   !-------------------------------------
-  !write(*,*) 'stdftim.imaging: Initialize the L-BFGS-B'
+  write(*,*) 'Initialize the L-BFGS-B'
   ! initialise L-BFGS-B
   !   Allocate some arrays
   allocate(iwa(3*Npix))
@@ -175,230 +196,389 @@ subroutine dynamic_imaging(
   end if
 
   ! start L-BFGS-B
-  !write(*,*) 'stdftim.imaging: start L-BFGS-B calculations'
+  write(*,*) 'Start L-BFGS-B calculations'
   task = 'START'
   do while(task(1:2) == 'FG' &
           .or. task == 'NEW_X' &
           .or. task == 'START')
     ! This is the call to the L-BFGS-B code.
     call setulb ( Npix, m, Iout, lower, upper, nbd, cost, gradcost, &
-                  factr, pgdeps, wa, iwa, task, iprint,&
+                  factr, pgtol, wa, iwa, task, iprint,&
                   csave, lsave, isave, dsave )
-
     if (task(1:2) == 'FG') then
+      ! thresholding
+      where(abs(Iout)<zeroeps) Iout=0d0
+
       ! Calculate cost function and gradcostent of cost function
-      call cost_3d(&
-          Iout, xidx, yidx, Npix, Nx, Ny, Nz, Nuv, Ndata, &
-          lambl1, lambtv, lambtsv, logreg, &
-          Freal, Fimag,&
-          isfcv, Nfcv, uvidxfcv, Vfcvr, Vfcvi, Varfcv,&
-          isamp, Namp, uvidxamp, Vamp, Varamp,&
-          iscp,  Ncp, uvidxcp, CP, Varcp,&
-          isca,  Nca, uvidxca, CA, Varca,&
-          cost, gradcost &
+      call calc_cost(&
+        Iout,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
+        u,v,&
+        lambl1,lambtv,lambtsv,lambmem,lambcom,&
+        fnorm,transtype,transprm,pcom,&
+        isfcv,uvidxfcv,Vfcv,Varfcv,&
+        isamp,uvidxamp,Vamp,Varamp,&
+        iscp,uvidxcp,CP,Varcp,&
+        isca,uvidxca,CA,Varca,&
+        cost,gradcost,&
+        Npix,Nuv,Nuvs,Nfcv,Namp,Ncp,Nca&
       )
     else
       ! If iteration number exceeds the total iteration number, make a flag
       ! to STOP L-BFGS-B iterations
       if (isave(30) > Niter) then
         task='STOP: TOTAL ITERATION NUMBER EXCEEDS LIMIT'
+      else if (mod(isave(30),100) == 0) then
+        print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
       end if
 
       ! If we have a flag to STOP the L-BFGS-B algorithm, print it out.
       if (task(1:4) .eq. 'STOP') then
+        print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
         write (6,*) task
       end if
     end if
   end do
-
-  !-------------------------------------
-  ! deallocate vectors
-  !-------------------------------------
-  deallocate(Freal,Fimag)
+  !
+  ! ! multiple Iouts
+  ! !call I1d_I2d_fwd(xidx,yidx,Iout,I2d,Npix,Nx,Ny)
+  ! call NUFFT_fwd(u,v,Iout,Vcmp,Nx,Ny,Nuv)
+  ! call Nuv_Nuvs(Nuv, Nz, Nuvs)
+  ! Nstart = 1
+  ! !$OMP PARALLEL DO DEFAULT(SHARED) &
+  ! !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Nstart,Nuvs) &
+  ! !$OMP   PRIVATE(iz, Nend) &
+  ! do iz=1,Nz
+  !   if(Nuvs(iz) == 0) then
+  !     continue
+  !   end if
+  !   Nend = Nstart + Nuvs(iz) -1
+  !   call NUFFT_adj(u(Nstart:Nend),v(Nstart:Nend),Vcmp(Nstart:Nend),I2d,Nx,Ny,Nuvs(iz))
+  !   call I1d_I2d_inv(xidx,yidx,Iout,REAL(I2d),Npix,Nx,Ny)
+  !   write(*,*) "len(Iout): ", size(Iout)
+  !   Nstart = Nend + 1
+  ! end do
+  ! !$OMP END PARALLEL DO
+  !
+  ! deallocate arrays
+  deallocate(Vfcv)
+  deallocate(iwa,wa,lower,upper,nbd)
+  where(abs(Iout)<zeroeps) Iout=0d0
 end subroutine
-!
 !
 !-------------------------------------------------------------------------------
 ! calc cost functions
 !-------------------------------------------------------------------------------
 !
-subroutine cost_3d(&
-    Iin, xidx, yidx, Npix, Nx, Ny, Nz, Nuv, Ndata, &
-    lambl1, lambtv, lambtsv, lambmem, logreg,&
-    u, v,&
-    isfcv, Nfcv, uvidxfcv, Vfcvr, Vfcvi, Varfcv,&
-    isamp, Namp, uvidxamp, Vamp, Varamp,&
-    iscp,  Ncp, uvidxcp, CP, Varcp,&
-    isca,  Nca, uvidxca, CA, Varca,&
-    cost, gradcost)
+subroutine calc_cost(&
+  Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
+  u,v,&
+  lambl1,lambtv,lambtsv,lambmem,lambcom,&
+  fnorm,transtype,transprm,pcom,&
+  isfcv,uvidxfcv,Vfcv,Varfcv,&
+  isamp,uvidxamp,Vamp,Varamp,&
+  iscp,uvidxcp,CP,Varcp,&
+  isca,uvidxca,CA,Varca,&
+  cost,gradcost,&
+  Npix,Nuv,Nuvs,Nfcv,Namp,Ncp,Nca&
+)
   !
   ! Calculate Cost Functions
   !
   implicit none
 
-  ! Number of uv points and data
-  integer,  intent(in) :: Nuv
-  integer,  intent(in) :: Ndata
-
   ! Image
   integer,  intent(in) :: Npix, Nx, Ny, Nz
-  real(dp), intent(in) :: Nxref, Nyref ! reference pixel: 1 will be the lower/leftmost end
-  real(dp), intent(in) :: Iin(Npix, Nz)
+  real(dp), intent(in) :: Iin(Npix), Nxref, Nyref
   integer,  intent(in) :: xidx(Npix), yidx(Npix)
 
-  ! Imaging parameters
-  real(dp), intent(in) :: lambl1,lambtv,lambtsv,lambmem
-  logical,  intent(in) :: logreg  ! regularize image in log domain
+  ! uv coordinate
+  integer,  intent(in) :: Nuv
+  integer,  intent(in) :: Nuvs(Nz)
+  real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
 
-  ! uv coordinates
-  real(dp), intent(in) :: u(Nuv, Nz), v(Nuv, Nz) !uv coordinates multiplied by 2*pi*dx, 2*pi*dy
+  ! Regularization Parameters
+  real(dp), intent(in) :: lambl1  ! Regularization Parameter for L1-norm
+  real(dp), intent(in) :: lambtv  ! Regularization Parameter for iso-TV
+  real(dp), intent(in) :: lambtsv ! Regularization Parameter for TSV
+  real(dp), intent(in) :: lambmem ! Regularization Parameter for MEM
+  real(dp), intent(in) :: lambcom ! Regularization Parameter for Center of Mass
+
+  ! Imaging Parameter
+  real(dp), intent(in) :: fnorm     ! normalization factor for chisquare
+  integer,  intent(in) :: transtype ! 0: No transform
+                                    ! 1: log correction
+                                    ! 2: gamma correction
+  real(dp), intent(in) :: transprm  ! transtype=1: theshold for log
+                                    ! transtype=2: power of gamma correction
+  real(dp), intent(in) :: pcom      ! power weight of C.O.M regularization
 
   ! Parameters related to full complex visibilities
-  logical,  intent(in) :: isfcv
-  integer,  intent(in) :: Nfcv
-  integer,  intent(in) :: uvidxfcv(Nfcv, Nz)
-  real(dp), intent(in) :: Vfcvr(Nfcv, Nz), Vfcvi(Nfcv, Nz)
-  real(dp), intent(in) :: Varfcv(Nfcv, Nz)
+  logical,      intent(in) :: isfcv           ! is data?
+  integer,      intent(in) :: Nfcv            ! number of data
+  integer,      intent(in) :: uvidxfcv(Nfcv)  ! uvidx
+  complex(dpc), intent(in) :: Vfcv(Nfcv)      ! data
+  real(dp),     intent(in) :: Varfcv(Nfcv)    ! variance
 
   ! Parameters related to amplitude
-  logical,  intent(in) :: isamp
-  integer,  intent(in) :: Namp
-  integer,  intent(in) :: uvidxamp(Namp, Nz)
-  real(dp), intent(in) :: Vamp(Namp, Nz)
-  real(dp), intent(in) :: Varamp(Namp, Nz)
+  logical,  intent(in) :: isamp           ! is amplitudes?
+  integer,  intent(in) :: Namp            ! Number of data
+  integer,  intent(in) :: uvidxamp(Namp)  ! uvidx
+  real(dp), intent(in) :: Vamp(Namp)      ! data
+  real(dp), intent(in) :: Varamp(Namp)    ! variance
 
   ! Parameters related to the closure phase
-  logical,  intent(in) :: iscp
-  integer,  intent(in) :: Ncp
-  integer,  intent(in) :: uvidxcp(3,Ncp, Nz)
-  real(dp), intent(in) :: CP(Ncp, Nz)
-  real(dp), intent(in) :: Varcp(Ncp, Nz)
+  logical,  intent(in) :: iscp            ! is closure phases?
+  integer,  intent(in) :: Ncp             ! Number of data
+  integer,  intent(in) :: uvidxcp(3,Ncp)  ! uvidx
+  real(dp), intent(in) :: CP(Ncp)         ! data
+  real(dp), intent(in) :: Varcp(Ncp)      ! variance
 
   ! Parameters related to the closure amplitude
-  logical,  intent(in) :: isca
-  integer,  intent(in) :: Nca
-  integer,  intent(in) :: uvidxca(4,Nca, Nz)
-  real(dp), intent(in) :: CA(Nca, Nz)
-  real(dp), intent(in) :: Varca(Nca, Nz)
+  logical,  intent(in) :: isca            ! is closure amplitudes?
+  integer,  intent(in) :: Nca             ! Number of data
+  integer,  intent(in) :: uvidxca(4,Nca)  ! uvidx
+  real(dp), intent(in) :: CA(Nca)         ! data
+  real(dp), intent(in) :: Varca(Nca)      ! variance
 
   ! Outputs
-  real(dp), intent(out) :: cost(1:Nz)
-  real(dp), intent(out) :: gradcost(1:Npix, 1:Nz)
+  real(dp), intent(out) :: cost
+  real(dp), intent(out) :: gradcost(1:Npix)
 
   ! integer
-  integer :: ipix, iuv, iz
+  integer :: ipix, iz, Nstart, Nend
 
   ! chisquares, gradients of each term of equations
-  real(dp) :: chisq(Nz), reg(Nz)
-  real(dp) :: fnorm(Nz)   ! normalization factor for chisquares
+  real(dp) :: chisq, reg  ! chisquare and regularization
 
   ! allocatable arrays
-  real(dp), allocatable :: I3d(:,:,:), Iin_reg(:,:), gradchisq(:,:), gradreg(:,:)
-  complex(dpc), allocatable :: Vresid(:,:), Vcmp(:,:)
+  real(dp), allocatable :: I3d(:,:,:),Iin_reg(:),I3d_reg(:,:,:)
+  real(dp), allocatable :: gradchisq2d(:,:)
+  real(dp), allocatable :: gradreg(:)
+  real(dp), allocatable :: Vresre(:),Vresim(:)
+  !integer,  allocatable :: Nuvlist(:)
+  complex(dpc), allocatable :: Vcmp(:)
 
-  !-----------------------------------------------------------------------------
+  !------------------------------------
   ! Initialize outputs, and some parameters
-  !-----------------------------------------------------------------------------
+  !------------------------------------
   ! Initialize the chisquare and its gradient
   !write(*,*) 'stdftim.calc_cost: initialize cost and gradcost'
-  cost(:) = 0d0
-  gradcost(:,:) = 0d0
+  cost = 0d0
+  gradcost(:) = 0d0
 
-  ! Normalization factor of chisquare
-  fnorm(:) = Ndata
-
-  !-----------------------------------------------------------------------------
-  ! Compute chisquares, its gradient
-  !-----------------------------------------------------------------------------
-  ! Allocating arrays
-  allocate(I2d(Nx,Ny))
-  allocate(Iin_reg(Npix, Nz), gradchisq(Npix, Nz))
-  allocate(Vresid(Nuv, Nz), Vcmp(Nuv, Nz))
-
+  !------------------------------------
+  ! Compute chisquare and its gradient
+  !------------------------------------
   ! Initialize
-  I2d(:,:)=0d0
-  chisq(:) = 0d0
-  gradchisq(:,:) = 0d0
-  Vresid(1:Nuv, 1:Nz) = dcmplx(0d0,0d0)
-  Vcmp(1:Nuv, 1:Nz) = dcmplx(0d0,0d0)
+  !   scalars
+  chisq = 0d0
+  !
+  !   allocatable arrays
+  !allocate(I3d(Nx,Ny,Nz),Nuvlist(Nz))
+  allocate(I3d(Nx,Ny,Nz))
+  allocate(gradchisq2d(Nx,Ny))
+  allocate(Vresre(Nuv),Vresim(Nuv),Vcmp(Nuv))
+  I3d(:,:,:)=0d0
+  !Nuvlist(:) = 0d0
+  gradchisq2d(:,:) = 0d0
+  Vresre(:) = 0d0
+  Vresim(:) = 0d0
+  Vcmp(:) = dcmplx(0d0,0d0)
+  !print *, 'Test 1...................'
 
-  ! Copy 1d image to 2d image
-  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
-  call I2d_I3d_fwd(xidx,yidx,Iin,I3d,Npix,Nx,Ny,Nz)
+  !write(*,*) "Iin:", Iin(1:5)
+  ! Copy 1d image to 3d image
+  call I1d_I3d_fwd(xidx,yidx,Iin,I3d,Npix,Nx,Ny,Nz)
+  !write(*,*) "I1d --> I3d:", I3d(1,1,1)
 
-  !-----------------------------------------------------------------------------
-  ! NuFFT all images
-  !-----------------------------------------------------------------------------
   ! Forward Non-unifrom Fast Fourier Transform
+  Nstart = 1
+  !write(*,*) "Nuv: ", Nuv
+  !write(*,*) "Nuvs: ", Nuvs
+
+  ! calc Nuvlist
+  !call Nuv_Nuvlist(Nuv, Nz, Nuvlist)
+  !write(*,*) "Nuv: ", Nuv
+  !write(*,*) "Nz: ", Nz
+  !write(*,*) "Nuvs: ", Nuvs
+  !
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Nstart,Nuvs) &
+  !$OMP   PRIVATE(iz, Nend) &
+  !$OMP   REDUCTION(+:Vcmp)
   do iz=1, Nz
-    call fNUFFT(u,v,I3d(:,:,iz),Vcmp,Nx,Ny,Nuv)
-
-    ! Full complex visibility
-    if (isfcv .eqv. .True.) then
-      call chisq_fcv(
-        Vcmp(:,iz),uvidxfcv(:,iz),Vfcv(:,iz),Varfcv(:,iz),fnorm,
-        chisq(iz),Vresid(:,iz),Nuv(:,iz),Nfcv(:,iz)
-        )
+    if(Nuvs(iz) == 0) then
+      continue
     end if
-
-    ! Amplitudes
-    if (isamp .eqv. .True.) then
-      call chisq_amp(Vcmp(:,iz),uvidxamp(:,iz),Vamp(:,iz),Varamp(:,iz),fnorm,
-        chisq(iz),Vresid(:,iz),Nuv(:,iz),Namp(:,iz)
-        )
-    end if
-
-    ! Log closure amplitudes
-    if (isca .eqv. .True.) then
-      call chisq_ca(Vcmp(:,iz)(:,iz),uvidxca(:,iz),CA(:,iz),Varca(:,iz),fnorm,
-        chisq(iz),Vresid(:,iz),Nuv(:,iz),Nca(:,iz)
-        )
-    end if
-
-    ! Closure phases
-    if (iscp .eqv. .True.) then
-      call chisq_cp(Vcmp(:,iz),uvidxcp(:,iz),CP(:,iz),Varcp(:,iz),fnorm,
-        chisq(iz),Vresid(:,iz),Nuv(:,iz),Ncp(:,iz)
-        )
-    end if
+    Nend = Nstart + Nuvs(iz) -1
+    call NUFFT_fwd(u(Nstart:Nend),v(Nstart:Nend),I3d(:,:,iz),Vcmp(Nstart:Nend),Nx,Ny,Nuvs(iz))
+    Nstart = Nend + 1
   end do
+  !$OMP END PARALLEL DO
 
-  !-----------------------------------------------------------------------------
-  ! calculate gradient of chi-squares
-  !-----------------------------------------------------------------------------
+  ! Full complex visibility
+  if (isfcv .eqv. .True.) then
+    call chisq_fcv(Vcmp,uvidxfcv,Vfcv,Varfcv,fnorm,chisq,Vresre,Vresim,Nuv,Nfcv)
+  end if
+
+  ! Amplitudes
+  if (isamp .eqv. .True.) then
+    call chisq_amp(Vcmp,uvidxamp,Vamp,Varamp,fnorm,chisq,Vresre,Vresim,Nuv,Namp)
+  end if
+
+  ! Log closure amplitudes
+  if (isca .eqv. .True.) then
+    call chisq_ca(Vcmp,uvidxca,CA,Varca,fnorm,chisq,Vresre,Vresim,Nuv,Nca)
+  end if
+
+  ! Closure phases
+  if (iscp .eqv. .True.) then
+    call chisq_cp(Vcmp,uvidxcp,CP,Varcp,fnorm,chisq,Vresre,Vresim,Nuv,Ncp)
+  end if
+
   ! Adjoint Non-unifrom Fast Fourier Transform
-  call aNUFFTsum(u(:,:),v(:,:),Vresid(:,:),gradcost(:,:),Nx,Ny,Nuv,Nz)
-  deallocate(Vresid)
+  !  this will provide gradient of chisquare functions
+  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
 
-  !-----------------------------------------------------------------------------
+  ! copy the gradient of chisquare into that of cost functions
+  cost = chisq
+  call I1d_I2d_inv(xidx,yidx,gradcost,gradchisq2d,Npix,Nx,Ny)
+  !write(*,*) 'cost',cost
+  !write(*,*) 'gradcost',gradcost(1)
+
+  ! deallocate array
+  deallocate(I3d,gradchisq2d)
+  deallocate(Vresre,Vresim,Vcmp)
+
+  !------------------------------------
+  ! Centoroid Regularizer
+  !------------------------------------
+  if (lambcom > 0) then
+    ! initialize
+    !   scalars
+    reg = 0
+    !   allocatable arrays
+    allocate(gradreg(Npix))
+    gradreg(:) = 0d0
+
+    ! calc cost and its gradient
+    call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin,reg,gradreg,Npix)
+    cost = cost + lambcom * reg
+    call daxpy(Npix, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
+
+    ! deallocate array
+    deallocate(gradreg)
+  end if
+
+  !------------------------------------
+  ! Regularization Functions
+  !------------------------------------
+  ! Initialize
+  !   scalars
+  reg = 0d0
+  !   allocatable arrays
+  allocate(gradreg(Npix),Iin_reg(Npix))
+  gradreg(:) = 0d0
+  Iin_reg(:) = 0d0
+  if (lambtv > 0 .or. lambtsv > 0) then
+    allocate(I3d_reg(Nx,Ny,Nz))
+  end if
+
   ! Transform Image
-  !-----------------------------------------------------------------------------
-  if (logreg .eqv. .True.) then
-    allocate(Iin_reg(Npix,Nz))
-    call logconv_fwd(Iin,Iin_reg,Npix)
+  if (transtype == 1) then
+    ! Log Forward
+    call log_fwd(transprm,Iin,Iin_reg,Npix)
+  else if (transtype == 2) then
+    ! Gamma contrast
+    call gamma_fwd(transprm,Iin,Iin_reg,Npix)
   else
     call dcopy(Npix,Iin,1,Iin_reg,1)
   end if
 
+  ! Copy transformed image to I3d
+  if (lambtv > 0 .or. lambtsv > 0) then
+    call I1d_I3d_fwd(xidx,yidx,Iin_reg,I3d_reg,Npix,Nx,Ny,Nz)
+  end if
   ! Single pixel based regularizations
-  if (lambl1 > 0 .or. lambmem > 0) then
-    !$OMP PARALLEL DO DEFAULT(SHARED) &
-    !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem) &
-    !$OMP   PRIVATE(ipix) &
-    !$OMP   REDUCTION(+: reg, gradreg)
-    do iz=1, Nz
-      do ipix=1, Npix
-        if (lambl1 > 0) then
-          reg(iz) = reg(iz) + lambl1 * l1_e(Iin_reg(ipix,iz))
-          gradreg(ipix,iz) = gradreg(ipix,iz) + lambl1 * l1_grade(Iin_reg(ipix,iz))
-        end if
-        if (lambmem > 0) then
-          reg(iz) = reg(iz) + lambmem * mem_e(Iin_reg(ipix,iz))
-          gradreg(ipix,iz) = gradreg(ipix,iz) + lambmem * mem_grade(Iin_reg(ipix,iz))
-        end if
-      end do
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem, I3d_reg, Nz) &
+  !$OMP   PRIVATE(ipix, iz) &
+  !$OMP   REDUCTION(+: reg, gradreg)
+  do iz=1, Nz
+    do ipix=1, Npix
+      ! L1
+      if (lambl1 > 0) then
+        reg = reg + lambl1 * l1_e(Iin_reg(ipix))
+        gradreg(ipix) = gradreg(ipix) + lambl1 * l1_grade(Iin_reg(ipix))
+      end if
+
+      ! MEM
+      if (lambmem > 0) then
+        reg = reg + lambmem * mem_e(Iin_reg(ipix))
+        gradreg(ipix) = gradreg(ipix) + lambmem * mem_grade(Iin_reg(ipix))
+      end if
+
+      ! TV
+      if (lambtv > 0) then
+        reg = reg + lambtv * tv_e(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
+        gradreg(ipix) = gradreg(ipix) + lambl1 * tv_grade(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
+      end if
+
+      ! TSV
+      if (lambtsv > 0) then
+        reg = reg + lambtsv * tsv_e(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
+        gradreg(ipix) = gradreg(ipix) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
+      end if
     end do
-    !$OMP END PARALLEL DO
+  end do
+  !$OMP END PARALLEL DO
+
+  ! multiply variable conversion factor to gradients
+  if (transtype == 1) then
+    ! Log Forward
+    call log_grad(transprm,Iin,gradreg,Npix)
+  else if (transtype == 2) then
+    ! Gamma contrast
+    call gamma_grad(transprm,Iin,gradreg,Npix)
+  end if
+
+  ! add regularization function and its gradient to cost function and its gradient.
+  cost = cost + reg
+  call daxpy(Npix, 1d0, gradreg, 1, gradcost, 1) ! gradcost := gradreg + gradcos
+  !write(*,*) 'reg',reg
+  !write(*,*) 'gradreg',gradreg(1)
+  !write(*,*) 'cost',cost
+  !write(*,*) 'gradcost',gradcost(1)
+
+  ! deallocate arrays
+  deallocate(gradreg,Iin_reg)
+  if (lambtv > 0 .or. lambtsv > 0) then
+    deallocate(I3d_reg)
   end if
 end subroutine
 end module
+
+!-------------------------------------------------------------------------------
+! Divide Nuv to Nuvs array
+!-------------------------------------------------------------------------------
+! subroutine Nuv_Nuvlist(Nuv, Nz, Nuvlist)
+!   !
+!   implicit none
+!   !
+!   integer, intent(in) :: Nuv,Nz
+!   integer, intent(out) :: Nuvlist(1:Nz)
+!   !
+!   integer :: i
+!   Nuvlist(:) = 0d0
+!   !
+!   !$OMP PARALLEL DO DEFAULT(SHARED) &
+!   !$OMP   FIRSTPRIVATE(Nuv,Nz) &
+!   !$OMP   PRIVATE(i)
+!   do i=1,Nz
+!     Nuvlist(i) = Nuv/Nz
+!   end do
+!   !$OMP END PARALLEL DO
+!   if (MOD(Nuv, Nz) /= 0) then
+!     Nuvlist(size(Nuvlist)) = Nuvlist(size(Nuvlist)) + MOD(Nuv, Nz)
+!   end if
+! end subroutine
