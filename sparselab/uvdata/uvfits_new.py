@@ -355,7 +355,8 @@ class UVFITS(object):
             srcdata.lsrvel = SUtab.data["LSRVEL"]
             srcdata.restfreq = SUtab.data["RESTFREQ"]
             radec = acd.SkyCoord(ra=SUtab.data["RAEPO"], dec=SUtab.data["DECEPO"],
-                                 equinox=srcdata.sutable["equinox"], unit="deg",
+                                 #equinox=srcdata.sutable["equinox"],
+                                 unit="deg",
                                  frame="icrs")
             srcdata.sutable["radec"] = radec.to_string("hmsdms")
 
@@ -466,7 +467,8 @@ class UVFITS(object):
         srcname = self.sources[frqsel].sutable.loc[0, "source"]
         radec = self.sources[frqsel].sutable.loc[0, "radec"]
         equinox = self.sources[frqsel].sutable.loc[0, "equinox"]
-        radec = acd.SkyCoord(radec, equinox=equinox, frame="icrs")
+        #radec = acd.SkyCoord(radec, equinox=equinox, frame="icrs")
+        radec = acd.SkyCoord(radec, frame="icrs")
         if len(self.sources[frqsel].surestfreq) != 0:
             restfreq = self.sources[frqsel].surestfreq[0, 0]
         else:
@@ -606,16 +608,16 @@ class UVFITS(object):
             array=np.asarray(freqdata.frqsels,dtype=np.int32))
         c2=pf.Column(
             name="IF FREQ", format='%dD'%(Nif), unit="HZ",
-            array=np.float64(tables[0]))
+            array=np.asarray(tables[0],dtype=np.float64))
         c3=pf.Column(
             name="CH WIDTH", format='%dE'%(Nif), unit="HZ",
-            array=np.float32(tables[1]))
+            array=np.asarray(tables[1],dtype=np.float32))
         c4=pf.Column(
             name="TOTAL BANDWIDTH", format='%dE'%(Nif), unit="HZ",
-            array=np.float32(tables[2]))
+            array=np.asarray(tables[2],dtype=np.float32))
         c5=pf.Column(
             name="SIDEBAND", format='%dJ'%(Nif), unit=" ",
-            array=np.int16(tables[3]))
+            array=np.asarray(tables[3],dtype=np.int16))
         cols = pf.ColDefs([c1, c2, c3, c4, c5])
         hdu = pf.BinTableHDU.from_columns(cols)
 
@@ -865,8 +867,8 @@ class UVFITS(object):
 
           dofreq (int; default = 0):
             Parameter for multi-frequency data.
-              dofreq = 0: calculate weights and sigmas over IFs and channels
-              dofreq = 1: calculate weights and sigmas over channels at each IF
+              dofreq = 0: average over IFs and channels
+              dofreq = 1: average over channels at each IF
 
           solint (float; default = 120.):
             solution interval in sec
@@ -875,14 +877,37 @@ class UVFITS(object):
         '''
         # Area Settigns
         outfits = copy.deepcopy(self)
+
+        # Update visibilities
         if np.int32(dofreq) > 0.5:
-            outfits.visdata.data = np.ascontiguousarray(fortlib.uvdata.avspc_dofreq1(
+            outfits.visdata.data = np.ascontiguousarray(
+                fortlib.uvdata.avspc_dofreq1(
                     uvdata=np.asarray(self.visdata.data.T, dtype=np.float32))).T
         else:
-            outfits.visdata.data = np.ascontiguousarray(fortlib.uvdata.avspc_dofreq0(
+            outfits.visdata.data = np.ascontiguousarray(
+                fortlib.uvdata.avspc_dofreq0(
                     uvdata=np.asarray(self.visdata.data.T, dtype=np.float32))).T
-        return outfits
 
+        # remake frequency tables
+        if np.int32(dofreq) > 0.5:
+            for frqsel in outfits.fqsetup.frqsels:
+                outfits.fqsetup.fqtables[frqsel].loc[:,"ch_bandwidth"]=outfits.fqsetup.fqtables[frqsel]["if_bandwidth"]
+        else:
+            for frqsel in outfits.fqsetup.frqsels:
+                bw = outfits.fqsetup.fqtables[frqsel]["if_bandwidth"].sum()
+                cf = outfits.fqsetup.fqtables[frqsel]["if_freq_offset"] + \
+                     outfits.fqsetup.fqtables[frqsel]["if_bandwidth"]/2
+                sf = cf.mean() - bw/2
+                sb = np.int32(np.median(outfits.fqsetup.fqtables[frqsel]["sideband"]))
+                newtable = pd.DataFrame(
+                    {"if_freq_offset": [sf],
+                     "ch_bandwidth": [bw],
+                     "if_bandwidth": [bw],
+                     "sideband": [sb]},
+                     columns=outfits.fqsetup.fqtable_cols
+                )
+                outfits.fqsetup.fqtables[frqsel] = newtable
+        return outfits
 
     def weightcal(self, dofreq=0, solint=120., minpoint=2):
         '''
@@ -1354,7 +1379,7 @@ class FrequencyData(object):
             lines.append("  IF Freq setups (Hz):")
             lines.append(prt(fqtable,indent*2,output=True))
         lines.append("  Note: Central Frequency of ch=i at IF=j (where i,j=1,2,3...)")
-        lines.append("     freq(i,j) = reffreq + (i-1) * ch_bandwidth(j) + if_freq_offset(j)")
+        lines.append("     freq(i,j) = reffreq + (i-1/2) * ch_bandwidth(j) + if_freq_offset(j)")
         return "\n".join(lines)
 
 
