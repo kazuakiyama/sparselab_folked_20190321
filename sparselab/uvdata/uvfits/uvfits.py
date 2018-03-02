@@ -513,8 +513,9 @@ class UVFITS(object):
         pardata.append(np.asarray(utc.jd1-utc_ref.jd1, dtype=np.float64))
         pardata.append(np.asarray(utc.jd2-utc_ref.jd2, dtype=np.float64))
         # inttime
-        parnames.append("INTTIM")
-        pardata.append(np.asarray(self.visdata.coord["inttim"], dtype=np.float32))
+        if self.visdata.coord["inttim"].max() > 0:
+            parnames.append("INTTIM")
+            pardata.append(np.asarray(self.visdata.coord["inttim"], dtype=np.float32))
         # Frequency Setup Data
         if self.ismultifrq:
             parnames.append("FREQSEL")
@@ -972,7 +973,7 @@ class UVFITS(object):
     def get_uvw(self):
         '''
         This method will make a matrix of uvw coverage and uv distance of each
-        channel, frequency band (IF). 
+        channel, frequency band (IF).
         The frequency offset is for the center of each channel.
 
         Returns:
@@ -982,7 +983,7 @@ class UVFITS(object):
           Nuvw=0,1,2, and 3 corresponds to u,v,w, and uvdistance, respectively.
           Further, CHid and IFid is the number of channels and frequency bands.
         '''
-        
+
         # Number of Data
         Ndata, Ndec, Nra, Nif, Nch, Nstokes, Ncomp=self.visdata.data.shape
 
@@ -991,7 +992,7 @@ class UVFITS(object):
 
         # freqsel
         freqsel = self.visdata.coord.freqsel.values
-        
+
         # subarray
         subarray = self.visdata.coord.subarray.values
 
@@ -1004,7 +1005,7 @@ class UVFITS(object):
         #  frequency for each channel and frequency band
         freqdic =self.get_freq()
 
-        # calculate UVW=(u, v, w, uvdistance) 
+        # calculate UVW=(u, v, w, uvdistance)
         for i,j in itertools.product(xrange(Nif),xrange (Nch)): #0<=i<Nif, 0<=j<Nch
             freq = [freqdic[subarray[k],freqsel[k],i+1,j+1] for k in xrange(Ndata)] # 0<=k<Ndata
             uvw[j,i,:,0] = freq[:]*usec
