@@ -859,10 +859,10 @@ class UVFITS(object):
         '''
         This method will make a dictionary of specified antenna information
 
-        Arguments:
+        Args:
           key (string; default="name"): key name
 
-        Output:
+        Returns:
           Dictionary of the speficied key Value.
           key of the dictionary is (subarrayid, antenna id)
         '''
@@ -881,12 +881,12 @@ class UVFITS(object):
         This method will make a dictionary of frequency offsets of each
         channel. The frequency offset is for the center of each channel.
 
-        Arguments:
+        Args:
             center (boolean; default=True):
                 If True, the central frequency of each channel will be returned.
                 Otherwise, the beggining frequency of each channel will be returned.
 
-        Output:
+        Returns:
           Dictionary of the speficied key Value.
           key of the dictionary is (frqsel, IFid, CHid)
         '''
@@ -914,12 +914,12 @@ class UVFITS(object):
         This method will make a dictionary of frequency offsets of each
         channel. The frequency offset is for the center of each channel.
 
-        Arguments:
+        Args:
             center (boolean; default=True):
                 If True, the central frequency of each channel will be returned.
                 Otherwise, the beggining frequency of each channel will be returned.
 
-        Output:
+        Returns:
           Dictionary of the speficied key Value.
           key of the dictionary is (frqsel, IFid, CHid)
         '''
@@ -941,9 +941,14 @@ class UVFITS(object):
         return outdic
 
     def get_utc(self):
+        '''
+
+        '''
         return at.Time(np.datetime_as_string(self.visdata.coord["utc"]), scale="utc")
 
     def get_gst(self):
+        '''
+        '''
         return self.get_utc().sidereal_time('apparent', 'greenwich')
 
     def avspc(self, dofreq=0, minpoint=2):
@@ -951,7 +956,7 @@ class UVFITS(object):
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
 
-        Arguments:
+        Args:
           dofreq (int; default = 0):
             Parameter for multi-frequency data.
               dofreq = 0: average over IFs and channels
@@ -960,7 +965,7 @@ class UVFITS(object):
           solint (float; default = 120.):
             solution interval in sec
 
-        Output: uvfits.UVFITS object
+        Returns: uvfits.UVFITS object
         '''
         # Area Settigns
         outfits = copy.deepcopy(self)
@@ -1090,7 +1095,7 @@ class UVFITS(object):
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
 
-        Arguments:
+        Args:
           dofreq (int; default = 0):
             Parameter for multi-frequency data.
               dofreq = 0: calculate weights and sigmas over IFs and channels
@@ -1100,7 +1105,7 @@ class UVFITS(object):
           solint (float; default = 60.):
             solution interval in sec
 
-        Output: uvfits.UVFITS object
+        Returns: uvfits.UVFITS object
         '''
         # Save and Return re-weighted uv-data
         outfits = copy.deepcopy(self)
@@ -1128,7 +1133,7 @@ class UVFITS(object):
                             "LL", "RR", "RL", "LR",
                             "XX", "YY", "XY", "YX"].
 
-        Output: uvdata.UVFITS object
+        Returns: uvdata.UVFITS object
         '''
         # get stokes data
         stokesorg = self.stokes
