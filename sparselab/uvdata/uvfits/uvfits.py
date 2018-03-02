@@ -237,11 +237,17 @@ class UVFITS(object):
         Nfrqsel = len(freqdata.frqsels)
         for i in xrange(Nfrqsel):
             frqsel = freqdata.frqsels[i]
-            fqtable = pd.DataFrame(columns=freqdata.fqtable_cols)
-            fqtable["if_freq_offset"]=FQtab.data["IF FREQ"][i]
-            fqtable["ch_bandwidth"]=FQtab.data["CH WIDTH"][i]
-            fqtable["if_bandwidth"]=FQtab.data["TOTAL BANDWIDTH"][i]
-            fqtable["sideband"]=FQtab.data["SIDEBAND"][i]
+            fqdic = {
+                "if_freq_offset":FQtab.data["IF FREQ"][i],
+                "ch_bandwidth":FQtab.data["CH WIDTH"][i],
+                "if_bandwidth":FQtab.data["TOTAL BANDWIDTH"][i],
+                "sideband":FQtab.data["SIDEBAND"][i]
+            }
+            if np.isscalar(fqdic["if_freq_offset"]):
+                index=[0]
+            else:
+                index=None
+            fqtable = pd.DataFrame(fqdic,columns=freqdata.fqtable_cols,index=index)
             freqdata.fqtables[frqsel] = fqtable
         prt(freqdata, indent)
 
@@ -396,19 +402,31 @@ class UVFITS(object):
                 visdata.coord["freqsel"] = np.int64(hdu.data.par(i))
 
         # Check Loaded Random Parameters
+        #   INTTIM
+        if paridxes[7] is None:
+            warnmsg = "Warning: this data do not have a random parameter for the integration time\n"
+            visdata.coord["inttim"] = np.zeros(visdata.coord.shape[0], dtype=np.float64)
+            visdata.coord.loc[:,"inttim"] = -1
+            paridxes[7] = -1
+
+        #   Source
         if self.ismultisrc and (paridxes[6] is None):
             errmsg = "Random Parameters do not have 'SOURCE' although UVFITS is for multi sources."
             raise ValueError(errmsg)
         elif (self.ismultisrc is False) and (paridxes[6] is None):
             visdata.coord["source"] = np.asarray([1 for i in xrange(Ndata)])
             paridxes[6] = -1
+
+        #   Frequency
         if self.ismultifrq and (paridxes[8] is None):
             errmsg = "Random Parameters do not have 'FREQSEL' although UVFITS have multi frequency setups."
             raise ValueError(errmsg)
         elif (self.ismultifrq is False) and (paridxes[8] is None):
             visdata.coord["freqsel"] = np.asarray([1 for i in xrange(Ndata)])
             paridxes[8] = -1
+
         if None in paridxes:
+            print(paridxes)
             errmsg = "Random Parameters do not have mandatory columns."
             raise ValueError(errmsg)
 
@@ -902,10 +920,11 @@ class UVFITS(object):
             for iif,ich in itertools.product(xrange(Nif),xrange(Nch)):
                 chbw = fqtable.loc[iif, "ch_bandwidth"]
                 fqof = fqtable.loc[iif, "if_freq_offset"]
+                sideband = fqtable.loc[iif, "sideband"]
                 if center:
-                    freq = reffreq + fqof + chbw * (ich+1/2)
+                    freq = reffreq + fqof + chbw * (ich+1/2) * sideband
                 else:
-                    freq = reffreq + fqof + chbw * ich
+                    freq = reffreq + fqof + chbw * ich * sideband
                 outdic[(subarr,frqsel,iif+1,ich+1)] = freq
         return outdic
 
@@ -942,7 +961,6 @@ class UVFITS(object):
 
     def get_utc(self):
         '''
-
         '''
         return at.Time(np.datetime_as_string(self.visdata.coord["utc"]), scale="utc")
 
@@ -1505,7 +1523,7 @@ class FrequencyData(object):
             lines.append("  IF Freq setups (Hz):")
             lines.append(prt(fqtable,indent*2,output=True))
         lines.append("  Note: Central Frequency of ch=i at IF=j (where i,j=1,2,3...)")
-        lines.append("     freq(i,j) = reffreq + (i-1/2) * ch_bandwidth(j) + if_freq_offset(j)")
+        lines.append("     freq(i,j) = reffreq + (i-1/2) * ch_bandwidth(j) * sideband + if_freq_offset(j)")
         return "\n".join(lines)
 
 
