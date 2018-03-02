@@ -1085,7 +1085,7 @@ class UVFITS(object):
 
         return outfits
 
-    def weightcal(self, dofreq=0, solint=120., minpoint=2):
+    def weightcal_fast(self, dofreq=0, solint=60., minpoint=2):
         '''
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
@@ -1097,7 +1097,7 @@ class UVFITS(object):
               dofreq = 1: calculate weights and sigmas over channels at each IF
               dofreq = 2: calculate weights and sigmas at each IF and Channel
 
-          solint (float; default = 120.):
+          solint (float; default = 60.):
             solution interval in sec
 
         Output: uvfits.UVFITS object
@@ -1117,7 +1117,7 @@ class UVFITS(object):
                 minpoint=np.int32(minpoint)).T)
         return outfits
 
-    def weightcal_slow(self, dofreq=0, solint=120., minpoint=2):
+    def weightcal(self, dofreq=0, solint=60., minpoint=2):
         '''
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
@@ -1129,7 +1129,7 @@ class UVFITS(object):
               dofreq = 1: calculate weights and sigmas over channels at each IF
               dofreq = 2: calculate weights and sigmas at each IF and Channel
 
-          solint (float; default = 120.):
+          solint (float; default = 60.):
             solution interval in sec
 
         Output: uvfits.UVFITS object
