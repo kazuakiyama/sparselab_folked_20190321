@@ -127,26 +127,30 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
   implicit none
 
   integer,  intent(in) :: Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Ndata
-  integer, intent(in) :: source(Ndata),ant1(Ndata),ant2(Ndata),subarray(Ndata)
-  integer, intent(in) :: dofreq,minpoint
+  integer,  intent(in) :: source(Ndata),ant1(Ndata),ant2(Ndata),subarray(Ndata)
+  integer,  intent(in) :: dofreq,minpoint
   real(sp), intent(in) :: uvdata(Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Ndata)
   real(dp), intent(in) :: solint,tsec(Ndata)
   real(sp), intent(out) :: uvdataout(Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Ndata)
 
   integer :: i1,i2,i3,i4,i5,i6,i7,N
   logical :: flag
-  real(dp) :: ave, msq, var
-  real(dp) :: vm(Nstokes,Nch,Nif,Nra,Ndec), vr(Nstokes,Nch,Nif,Nra,Ndec)
+  real(dp) :: aver, avei, msqr, msqi, var
+  real(dp) :: vmr(Nstokes,Nch,Nif,Nra,Ndec),vmi(Nstokes,Nch,Nif,Nra,Ndec)
+  real(dp) :: vrr(Nstokes,Nch,Nif,Nra,Ndec),vri(Nstokes,Nch,Nif,Nra,Ndec)
   integer :: cnt(Nstokes,Nch,Nif,Nra,Ndec)
 
   !$OMP PARALLEL DO DEFAULT(SHARED)&
   !$OMP   FIRSTPRIVATE(source,ant1,ant2,subarray,tsec,solint,dofreq,minpoint, &
   !$OMP                Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Ndata) &
-  !$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,N,ave,msq,var,vm,vr,cnt,flag)
+  !$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,N,&
+  !$OMP           aver,avei,msqr,msqi,var,vmr,vmi,vrr,vri,cnt,flag)
   do i1=1,Ndata
     uvdataout(:,:,:,:,:,:,i1) = uvdata(:,:,:,:,:,:,i1)
-    vm(:,:,:,:,:) = 0d0
-    vr(:,:,:,:,:) = 0d0
+    vmr(:,:,:,:,:) = 0d0
+    vmi(:,:,:,:,:) = 0d0
+    vrr(:,:,:,:,:) = 0d0
+    vri(:,:,:,:,:) = 0d0
     cnt(:,:,:,:,:) = 0
     do i2=1,Ndata
       ! check source and stokes
@@ -173,17 +177,17 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
                 if (uvdataout(3,i7,i6,i5,i4,i3,i2) .ne. uvdataout(3,i7,i6,i5,i4,i3,i2)) then
                   cycle
                 end if
-                vm(i7,i6,i5,i4,i3) = uvdata(1,i7,i6,i5,i4,i3,i2) &
-                                   + vm(i7,i6,i5,i4,i3)
-                vm(i7,i6,i5,i4,i3) = uvdata(2,i7,i6,i5,i4,i3,i2) &
-                                   + vm(i7,i6,i5,i4,i3)
-                vr(i7,i6,i5,i4,i3) = uvdata(1,i7,i6,i5,i4,i3,i2) &
-                                   * uvdata(1,i7,i6,i5,i4,i3,i2) &
-                                   + vr(i7,i6,i5,i4,i3)
-                vr(i7,i6,i5,i4,i3) = uvdata(2,i7,i6,i5,i4,i3,i2) &
-                                   * uvdata(2,i7,i6,i5,i4,i3,i2) &
-                                   + vr(i7,i6,i5,i4,i3)
-                cnt(i7,i6,i5,i4,i3) = cnt(i7,i6,i5,i4,i3)+2
+                vmr(i7,i6,i5,i4,i3) = uvdata(1,i7,i6,i5,i4,i3,i2) &
+                                    + vmr(i7,i6,i5,i4,i3)
+                vmi(i7,i6,i5,i4,i3) = uvdata(2,i7,i6,i5,i4,i3,i2) &
+                                    + vmi(i7,i6,i5,i4,i3)
+                vrr(i7,i6,i5,i4,i3) = uvdata(1,i7,i6,i5,i4,i3,i2) &
+                                    * uvdata(1,i7,i6,i5,i4,i3,i2) &
+                                    + vrr(i7,i6,i5,i4,i3)
+                vri(i7,i6,i5,i4,i3) = uvdata(2,i7,i6,i5,i4,i3,i2) &
+                                    * uvdata(2,i7,i6,i5,i4,i3,i2) &
+                                    + vri(i7,i6,i5,i4,i3)
+                cnt(i7,i6,i5,i4,i3) = cnt(i7,i6,i5,i4,i3)+1
               end do
             end do
           end do
@@ -200,9 +204,11 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
             if (N <= 2*minpoint) then
               uvdataout(3,i4,:,:,i3,i2,i1) = 0.0
             end if
-            ave = sum(vm(i4,:,:,i3,i2))/N
-            msq = sum(vr(i4,:,:,i3,i2))/N
-            var = msq - ave*ave
+            aver = sum(vmr(i4,:,:,i3,i2))/N
+            avei = sum(vmi(i4,:,:,i3,i2))/N
+            msqr = sum(vrr(i4,:,:,i3,i2))/N
+            msqi = sum(vri(i4,:,:,i3,i2))/N
+            var = 0.5 * (msqr - aver**2 + msqi - avei**2)
             uvdataout(3,i4,:,:,i3,i2,i1) = sngl(1d0/var)
           end do
         else if (dofreq .eq. 1) then
@@ -212,9 +218,11 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
               if (N <= 2*minpoint) then
                 uvdataout(3,i5,:,i4,i3,i2,i1) = 0.0
               end if
-              ave = sum(vm(i5,:,i4,i3,i2))/N
-              msq = sum(vr(i5,:,i4,i3,i2))/N
-              var = msq - ave*ave
+              aver = sum(vmr(i5,:,i4,i3,i2))/N
+              avei = sum(vmi(i5,:,i4,i3,i2))/N
+              msqr = sum(vrr(i5,:,i4,i3,i2))/N
+              msqi = sum(vri(i5,:,i4,i3,i2))/N
+              var = 0.5 * (msqr - aver**2 + msqi - avei**2)
               uvdataout(3,i5,:,i4,i3,i2,i1) = sngl(1d0/var)
             end do
           end do
@@ -226,14 +234,17 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
                 if (N <= 2*minpoint) then
                   uvdataout(3,i6,i5,i4,i3,i2,i1) = 0.0
                 end if
-                ave = vm(i6,i5,i4,i3,i2)/N
-                msq = vr(i6,i5,i4,i3,i2)/N
-                var = msq - ave*ave
+                aver = vmr(i6,i5,i4,i3,i2)/N
+                avei = vmi(i6,i5,i4,i3,i2)/N
+                msqr = vrr(i6,i5,i4,i3,i2)/N
+                msqi = vri(i6,i5,i4,i3,i2)/N
+                var = 0.5 * (msqr - aver**2 + msqi - avei**2)
                 uvdataout(3,i6,i5,i4,i3,i2,i1) = sngl(1d0/var)
               end do
             end do
           end do
         end if
+
         do i4=1, Nif
           do i5=1, Nch
             do i6=1, Nstokes
