@@ -101,7 +101,7 @@ class _MFISTA_RESULT(ctypes.Structure):
 #-------------------------------------------------------------------------
 # Wrapping Function
 #-------------------------------------------------------------------------
-def mfista_imaging(
+def imaging(
     initimage, vistable,
     lambl1=-1., lambtv=-1, lambtsv=-1,
     normlambda=True, nonneg=True, looe=True,
@@ -170,7 +170,7 @@ def mfista_imaging(
     Verr = np.asarray(fcvtable["sigma"], dtype=np.float64)
     Vfcv = np.concatenate([Vamp*np.cos(Vpha)/Verr, Vamp*np.sin(Vpha)/Verr])
     M = Vfcv.size
-    Vfcv *= 2/np.sqrt(M)
+    Vfcv *= 1/np.sqrt(M/2.)
     del Vamp, Vpha
 
     # scale lambda
@@ -241,7 +241,7 @@ def mfista_imaging(
 
     return outimage
 
-def mfista_stats(
+def statistics(
     initimage, vistable,
     lambl1=-1., lambtv=-1, lambtsv=-1,
     normlambda=True, nonneg=True, looe=True,
@@ -313,7 +313,7 @@ def mfista_stats(
     Vfcv = np.concatenate([Vamp*np.cos(Vpha)/Verr, Vamp*np.sin(Vpha)/Verr])
     M = Vfcv.size
     Ndata = M//2
-    Vfcv *= 2/np.sqrt(M)
+    Vfcv *= 1/np.sqrt(M/2)
     del Vamp, Vpha
 
     # scale lambda
@@ -378,7 +378,7 @@ def mfista_stats(
 
     # Cost and Chisquares
     stats["cost"] = mfista_result.finalcost
-    stats["chisq"] = mfista_result.sq_error * Ndata / 2
+    stats["chisq"] = mfista_result.sq_error * M / 2
     stats["rchisq"] = mfista_result.sq_error / 2
     stats["looe_m"] = mfista_result.looe_m
     stats["looe_std"] = mfista_result.looe_std
@@ -386,11 +386,11 @@ def mfista_stats(
     stats["isamp"] = False
     stats["iscp"] = False
     stats["isca"] = False
-    stats["chisqfcv"] = mfista_result.sq_error * Ndata
+    stats["chisqfcv"] = mfista_result.sq_error * M / 2
     stats["chisqamp"] = 0
     stats["chisqcp"] = 0
     stats["chisqca"] = 0
-    stats["rchisqfcv"] = mfista_result.sq_error
+    stats["rchisqfcv"] = mfista_result.sq_error / 2
     stats["rchisqamp"] = 0
     stats["rchisqcp"] = 0
     stats["rchisqca"] = 0
@@ -435,10 +435,10 @@ def mfista_stats(
         # full complex visibilities
         model = mfista_result.modelarr
         resid = mfista_result.residarr
-        rmod = model[0:Ndata] * np.sqrt(Ndata//2) * Verr
-        imod = model[Ndata:2*Ndata] * np.sqrt(Ndata//2) * Verr
-        rred = resid[0:Ndata] * np.sqrt(Ndata//2)
-        ired = resid[Ndata:2*Ndata] * np.sqrt(Ndata//2)
+        rmod = model[0:Ndata] * np.sqrt(Ndata) * Verr
+        imod = model[Ndata:2*Ndata] * np.sqrt(Ndata) * Verr
+        rred = resid[0:Ndata] * np.sqrt(Ndata)
+        ired = resid[Ndata:2*Ndata] * np.sqrt(Ndata)
         stats["fcvampmod"] = np.sqrt(rmod*rmod + imod*imod)
         stats["fcvphamod"] = np.angle(rmod + 1j * imod, deg=True)
         stats["fcvrmod"] = rmod
@@ -455,7 +455,7 @@ def mfista_stats(
 
     return stats
 
-def mfista_plots(outimage, imageprm={}, filename=None,
+def plots(outimage, imageprm={}, filename=None,
                  angunit="mas", uvunit="gl", plotargs={'ms': 1., }):
     isinteractive = plt.isinteractive()
     backend = matplotlib.rcParams["backend"]
@@ -484,7 +484,7 @@ def mfista_plots(outimage, imageprm={}, filename=None,
         return -1
 
     # Get model data
-    stats = mfista_stats(outimage, fulloutput=True, **imageprm)
+    stats = statistics(outimage, fulloutput=True, **imageprm)
 
     # Open File
     if filename is not None:
@@ -576,7 +576,7 @@ def mfista_plots(outimage, imageprm={}, filename=None,
         matplotlib.use(backend)
 
 
-def mfista_pipeline(
+def pipeline(
         initimage,
         imageprm={},
         lambl1s=[-1.],
@@ -661,7 +661,7 @@ def mfista_pipeline(
         filename = header + ".fits"
         filename = os.path.join(workdir, filename)
         if (skip is False) or (os.path.isfile(filename) is False):
-            newimage = mfista_imaging(previmage, **imageprm)
+            newimage = imaging(previmage, **imageprm)
             newimage.save_fits(filename)
         else:
             newimage = imdata.IMFITS(filename)
@@ -669,9 +669,9 @@ def mfista_pipeline(
 
         filename = header + ".summary.pdf"
         filename = os.path.join(workdir, filename)
-        mfista_plots(newimage, imageprm, filename=filename,
+        plots(newimage, imageprm, filename=filename,
                      angunit=angunit, uvunit=uvunit)
-        newstats = mfista_stats(newimage, fulloutput=False, **imageprm)
+        newstats = statistics(newimage, fulloutput=False, **imageprm)
 
         # Make Summary
         tmpsum = collections.OrderedDict()
@@ -737,7 +737,7 @@ def mfista_pipeline(
                 filename = cvheader + ".t.fits"
                 filename = os.path.join(cvworkdir, filename)
                 if (skip is False) or (os.path.isfile(filename) is False):
-                    cvnewimage = mfista_imaging(newimage, **imageprm)
+                    cvnewimage = imaging(newimage, **imageprm)
                     cvnewimage.save_fits(filename)
                 else:
                     cvnewimage = imdata.IMFITS(filename)
@@ -745,11 +745,11 @@ def mfista_pipeline(
                 # Make Plots
                 filename = cvheader + ".t.summary.pdf"
                 filename = os.path.join(cvworkdir, filename)
-                mfista_plots(cvnewimage, cvimageprm, filename=filename,
+                plots(cvnewimage, cvimageprm, filename=filename,
                                  angunit=angunit, uvunit=uvunit)
 
                 # Check Training data
-                trainstats = mfista_stats(cvnewimage, fulloutput=False,
+                trainstats = statistics(cvnewimage, fulloutput=False,
                                           **cvimageprm)
 
                 # Check validating data
@@ -759,11 +759,11 @@ def mfista_pipeline(
                 # Make Plots
                 filename = cvheader + ".v.summary.pdf"
                 filename = os.path.join(cvworkdir, filename)
-                mfista_plots(cvnewimage, cvimageprm, filename=filename,
+                plots(cvnewimage, cvimageprm, filename=filename,
                              angunit=angunit, uvunit=uvunit)
 
                 #   Check Statistics
-                validstats = mfista_stats(cvnewimage, fulloutput=False,
+                validstats = statistics(cvnewimage, fulloutput=False,
                                           **cvimageprm)
 
                 #   Save Results

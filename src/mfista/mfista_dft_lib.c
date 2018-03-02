@@ -148,7 +148,7 @@ void calc_A_imaging(
   int halfM=M/2;        /* actual data number */
   int incx=1,incA=1;    /* increment of each vector */
 
-  double factor,xfactor,yfactor;
+  double factor,xfactor,yfactor,normfactor;
 
   /* Define a factor for DFT */
   if (dftsign>0) {
@@ -177,13 +177,14 @@ void calc_A_imaging(
   #ifdef _OPENMP
    #pragma omp parallel for default(shared)\
     private(j,k)\
-    firstprivate(yerr,halfM,M,N)
+    firstprivate(yerr,halfM,M,N,normfactor)
   #endif
   for (i=0; i<N; ++i) {
     for (j=0; j<halfM; ++j) {
       k = i*M;
-      A[k+j+halfM] = sin(A[k+j])/yerr[j]*2/sqrt(M);
-      A[k+j] = cos(A[k+j])/yerr[j]*2/sqrt(M);
+			normfactor = sqrt(M/2)*yerr[j];
+      A[k+j+halfM] = sin(A[k+j])/normfactor;
+      A[k+j] = cos(A[k+j])/normfactor;
     }
   }
 }

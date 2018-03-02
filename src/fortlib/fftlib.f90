@@ -192,6 +192,10 @@ subroutine chisq_fcv(Vcmp,&
                      fnorm,&
                      chisq,Vresre,Vresim,&
                      Nuv,Nfcv)
+  !
+  !  This subroutine will compute chisquare and its analytic gradient
+  !  for full complex visibility data
+  !
   implicit none
 
   ! NuFFT-ed visibilities
@@ -246,6 +250,10 @@ subroutine chisq_amp(Vcmp,&
                      fnorm,&
                      chisq,Vresre,Vresim,&
                      Nuv,Namp)
+ !
+ !  This subroutine will compute chisquare and its analytic gradient
+ !  for amplitude data
+ !
   implicit none
 
   ! NuFFT-ed visibilities
@@ -297,7 +305,10 @@ subroutine chisq_ca(Vcmp,&
                     chisq,Vresre,Vresim,&
                     Nuv,Nca)
   implicit none
-
+  !
+  !  This subroutine will compute chisquare and its analytic gradient
+  !  for closure amplitude data
+  !
   ! NuFFT-ed visibilities
   integer,      intent(in):: Nuv
   complex(dpc), intent(in):: Vcmp(Nuv)
@@ -374,7 +385,10 @@ subroutine chisq_cp(Vcmp,&
                     chisq,Vresre,Vresim,&
                     Nuv,Ncp)
   implicit none
-
+  !
+  !  This subroutine will compute chisquare and its analytic gradient
+  !  for closure phase data
+  !
   ! NuFFT-ed visibilities
   integer,      intent(in):: Nuv
   complex(dpc), intent(in):: Vcmp(Nuv)
@@ -456,7 +470,13 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
                      uvidxfcv,Vfcvr,Vfcvi,Varfcv,&
                      chisq,gradchisq,modelr,modeli,residr,residi,&
                      Npix,Nuv,Nfcv)
+ !
+ !  This subroutine will compute model, residual, chisquare and
+ !  its analytic gradient of full complex visibility data sets
+ !  from input image data
+ !
   implicit none
+
   ! Image
   integer,  intent(in) :: Npix, Nx, Ny
   real(dp), intent(in) :: Iin(Npix)
@@ -606,6 +626,11 @@ subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
                      uvidxamp,Vamp,Varamp,&
                      chisq,gradchisq,model,resid,&
                      Npix,Nuv,Namp)
+ !
+ !  This subroutine will compute model, residual, chisquare and
+ !  its analytic gradient of amplitude data sets
+ !  from input image data
+ !
   implicit none
   ! Image
   integer,  intent(in) :: Npix, Nx, Ny
@@ -620,14 +645,14 @@ subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   ! Data
   integer,  intent(in):: Namp           ! Number of data
   integer,  intent(in):: uvidxamp(Namp) ! UV Index of amp data
-  real(dp), intent(in):: Vamp(Namp)     ! Full complex visibility (amp) data
+  real(dp), intent(in):: Vamp(Namp)     ! Amplitude data
   real(dp), intent(in):: Varamp(Namp)   ! variances of amp data
   ! Outputs
-  real(dp), intent(out):: chisq             ! chisquare
-  real(dp), intent(out):: model(Namp)       ! Model Vector
-  real(dp), intent(out):: resid(Namp)       ! Residual Vector
-  real(dp), intent(out):: gradchisq(Npix)   ! its adjoint FT provides
-                                            ! the gradient of chisquare
+  real(dp), intent(out):: chisq           ! chisquare
+  real(dp), intent(out):: model(Namp)     ! Model Vector
+  real(dp), intent(out):: resid(Namp)     ! Residual Vector
+  real(dp), intent(out):: gradchisq(Npix) ! its adjoint FT provides
+                                          ! the gradient of chisquare
 
   ! allocatable arrays
   real(dp), allocatable :: I2d(:,:),gradchisq2d(:,:)
@@ -704,6 +729,11 @@ subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
                      uvidxca,CA,Varca,&
                      chisq,gradchisq,model,resid,&
                      Npix,Nuv,Nca)
+  !
+  !  This subroutine will compute model, residual, chisquare and
+  !  its analytic gradient of closure amplitude data sets
+  !  from input image data
+  !
   implicit none
   ! Image
   integer,  intent(in) :: Npix, Nx, Ny
@@ -716,16 +746,16 @@ subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   integer,  intent(in) :: Nuv
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
   ! Data
-  integer,  intent(in):: Nca           ! Number of data
-  integer,  intent(in):: uvidxca(4,Nca) ! UV Index of ca data
-  real(dp), intent(in):: CA(Nca)     ! Full complex visibility (ca) data
-  real(dp), intent(in):: Varca(Nca)   ! variances of ca data
+  integer,  intent(in):: Nca              ! Number of data
+  integer,  intent(in):: uvidxca(4,Nca)   ! UV Index of ca data
+  real(dp), intent(in):: CA(Nca)          ! Closure Amplitude Data
+  real(dp), intent(in):: Varca(Nca)       ! variances of ca data
   ! Outputs
-  real(dp), intent(out):: chisq             ! chisquare
-  real(dp), intent(out):: model(Nca)       ! Model Vector
-  real(dp), intent(out):: resid(Nca)       ! Residual Vector
-  real(dp), intent(out):: gradchisq(Npix)   ! its adjoint FT provides
-                                            ! the gradient of chisquare
+  real(dp), intent(out):: chisq           ! chisquare
+  real(dp), intent(out):: model(Nca)      ! Model Vector
+  real(dp), intent(out):: resid(Nca)      ! Residual Vector
+  real(dp), intent(out):: gradchisq(Npix) ! its adjoint FT provides
+                                          ! the gradient of chisquare
 
   ! allocatable arrays
   real(dp), allocatable :: I2d(:,:),gradchisq2d(:,:)
@@ -828,6 +858,11 @@ subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
                      uvidxcp,CP,Varcp,&
                      chisq,gradchisq,model,resid,&
                      Npix,Nuv,Ncp)
+  !
+  !  This subroutine will compute model, residual, chisquare and
+  !  its analytic gradient of closure phase data sets
+  !  from input image data
+  !
   implicit none
   ! Image
   integer,  intent(in) :: Npix, Nx, Ny
@@ -840,16 +875,16 @@ subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   integer,  intent(in) :: Nuv
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
   ! Data
-  integer,  intent(in):: Ncp           ! Number of data
+  integer,  intent(in):: Ncp            ! Number of data
   integer,  intent(in):: uvidxcp(4,Ncp) ! UV Index of cp data
-  real(dp), intent(in):: CP(Ncp)     ! Full complex visibility (ca) data
-  real(dp), intent(in):: Varcp(Ncp)   ! variances of ca data
+  real(dp), intent(in):: CP(Ncp)        ! Closure Phase data
+  real(dp), intent(in):: Varcp(Ncp)     ! variances of ca data
   ! Outputs
-  real(dp), intent(out):: chisq             ! chisquare
-  real(dp), intent(out):: model(Ncp)       ! Model Vector
-  real(dp), intent(out):: resid(Ncp)       ! Residual Vector
-  real(dp), intent(out):: gradchisq(Npix)   ! its adjoint FT provides
-                                            ! the gradient of chisquare
+  real(dp), intent(out):: chisq           ! chisquare
+  real(dp), intent(out):: model(Ncp)      ! Model Vector
+  real(dp), intent(out):: resid(Ncp)      ! Residual Vector
+  real(dp), intent(out):: gradchisq(Npix) ! its adjoint FT provides
+                                          ! the gradient of chisquare
 
   ! allocatable arrays
   real(dp), allocatable :: I2d(:,:),gradchisq2d(:,:)
