@@ -10,4 +10,4 @@ __author__ = "Sparselab Developer Team"
 # Modules
 # -------------------------------------------------------------------------
 from .imdata import *
-from .imregion import ImageRegion
+from .imregion import ImRegTable
