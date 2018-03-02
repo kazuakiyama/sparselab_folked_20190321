@@ -969,6 +969,54 @@ class UVFITS(object):
         '''
         return self.get_utc().sidereal_time('apparent', 'greenwich')
 
+    def get_uvw(self):
+        '''
+        This method will make a matrix of uvw coverage and uv distance of each
+        channel, frequency band (IF). 
+        The frequency offset is for the center of each channel.
+
+        Returns:
+          matrix of the Values of u,v,w,uvdistance(=sqrt(u**2+v**2)).
+          key of the dictionary is (Nuvw, Ndata, IFid, CHid),
+          where Ndata is the number of the uvw data, and Nuvw is the type of the uvw coverages:
+          Nuvw=0,1,2, and 3 corresponds to u,v,w, and uvdistance, respectively.
+          Further, CHid and IFid is the number of channels and frequency bands.
+        '''
+        
+        # Number of Data
+        Ndata, Ndec, Nra, Nif, Nch, Nstokes, Ncomp=self.visdata.data.shape
+
+        # initialize uvw
+        uvw = np.zeros((Nch, Nif, Ndata, 4))
+
+        # freqsel
+        freqsel = self.visdata.coord.freqsel.values
+        
+        # subarray
+        subarray = self.visdata.coord.subarray.values
+
+        # Usec,Vsec,Wsec,UVdsec
+        usec   = np.float64(self.visdata.coord.usec.values)
+        vsec   = np.float64(self.visdata.coord.vsec.values)
+        wsec   = np.float64(self.visdata.coord.wsec.values)
+        uvdsec = np.sqrt(usec**2+vsec**2)
+
+        #  frequency for each channel and frequency band
+        freqdic =self.get_freq()
+
+        # calculate UVW=(u, v, w, uvdistance) 
+        for i,j in itertools.product(xrange(Nif),xrange (Nch)): #0<=i<Nif, 0<=j<Nch
+            freq = [freqdic[subarray[k],freqsel[k],i+1,j+1] for k in xrange(Ndata)] # 0<=k<Ndata
+            uvw[j,i,:,0] = freq[:]*usec
+            uvw[j,i,:,1] = freq[:]*vsec
+            uvw[j,i,:,2] = freq[:]*wsec
+            uvw[j,i,:,3] = freq[:]*uvdsec
+
+        #Transpose UVW
+        UVW = uvw.T
+        return UVW
+
+
     def avspc(self, dofreq=0, minpoint=2):
         '''
         This method will recalculate sigmas and weights of data from scatter
