@@ -33,8 +33,8 @@ from .. import fortlib, util
 #-------------------------------------------------------------------------
 class MOVIE(object):
     def __init__(self, tstart='2000-01-01T00:00:00',
-                 tint=60, tintunit="sec", Nf=1, initimage=None,
-                 dtable=None, **args):
+                 tint=60, tintunit="sec", Nf=1, init2dim=None,
+                 dtable=None, **tabs):
         '''
         Args:
             tstart (datetime):
@@ -66,6 +66,8 @@ class MOVIE(object):
         self.Nf = Nf
         # dataframe tables
         self.dtable = dtable
+        # initial 2D image
+        self.init2dim = init2dim
 
     def timetable(self):
         tmtable = pd.DataFrame()
@@ -83,29 +85,53 @@ class MOVIE(object):
             tmtable.loc[i, "tint(sec)"] = self.tint
         return tmtable
 
-    def frmidx(self):
-        if (self.dtable is None):
+    def fridxconcat(self):
+        '''
+        frame indexed concatenated table
+        '''
+        if (self.dtable is None) or (self.dtable is [None]):
             print("DataFrame table is not given.")
             return -1
+        # concatenate the multiple tables in a list
+        if type(self.dtable) == list:
+            tablist = self.dtable
+        else:
+            tablist = list([self.dtable])
+        frmtable = None
+        for tab in tablist:
+            if frmtable is not None:
+                frmtable = pd.concat((frmtable, tab), ignore_index=True)
+            else:
+                frmtable = tab
         # time of input table which DataFrame
-        #attime = at.Time(np.datetime_as_string(self.dtable["utc"]))
-        attime = np.asarray(self.dtable["utc"], np.str)
+        attime = np.asarray(frmtable["utc"], np.str)
         attime = at.Time(attime)
         utctime = attime.datetime
         # call timetable
         tmtable = self.timetable()
-        idx = tmtable["frame"]
-        tmframe = tmtable["utc"]
-        # assigning
-        self.dtable["frmidx"] = np.zeros(len(self.dtable), dtype='int32')
+        idx = tmtable["frame"].values
+        tmframe = tmtable["utc"].values
+        # assigning the frame index
+        frmtable["frmidx"] = np.zeros(len(frmtable), dtype='int32')
         for i in range(len(utctime)):
             for j in range(len(idx)-1):
-                if (utctime[i] >= tmframe[j]) and (utctime[i] < tmframe[j+1]):
-                    self.dtable.loc[i, "frmidx"] = idx[j]
+                if (utctime[i] >= tmframe[j]) and
+                        (utctime[i] < tmframe[j+1]):
+                    frmtable.loc[i, "frmidx"] = idx[j]
             if utctime[i] > tmframe[-1]:
-                self.dtable.loc[i, "frmidx"] = idx[-1] + 1
-        # concatenate the indexed tables
-
+                frmtable.loc[i, "frmidx"] = idx[-1] + 1
+        return frmtable
 
     def initimlist(self):
-        pass
+        mul2dim = list([self.init2dim])*self.Nf
+        return mul2dim
+
+    def tplot(self):
+        utcbnd = self.timetable()["utc"]
+        plt.figure()
+        for t in utcbnd:
+            plt.axvline(x=t, c='b', ls='-')
+        tmtable = self.fridxconcat()["utc"]
+        uvdist = self.fridxconcat()["uvdist"]
+        plt.plot(tmtable, uvdist, 'k.')
+        plt.show()

@@ -42,8 +42,9 @@ lbfgsbprms = {
 # Reconstract static imaging
 #-------------------------------------------------------------------------
 def imaging3d(
-        initimage, Nuvs,
-        u, v,
+        initimage,
+        #Nuvs,
+        #u, v,
         #uvidxfcv, uvidxamp, uvidxcp, uvidxca,
         Nz=1,
         imagewin=None,
@@ -249,9 +250,9 @@ def imaging3d(
     lambcom_sim = lambcom # No normalization for COM regularization
 
     # get uv coordinates and uv indice
-    '''
-    u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
-        fcvtable=fcvtable, amptable=amptable, bstable=bstable, catable=catable
+
+    u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist_loop(
+        fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
     )
     '''
     uvlist = get_uvlist(
@@ -261,7 +262,7 @@ def imaging3d(
     uvidxamp = uvlist[3]
     uvidxcp = uvlist[4]
     uvidxca = uvlist[5]
-
+    '''
     # normalize u, v coordinates
     u *= 2*np.pi*dx_rad
     v *= 2*np.pi*dy_rad
@@ -340,6 +341,68 @@ def imaging3d(
 # ------------------------------------------------------------------------------
 # Subfunctions
 # ------------------------------------------------------------------------------
+def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=None):
+    '''
+    '''
+    if ((fcvconcat is None) and (ampconcat is None) and
+            (bsconcat is None) and (caconcat is None)):
+        print("Error: No data are input.")
+        return -1
+
+    u, v = None, None
+    uvidxfcv, uvidxamp, uvidxcp, uvidxca = None, None, None, None
+    fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
+    ustack, vstack = [], []
+    for i in np.arange(Nf+1):
+        if fcvconcat is not None:
+            frmidx = fcvconcat["frmidx"]
+            idx = np.where(frmidx == i) #tuple
+            idx = idx[0].tolist() #list
+            if idx != []:
+                fcvsingle = fcvconcat.loc[idx, :]
+
+        if ampconcat is not None:
+            frmidx = ampconcat["frmidx"]
+            idx = np.where(frmidx == i) #tuple
+            idx = idx[0].tolist() #list
+            if idx != []:
+                ampsingle = ampconcat.loc[idx, :]
+
+        if bsconcat is not None:
+            frmidx = bsconcat["frmidx"]
+            idx = np.where(frmidx == i) #tuple
+            idx = idx[0].tolist() #list
+            if idx != []:
+                bssingle = bsconcat.loc[idx, :]
+
+        if caconcat is not None:
+            frmidx = caconcat["frmidx"]
+            idx = np.where(frmidx == i) #tuple
+            idx = idx[0].tolist() #list
+            if idx != []:
+                casingle = caconcat.loc[idx, :]
+
+        u0, v0, uvidxfcv0, uvidxamp0, uvidxcp0, uvidxca0 = get_uvlist(
+            fcvtable=fcvsingle, amptable=ampsingle, bstable=bssingle, catable=casingle)
+        ustack.append(u0)
+        vstack.append(v0)
+
+        if u is None:
+            u = u0
+            v = v0
+            uvidxfcv = uvidxfcv0
+            uvidxamp = uvidxamp0
+            uvidxcp = uvidxcp0
+            uvidxca = uvidxca0
+        if u is not None:
+            u = np.concatenate((u, u0))
+            v = np.concatenate((v, v0))
+            uvidxfcv = np.concatenate((uvidxfcv, uvidxfcv0))
+            uvidxamp = np.concatenate((uvidxamp, uvidxamp0))
+            uvidxcp = np.concatenate((uvidxcp, uvidxcp0))
+            uvidxca = np.concatenate((uvidxca, uvidxca0))
+    return (u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, ustack, vstack)
+
 def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1e-2):
     '''
 
