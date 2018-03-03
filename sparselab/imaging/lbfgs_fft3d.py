@@ -351,9 +351,9 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
 
     u, v = None, None
     uvidxfcv, uvidxamp, uvidxcp, uvidxca = None, None, None, None
-    fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
     ustack, vstack = [], []
-    for i in np.arange(Nf+1):
+    for i in np.arange(Nf):
+        fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
         if fcvconcat is not None:
             frmidx = fcvconcat["frmidx"]
             idx = np.where(frmidx == i) #tuple
@@ -382,25 +382,28 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
             if idx != []:
                 casingle = caconcat.loc[idx, :]
 
-        u0, v0, uvidxfcv0, uvidxamp0, uvidxcp0, uvidxca0 = get_uvlist(
-            fcvtable=fcvsingle, amptable=ampsingle, bstable=bssingle, catable=casingle)
-        ustack.append(u0)
-        vstack.append(v0)
+        if ((fcvsingle is not None) or (ampsingle is not None) or
+                (bssingle is not None) or (casingle is not None)):
+            u0, v0, uvidxfcv0, uvidxamp0, uvidxcp0, uvidxca0 = get_uvlist(
+                fcvtable=fcvsingle, amptable=ampsingle, bstable=bssingle, catable=casingle)
+            ustack.append(u0)
+            vstack.append(v0)
+            print('len(u)', len(u0))
 
-        if u is None:
-            u = u0
-            v = v0
-            uvidxfcv = uvidxfcv0
-            uvidxamp = uvidxamp0
-            uvidxcp = uvidxcp0
-            uvidxca = uvidxca0
-        if u is not None:
-            u = np.concatenate((u, u0))
-            v = np.concatenate((v, v0))
-            uvidxfcv = np.concatenate((uvidxfcv, uvidxfcv0))
-            uvidxamp = np.concatenate((uvidxamp, uvidxamp0))
-            uvidxcp = np.concatenate((uvidxcp, uvidxcp0))
-            uvidxca = np.concatenate((uvidxca, uvidxca0))
+            if u is not None:
+                u = np.concatenate((u, u0))
+                v = np.concatenate((v, v0))
+                uvidxfcv = np.concatenate((uvidxfcv, uvidxfcv0))
+                uvidxamp = np.concatenate((uvidxamp, uvidxamp0))
+                uvidxcp = np.concatenate((uvidxcp, uvidxcp0))
+                uvidxca = np.concatenate((uvidxca, uvidxca0))
+            if u is None:
+                u = u0
+                v = v0
+                uvidxfcv = uvidxfcv0
+                uvidxamp = uvidxamp0
+                uvidxcp = uvidxcp0
+                uvidxca = uvidxca0
     return (u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, ustack, vstack)
 
 def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1e-2):

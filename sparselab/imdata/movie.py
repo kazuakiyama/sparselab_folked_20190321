@@ -76,8 +76,9 @@ class MOVIE(object):
         tmtable["gsthour"] = np.zeros(self.Nf)
         tmtable["tint(sec)"] = np.zeros(self.Nf)
         for i in np.arange(self.Nf):
-            tmtable.loc[i, "frame"] = i
-            centime = self.tstart + (self.tint/2) + self.tint*i
+            tmtable.loc[i, "frame"] = int(i)
+            #centime = self.tstart + (self.tint/2) + self.tint*i
+            centime = self.tstart + self.tint*i
             utctime = centime.datetime
             gsthour = centime.sidereal_time("apparent", "greenwich").hour
             tmtable.loc[i, "utc"] = utctime
@@ -115,11 +116,10 @@ class MOVIE(object):
         frmtable["frmidx"] = np.zeros(len(frmtable), dtype='int32')
         for i in range(len(utctime)):
             for j in range(len(idx)-1):
-                if (utctime[i] >= tmframe[j]) and
-                        (utctime[i] < tmframe[j+1]):
+                if (utctime[i] >= tmframe[j]) and (utctime[i] < tmframe[j+1]):
                     frmtable.loc[i, "frmidx"] = idx[j]
             if utctime[i] > tmframe[-1]:
-                frmtable.loc[i, "frmidx"] = idx[-1] + 1
+                frmtable.loc[i, "frmidx"] = idx[-1]
         return frmtable
 
     def initimlist(self):
@@ -131,7 +131,9 @@ class MOVIE(object):
         plt.figure()
         for t in utcbnd:
             plt.axvline(x=t, c='b', ls='-')
-        tmtable = self.fridxconcat()["utc"]
-        uvdist = self.fridxconcat()["uvdist"]
-        plt.plot(tmtable, uvdist, 'k.')
-        plt.show()
+        concatab = self.fridxconcat()
+        tmtable = np.asarray(concatab["utc"], np.str)
+        tmtable = at.Time(tmtable).datetime
+        frmidx = concatab["frmidx"]
+        plt.plot(tmtable, frmidx, 'k.')
+        #plt.show()
