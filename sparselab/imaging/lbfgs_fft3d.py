@@ -46,7 +46,7 @@ def imaging3d(
         #Nuvs,
         #u, v,
         #uvidxfcv, uvidxamp, uvidxcp, uvidxca,
-        Nz=1,
+        Nf=1,
         imagewin=None,
         vistable=None,amptable=None, bstable=None, catable=None,
         lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,normlambda=True,
@@ -170,7 +170,6 @@ def imaging3d(
             fcvtable = None
         else:
             fcvtable = vistable.copy()
-    print('fcvtable: ', fcvtable)
 
     if fcvtable is None:
         isfcv = False
@@ -250,19 +249,18 @@ def imaging3d(
     lambcom_sim = lambcom # No normalization for COM regularization
 
     # get uv coordinates and uv indice
+    if Nf > 1:
+        u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs = get_uvlist_loop(Nf=Nf,
+            fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
+        )
+        print('Nuvs: ', Nuvs)
+    else:
+        u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
+            fcvtable=fcvtable, amptable=amptable, bstable=bstable, catable=catable
+        )
+        Nuvs = [len(u)]
+        print('single, u shape: ', u.shape)
 
-    u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist_loop(
-        fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
-    )
-    '''
-    uvlist = get_uvlist(
-        fcvtable=fcvtable, amptable=amptable, bstable=bstable, catable=catable
-    )
-    uvidxfcv = uvlist[2]
-    uvidxamp = uvlist[3]
-    uvidxcp = uvlist[4]
-    uvidxca = uvlist[5]
-    '''
     # normalize u, v coordinates
     u *= 2*np.pi*dx_rad
     v *= 2*np.pi*dy_rad
@@ -278,11 +276,11 @@ def imaging3d(
         nx=np.int32(Nx),
         ny=np.int32(Ny),
         # 3D frames
-        nz=np.int32(Nz),
-        nuvs=np.int32(Nuvs),
+        nz=np.int32(Nf),
         # UV coordinates,
         u=u,
         v=v,
+        nuvs=np.int32(Nuvs),
         # Regularization Parameters
         lambl1=np.float64(lambl1_sim),
         lambtv=np.float64(lambtv_sim),
@@ -349,9 +347,9 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
         print("Error: No data are input.")
         return -1
 
-    u, v = None, None
-    uvidxfcv, uvidxamp, uvidxcp, uvidxca = None, None, None, None
-    ustack, vstack = [], []
+    u, v = [], []
+    uvidxfcv, uvidxamp, uvidxcp, uvidxca = [], [], [], []
+    Nuvs = []
     for i in np.arange(Nf):
         fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
         if fcvconcat is not None:
@@ -386,25 +384,26 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
                 (bssingle is not None) or (casingle is not None)):
             u0, v0, uvidxfcv0, uvidxamp0, uvidxcp0, uvidxca0 = get_uvlist(
                 fcvtable=fcvsingle, amptable=ampsingle, bstable=bssingle, catable=casingle)
-            ustack.append(u0)
-            vstack.append(v0)
-            print('len(u)', len(u0))
+            u.append(u0)
+            v.append(v0)
+            uvidxfcv.append(uvidxfcv0)
+            uvidxamp.append(uvidxamp0)
+            uvidxcp.append(uvidxcp0)
+            uvidxca.append(uvidxca0)
+            Nuvs.append(len(u0))
 
-            if u is not None:
-                u = np.concatenate((u, u0))
-                v = np.concatenate((v, v0))
-                uvidxfcv = np.concatenate((uvidxfcv, uvidxfcv0))
-                uvidxamp = np.concatenate((uvidxamp, uvidxamp0))
-                uvidxcp = np.concatenate((uvidxcp, uvidxcp0))
-                uvidxca = np.concatenate((uvidxca, uvidxca0))
-            if u is None:
-                u = u0
-                v = v0
-                uvidxfcv = uvidxfcv0
-                uvidxamp = uvidxamp0
-                uvidxcp = uvidxcp0
-                uvidxca = uvidxca0
-    return (u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, ustack, vstack)
+    u = np.concatenate(u)
+    v = np.concatenate(v)
+    uvidxfcv = np.concatenate(uvidxfcv)
+    uvidxamp = np.concatenate(uvidxamp)
+    uvidxcp = np.hstack(uvidxcp)
+    uvidxca = np.hstack(uvidxca)
+    #print("u: ", type(u), len(u))
+    #print("v: ", type(v), len(v))
+    #print("uvidxamp: ", type(uvidxamp), len(uvidxamp))
+    #print("uvidxcp: ", type(uvidxcp), len(uvidxcp))
+
+    return (u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs)
 
 def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1e-2):
     '''
@@ -524,4 +523,5 @@ def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1
     else:
         uvidxca = uvidx[Nfcv + Namp + 3 * Ncp:Nfcv + Namp + 3 *
                         Ncp + 4 * Nca].reshape([Nca, 4], order="F").transpose()
+
     return (u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca)

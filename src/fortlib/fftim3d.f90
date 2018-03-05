@@ -19,7 +19,7 @@ contains
 !-------------------------------------------------------------------------------
 subroutine imaging(&
   Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
-  u,v,&
+  u,v,Nuvs,&
   lambl1,lambtv,lambtsv,lambmem,lambcom,&
   Niter,nonneg,transtype,transprm,pcom,&
   isfcv,uvidxfcv,Vfcvr,Vfcvi,Varfcv,&
@@ -28,7 +28,7 @@ subroutine imaging(&
   isca,uvidxca,CA,Varca,&
   m,factr,pgtol,&
   Iout,&
-  Npix,Nuv,Nuvs,Nfcv,Namp,Ncp,Nca&
+  Npix,Nuv,Nfcv,Namp,Ncp,Nca&
 )
   !
   ! Core function of three-dimensional imaging
@@ -128,6 +128,7 @@ subroutine imaging(&
   ! loop variables
   integer :: i, iz, Nstart, Nend
   real(dp) :: u_tmp, v_tmp
+  !write(*,*) 'Test run'
 
   !-------------------------------------
   ! Initialize Data
@@ -212,7 +213,7 @@ subroutine imaging(&
       ! Calculate cost function and gradcostent of cost function
       call calc_cost(&
         Iout,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
-        u,v,&
+        u,v,Nuvs,&
         lambl1,lambtv,lambtsv,lambmem,lambcom,&
         fnorm,transtype,transprm,pcom,&
         isfcv,uvidxfcv,Vfcv,Varfcv,&
@@ -220,7 +221,7 @@ subroutine imaging(&
         iscp,uvidxcp,CP,Varcp,&
         isca,uvidxca,CA,Varca,&
         cost,gradcost,&
-        Npix,Nuv,Nuvs,Nfcv,Namp,Ncp,Nca&
+        Npix,Nuv,Nfcv,Namp,Ncp,Nca&
       )
     else
       ! If iteration number exceeds the total iteration number, make a flag
@@ -271,7 +272,7 @@ end subroutine
 !
 subroutine calc_cost(&
   Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
-  u,v,&
+  u,v,Nuvs,&
   lambl1,lambtv,lambtsv,lambmem,lambcom,&
   fnorm,transtype,transprm,pcom,&
   isfcv,uvidxfcv,Vfcv,Varfcv,&
@@ -279,7 +280,7 @@ subroutine calc_cost(&
   iscp,uvidxcp,CP,Varcp,&
   isca,uvidxca,CA,Varca,&
   cost,gradcost,&
-  Npix,Nuv,Nuvs,Nfcv,Namp,Ncp,Nca&
+  Npix,Nuv,Nfcv,Namp,Ncp,Nca&
 )
   !
   ! Calculate Cost Functions

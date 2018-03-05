@@ -118,7 +118,7 @@ class MOVIE(object):
             for j in range(len(idx)-1):
                 if (utctime[i] >= tmframe[j]) and (utctime[i] < tmframe[j+1]):
                     frmtable.loc[i, "frmidx"] = idx[j]
-            if utctime[i] > tmframe[-1]:
+            if utctime[i] >= tmframe[-1]:
                 frmtable.loc[i, "frmidx"] = idx[-1]
         return frmtable
 
@@ -128,7 +128,6 @@ class MOVIE(object):
 
     def tplot(self):
         utcbnd = self.timetable()["utc"]
-        plt.figure()
         for t in utcbnd:
             plt.axvline(x=t, c='b', ls='-')
         concatab = self.fridxconcat()
@@ -136,4 +135,4 @@ class MOVIE(object):
         tmtable = at.Time(tmtable).datetime
         frmidx = concatab["frmidx"]
         plt.plot(tmtable, frmidx, 'k.')
-        #plt.show()
+        plt.show()
