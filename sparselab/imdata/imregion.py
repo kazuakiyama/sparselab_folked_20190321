@@ -90,7 +90,23 @@ class ImRegTable(pd.DataFrame):
             if row["shape"] is "ellipse":
                 plot_ellipse(row,angunit=angunit,**pltargs)
     
-       
+    ## csv
+    # save to csv file
+    def to_csv2(self, filename, index=False, index_label=False, **args):
+        '''
+        Output table into csv files using pd.DataFrame.to_csv().
+        Default parameter will be
+          index=False
+          index_label=False.
+        see DocStrings for pd.DataFrame.to_csv().
+
+        Args:
+            filename (string or filehandle): output filename
+            **args: other arguments of pd.DataFrame.to_csv()
+        '''
+        super(ImRegTable, self).to_csv(filename, index=False, index_label=False, **args)
+
+    
     ## DS9 
     # Start DS9
     def open_pyds9(self,image,wait=10):
@@ -392,9 +408,96 @@ class ImRegTable(pd.DataFrame):
     
     # Delete duplicated region
     def remove_duplicates(self):
-        pass
-
+        '''
+        Remove duplicated regions.
         
+        Returns:
+            ImRegTable.
+        '''
+        region = self.copy()
+        outregion = self.copy()
+        
+        for index, row in region.iterrows():
+            # Align angular unit
+            angconv = util.angconv(row.angunit, "mas")
+            region.loc[index,"xc"] *= angconv
+            region.loc[index,"yc"] *= angconv
+            region.loc[index,"width"] *= angconv
+            region.loc[index,"height"] *= angconv
+            region.loc[index,"radius"] *= angconv
+            region.loc[index,"maja"] *= angconv
+            region.loc[index,"mina"] *= angconv
+            region.loc[index,"angunit"] = "mas"
+            
+            # Make "length" column for characteristic length
+            if row["shape"] is "box":
+                width = region.loc[index,"width"]
+                height = region.loc[index,"height"]
+                region.loc[index,"length"] = np.sqrt(width*width + height*height)
+            elif row["shape"] is "circle":
+                radius = region.loc[index,"radius"]
+                region.loc[index,"length"] = radius*2.0
+            elif row["shape"] is "ellipse":
+                maja = region.loc[index,"maja"]
+                mina = region.loc[index,"mina"]
+                region.loc[index,"length"] = max(maja,mina)
+        
+        mesh = np.min([region["width"].min(),region["height"].min(),
+                       region["radius"].min()*2.0,region["maja"].min(),
+                       region["mina"].min()])
+        mesh /= 10.0
+        length = region["length"].max()
+        xmin = region["xc"].min() - length
+        xmax = region["xc"].max() + length
+        ymin = region["yc"].min() - length
+        ymax = region["yc"].max() + length
+        nx = int(round((xmax - xmin) / mesh)) + 1 
+        ny = int(round((ymax - ymin) / mesh)) + 1
+        xgrid = np.linspace(xmax,xmin,nx)
+        ygrid = np.linspace(ymin,ymax,ny)
+        X, Y = np.meshgrid(xgrid, ygrid)
+        
+        # Make area panel
+        items = len(region)
+        area = np.zeros((items,ny,nx))
+        for index, row in region.iterrows():
+            if row["shape"] is "box":
+                area[index] = region_box(X,Y,row.xc,row.yc,row.width,row.height,row.angle)
+            elif row["shape"] is "circle":
+                area[index] = region_circle(X,Y,row.xc,row.yc,row.radius)
+            elif row["shape"] is "ellipse":
+                area[index] = region_ellipse(X,Y,row.xc,row.yc,row.mina/2.0,row.maja/2.0,row.angle)
+
+#        return area        
+        
+        # Search duplicated area    
+        droplist = []
+        for index, row in region.iterrows():
+            area1 = area[index]
+            area1 = area1 > 0
+            area2 = area[0:index].sum(axis=0) + area[index+1:].sum(axis=0)
+            area2 = area2 > 0
+            merge = area1 + area2
+            merge = merge > 0
+#            if index is 5:
+#                return area1,area2,merge
+            if np.allclose(merge,area2):
+                # area_index is duplicated.
+                area[index] = np.zeros((ny,nx))
+                droplist.append(index)
+            else:
+                pass
+        
+        print("Duplicated region is:")
+        print(droplist)
+        # Remove duplicated area
+        outregion = outregion.drop(droplist)
+        outregion = outregion.reset_index(drop=True)
+ 
+        # return region
+        return outregion
+
+
     ## Edit image
     def editimage(self,image,save_totalflux=False):
         '''
@@ -504,8 +607,27 @@ class ImRegSeries(pd.Series):
     @property
     def _constructor_expanddim(self):
         return ImRegTable
-    
-    
+
+# ------------------------------------------------------------------------------
+# Functions
+# ------------------------------------------------------------------------------
+def read_imregtable(filename, **args):
+    '''
+    This fuction loads imdata.ImRegTable from an input csv file using pd.read_csv().
+
+    Args:
+      filename:
+        str, pathlib.Path, py._path.local.LocalPath or any object with a read()
+        method (such as a file handle or StringIO)
+
+    Returns:
+      imdata.ImRegTable object
+    '''
+    region = ImRegTable(pd.read_csv(filename, **args))
+
+    return region
+
+
 #-------------------------------------------------------------------------
 # Fllowings are subfunctions for plot region.
 #-------------------------------------------------------------------------
@@ -581,10 +703,10 @@ def plot_ellipse(row,angunit="mas",**pltargs):
     
     cosa = np.cos(np.deg2rad(row.angle))
     sina = np.sin(np.deg2rad(row.angle))            
-    X = (X-xc)*cosa + (Y-yc)*sina + xc
-    Y = - (X-xc)*sina + (Y-yc)*cosa + yc
+    XX = (X-xc)*cosa - (Y-yc)*sina + xc
+    YY = (X-xc)*sina + (Y-yc)*cosa + yc
     
-    plt.plot(X,Y,**pltargs)
+    plt.plot(XX,YY,**pltargs)
  
 
 #-------------------------------------------------------------------------
@@ -703,9 +825,9 @@ def ds9reg_to_reg(ds9reg,image,angunit="mas"):
             y = list[1]
             a = list[2]
             b = list[3]
-            angle = list[4]
-            maja = b * 2.0 * dy
-            mina = a * 2.0 * (-dx)
+            angle = list[4]-90.0
+            maja = a * 2.0 * dy
+            mina = b * 2.0 * (-dx)
             xc = (x - nxref) * (-dx)
             yc = (y - nyref) * dy
             region = region.add_ellipse(xc=xc,yc=yc,
