@@ -185,7 +185,7 @@ class UVFITS(object):
         self.stokes = [stokesDict[int(sid)] for sid in stokesid]
 
         # Load OBSERVER
-        self.observer = ghdu.header["OBSERVER"]
+        #self.observer = ghdu.header["OBSERVER"]
 
     def _read_arraydata(self, ANtabs):
         subarrays = {}
