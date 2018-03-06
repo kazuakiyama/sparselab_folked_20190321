@@ -226,6 +226,8 @@ class UVFITS(object):
             arrdata.anpolcalA = ANtab.data["POLCALA"]
             arrdata.anpolcalB = ANtab.data["POLCALB"]
             subarrays[subarrid]=arrdata
+
+            arrdata.check()   # doing sanity check
             prt(arrdata, indent)
         self.subarrays = subarrays
 
@@ -1066,6 +1068,10 @@ class UVFITS(object):
                      columns=outfits.fqsetup.fqtable_cols
                 )
                 outfits.fqsetup.fqtables[frqsel] = newtable
+
+        # update antenna Tables
+        for arrid in outfits.subarrays.keys():
+            outfits.subarrays[arrid].avspc(dofreq=dofreq)
         return outfits
 
     def uvw_recalc(self):
@@ -1602,6 +1608,28 @@ class ArrayData(object):
         self.anorbparm = np.zeros([0,0]) # Nant, Orbital Parmeters
         self.anpolcalA = np.zeros([0,0,0]) # Nant, Npcal, NO_IF
         self.anpolcalB = np.zeros([0,0,0]) # Nant, Npcal, NO_IF
+
+    def check(self):
+        '''
+        Keep consistensy between header and data of AN Table
+        '''
+        # if number of orbital parameter is equals to zero,
+        # then reset orbparm
+        if self.header["NUMORB"] == 0:
+            self.anorbparm = np.array([], dtype=np.float32).reshape([0,0])
+
+        # if number of pcal is zero, then reset POLCALA/B
+        if self.header["NOPCAL"] == 0:
+            self.anpolcalA = np.array([], dtype=np.float32).reshape([0,0,0])
+            self.anpolcalB = np.array([], dtype=np.float32).reshape([0,0,0])
+
+    def avspc(self, dofreq=0):
+        if dofreq == 0:
+            if self.header["NOPCAL"] != 0
+                Nant, Npcal, NIF = self.anpolcalA.shape
+                self.anpolcalA = self.anpolcalA[:,:,0].reshape([Nant,Npcal,1])
+                self.anpolcalB = self.anpolcalB[:,:,0].reshape([Nant,Npcal,1])
+
 
     def __repr__(self):
         lines = []
