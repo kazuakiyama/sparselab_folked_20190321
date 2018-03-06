@@ -111,7 +111,10 @@ class MOVIE(object):
         # call timetable
         tmtable = self.timetable()
         idx = tmtable["frame"].values
-        tmframe = tmtable["utc"].values
+        #tmframe = tmtable["utc"].values
+        tmframe = np.asarray(tmtable["utc"], np.str)
+        tmframe = at.Time(tmframe)
+        tmframe = tmframe.datetime
         # assigning the frame index
         frmtable["frmidx"] = np.zeros(len(frmtable), dtype='int32')
         for i in range(len(utctime)):
