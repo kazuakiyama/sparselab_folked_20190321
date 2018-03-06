@@ -249,34 +249,18 @@ def imaging3d(
     lambcom_sim = lambcom # No normalization for COM regularization
 
     # get uv coordinates and uv indice
-    #if Nf > 1:
-
     u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs = get_uvlist_loop(Nf=Nf,
         fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
     )
-    '''
-    u, v = get_uvlist_loop(Nf=Nf,
-        fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
-    )[:2]
-
-    Nuvs = get_uvlist_loop(Nf=Nf,
-        fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
-    )[-1]
-    #else:s
-    uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
-        fcvtable=fcvtable, amptable=amptable, bstable=bstable, catable=catable
-    )[2:]
-    '''
-    #    print('single, u shape: ', u.shape)
 
     # normalize u, v coordinates
     u *= 2*np.pi*dx_rad
     v *= 2*np.pi*dy_rad
 
+    # copy the initimage to the number of frames
     Iin = [Iin]*Nf
     xidx = [xidx]*Nf
     yidx = [yidx]*Nf
-
     Iin = np.concatenate(Iin)
     xidx = np.concatenate(xidx)
     yidx = np.concatenate(yidx)
@@ -334,14 +318,15 @@ def imaging3d(
         m=np.int32(lbfgsbprms["m"]), factr=np.float64(lbfgsbprms["factr"]),
         pgtol=np.float64(lbfgsbprms["pgtol"])
     )
-
+    '''
     outimage = copy.deepcopy(initimage)
     outimage.data[istokes, ifreq] = 0.
     for i in np.arange(len(xidx)):
         outimage.data[istokes, ifreq, yidx[i] - 1, xidx[i] - 1] = Iout[i]
     outimage.update_fits()
-    print(len(Iout))
-    print(len(xidx))
+    #print(len(Iout))
+    #print(len(xidx))
+    #print(Nyx)
     '''
     # multiple outimage
     outimlist = []
@@ -349,13 +334,13 @@ def imaging3d(
     for z in np.arange(Nf):
         outimage = copy.deepcopy(initimage)
         outimage.data[istokes, ifreq] = 0.
-        for i in np.arange(len(xidx)):
+        for i in np.arange(Nyx):
             outimage.data[istokes, ifreq, yidx[i]-1, xidx[i]-1] = Iout[ipix+i]
         outimage.update_fits()
         outimlist.append(outimage)
         ipix += i
-    '''
-    return outimage
+
+    return outimlist
 
 
 # ------------------------------------------------------------------------------
@@ -420,6 +405,9 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
                 uvidxcp.append(uvidxcp0+idxcon)
                 uvidxca.append(uvidxca0+idxcon)
             idxcon = len(u0)
+        if ((fcvsingle is None) and (ampsingle is None) and
+                (bssingle is None) and (casingle is None)):
+            Nuvs.append(0)
 
     u = np.concatenate(u)
     v = np.concatenate(v)

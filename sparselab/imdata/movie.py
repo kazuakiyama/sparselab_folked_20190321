@@ -138,4 +138,4 @@ class MOVIE(object):
         tmtable = at.Time(tmtable).datetime
         frmidx = concatab["frmidx"]
         plt.plot(tmtable, frmidx, 'k.')
-        plt.show()
+        #plt.show()
