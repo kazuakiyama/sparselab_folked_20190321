@@ -185,7 +185,7 @@ class UVFITS(object):
         self.stokes = [stokesDict[int(sid)] for sid in stokesid]
 
         # Load OBSERVER
-        self.observer = ghdu.header["OBSERVER"]
+        #self.observer = ghdu.header["OBSERVER"]
 
     def _read_arraydata(self, ANtabs):
         subarrays = {}
@@ -237,11 +237,17 @@ class UVFITS(object):
         Nfrqsel = len(freqdata.frqsels)
         for i in xrange(Nfrqsel):
             frqsel = freqdata.frqsels[i]
-            fqtable = pd.DataFrame(columns=freqdata.fqtable_cols)
-            fqtable["if_freq_offset"]=FQtab.data["IF FREQ"][i]
-            fqtable["ch_bandwidth"]=FQtab.data["CH WIDTH"][i]
-            fqtable["if_bandwidth"]=FQtab.data["TOTAL BANDWIDTH"][i]
-            fqtable["sideband"]=FQtab.data["SIDEBAND"][i]
+            fqdic = {
+                "if_freq_offset":FQtab.data["IF FREQ"][i],
+                "ch_bandwidth":FQtab.data["CH WIDTH"][i],
+                "if_bandwidth":FQtab.data["TOTAL BANDWIDTH"][i],
+                "sideband":FQtab.data["SIDEBAND"][i]
+            }
+            if np.isscalar(fqdic["if_freq_offset"]):
+                index=[0]
+            else:
+                index=None
+            fqtable = pd.DataFrame(fqdic,columns=freqdata.fqtable_cols,index=index)
             freqdata.fqtables[frqsel] = fqtable
         prt(freqdata, indent)
 
@@ -396,19 +402,31 @@ class UVFITS(object):
                 visdata.coord["freqsel"] = np.int64(hdu.data.par(i))
 
         # Check Loaded Random Parameters
+        #   INTTIM
+        if paridxes[7] is None:
+            warnmsg = "Warning: this data do not have a random parameter for the integration time\n"
+            visdata.coord["inttim"] = np.zeros(visdata.coord.shape[0], dtype=np.float64)
+            visdata.coord.loc[:,"inttim"] = -1
+            paridxes[7] = -1
+
+        #   Source
         if self.ismultisrc and (paridxes[6] is None):
             errmsg = "Random Parameters do not have 'SOURCE' although UVFITS is for multi sources."
             raise ValueError(errmsg)
         elif (self.ismultisrc is False) and (paridxes[6] is None):
             visdata.coord["source"] = np.asarray([1 for i in xrange(Ndata)])
             paridxes[6] = -1
+
+        #   Frequency
         if self.ismultifrq and (paridxes[8] is None):
             errmsg = "Random Parameters do not have 'FREQSEL' although UVFITS have multi frequency setups."
             raise ValueError(errmsg)
         elif (self.ismultifrq is False) and (paridxes[8] is None):
             visdata.coord["freqsel"] = np.asarray([1 for i in xrange(Ndata)])
             paridxes[8] = -1
+
         if None in paridxes:
+            print(paridxes)
             errmsg = "Random Parameters do not have mandatory columns."
             raise ValueError(errmsg)
 
@@ -495,8 +513,9 @@ class UVFITS(object):
         pardata.append(np.asarray(utc.jd1-utc_ref.jd1, dtype=np.float64))
         pardata.append(np.asarray(utc.jd2-utc_ref.jd2, dtype=np.float64))
         # inttime
-        parnames.append("INTTIM")
-        pardata.append(np.asarray(self.visdata.coord["inttim"], dtype=np.float32))
+        if self.visdata.coord["inttim"].max() > 0:
+            parnames.append("INTTIM")
+            pardata.append(np.asarray(self.visdata.coord["inttim"], dtype=np.float32))
         # Frequency Setup Data
         if self.ismultifrq:
             parnames.append("FREQSEL")
@@ -859,10 +878,10 @@ class UVFITS(object):
         '''
         This method will make a dictionary of specified antenna information
 
-        Arguments:
+        Args:
           key (string; default="name"): key name
 
-        Output:
+        Returns:
           Dictionary of the speficied key Value.
           key of the dictionary is (subarrayid, antenna id)
         '''
@@ -881,12 +900,12 @@ class UVFITS(object):
         This method will make a dictionary of frequency offsets of each
         channel. The frequency offset is for the center of each channel.
 
-        Arguments:
+        Args:
             center (boolean; default=True):
                 If True, the central frequency of each channel will be returned.
                 Otherwise, the beggining frequency of each channel will be returned.
 
-        Output:
+        Returns:
           Dictionary of the speficied key Value.
           key of the dictionary is (frqsel, IFid, CHid)
         '''
@@ -902,10 +921,11 @@ class UVFITS(object):
             for iif,ich in itertools.product(xrange(Nif),xrange(Nch)):
                 chbw = fqtable.loc[iif, "ch_bandwidth"]
                 fqof = fqtable.loc[iif, "if_freq_offset"]
+                sideband = fqtable.loc[iif, "sideband"]
                 if center:
-                    freq = reffreq + fqof + chbw * (ich+1/2)
+                    freq = reffreq + fqof + chbw * (ich+1/2) * sideband
                 else:
-                    freq = reffreq + fqof + chbw * ich
+                    freq = reffreq + fqof + chbw * ich * sideband
                 outdic[(subarr,frqsel,iif+1,ich+1)] = freq
         return outdic
 
@@ -914,12 +934,12 @@ class UVFITS(object):
         This method will make a dictionary of frequency offsets of each
         channel. The frequency offset is for the center of each channel.
 
-        Arguments:
+        Args:
             center (boolean; default=True):
                 If True, the central frequency of each channel will be returned.
                 Otherwise, the beggining frequency of each channel will be returned.
 
-        Output:
+        Returns:
           Dictionary of the speficied key Value.
           key of the dictionary is (frqsel, IFid, CHid)
         '''
@@ -941,17 +961,69 @@ class UVFITS(object):
         return outdic
 
     def get_utc(self):
+        '''
+        '''
         return at.Time(np.datetime_as_string(self.visdata.coord["utc"]), scale="utc")
 
     def get_gst(self):
+        '''
+        '''
         return self.get_utc().sidereal_time('apparent', 'greenwich')
+
+    def get_uvw(self):
+        '''
+        This method will make a matrix of uvw coverage and uv distance of each
+        channel, frequency band (IF).
+        The frequency offset is for the center of each channel.
+
+        Returns:
+          matrix of the Values of u,v,w,uvdistance(=sqrt(u**2+v**2)).
+          key of the dictionary is (Nuvw, Ndata, IFid, CHid),
+          where Ndata is the number of the uvw data, and Nuvw is the type of the uvw coverages:
+          Nuvw=0,1,2, and 3 corresponds to u,v,w, and uvdistance, respectively.
+          Further, CHid and IFid is the number of channels and frequency bands.
+        '''
+
+        # Number of Data
+        Ndata, Ndec, Nra, Nif, Nch, Nstokes, Ncomp=self.visdata.data.shape
+
+        # initialize uvw
+        uvw = np.zeros((Nch, Nif, Ndata, 4))
+
+        # freqsel
+        freqsel = self.visdata.coord.freqsel.values
+
+        # subarray
+        subarray = self.visdata.coord.subarray.values
+
+        # Usec,Vsec,Wsec,UVdsec
+        usec   = np.float64(self.visdata.coord.usec.values)
+        vsec   = np.float64(self.visdata.coord.vsec.values)
+        wsec   = np.float64(self.visdata.coord.wsec.values)
+        uvdsec = np.sqrt(usec**2+vsec**2)
+
+        #  frequency for each channel and frequency band
+        freqdic =self.get_freq()
+
+        # calculate UVW=(u, v, w, uvdistance)
+        for i,j in itertools.product(xrange(Nif),xrange (Nch)): #0<=i<Nif, 0<=j<Nch
+            freq = [freqdic[subarray[k],freqsel[k],i+1,j+1] for k in xrange(Ndata)] # 0<=k<Ndata
+            uvw[j,i,:,0] = freq[:]*usec
+            uvw[j,i,:,1] = freq[:]*vsec
+            uvw[j,i,:,2] = freq[:]*wsec
+            uvw[j,i,:,3] = freq[:]*uvdsec
+
+        #Transpose UVW
+        UVW = uvw.T
+        return UVW
+
 
     def avspc(self, dofreq=0, minpoint=2):
         '''
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
 
-        Arguments:
+        Args:
           dofreq (int; default = 0):
             Parameter for multi-frequency data.
               dofreq = 0: average over IFs and channels
@@ -960,7 +1032,7 @@ class UVFITS(object):
           solint (float; default = 120.):
             solution interval in sec
 
-        Output: uvfits.UVFITS object
+        Returns: uvfits.UVFITS object
         '''
         # Area Settigns
         outfits = copy.deepcopy(self)
@@ -1090,7 +1162,7 @@ class UVFITS(object):
         This method will recalculate sigmas and weights of data from scatter
         in full complex visibilities over specified frequency and time segments.
 
-        Arguments:
+        Args:
           dofreq (int; default = 0):
             Parameter for multi-frequency data.
               dofreq = 0: calculate weights and sigmas over IFs and channels
@@ -1100,7 +1172,7 @@ class UVFITS(object):
           solint (float; default = 60.):
             solution interval in sec
 
-        Output: uvfits.UVFITS object
+        Returns: uvfits.UVFITS object
         '''
         # Save and Return re-weighted uv-data
         outfits = copy.deepcopy(self)
@@ -1128,7 +1200,7 @@ class UVFITS(object):
                             "LL", "RR", "RL", "LR",
                             "XX", "YY", "XY", "YX"].
 
-        Output: uvdata.UVFITS object
+        Returns: uvdata.UVFITS object
         '''
         # get stokes data
         stokesorg = self.stokes
@@ -1500,7 +1572,7 @@ class FrequencyData(object):
             lines.append("  IF Freq setups (Hz):")
             lines.append(prt(fqtable,indent*2,output=True))
         lines.append("  Note: Central Frequency of ch=i at IF=j (where i,j=1,2,3...)")
-        lines.append("     freq(i,j) = reffreq + (i-1/2) * ch_bandwidth(j) + if_freq_offset(j)")
+        lines.append("     freq(i,j) = reffreq + (i-1/2) * ch_bandwidth(j) * sideband + if_freq_offset(j)")
         return "\n".join(lines)
 
 
