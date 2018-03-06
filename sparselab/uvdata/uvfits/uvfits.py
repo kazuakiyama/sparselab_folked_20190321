@@ -1625,6 +1625,7 @@ class ArrayData(object):
 
     def avspc(self, dofreq=0):
         if dofreq == 0:
+            self.header["NO_IF"]=1
             if self.header["NOPCAL"] != 0:
                 Nant, Npcal, NIF = self.anpolcalA.shape
                 self.anpolcalA = self.anpolcalA[:,:,0].reshape([Nant,Npcal,1])
