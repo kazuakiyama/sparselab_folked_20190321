@@ -58,6 +58,43 @@ subroutine NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
 end subroutine
 
 
+subroutine NUFFT_fwd_real(u,v,I2d,Vreal,Vimag,Nx,Ny,Nuv)
+  !
+  !  Forward Non-uniform Fast Fourier Transform
+  !    This funcion using the FINUFFT library.
+  !
+  implicit none
+
+  integer,  intent(in)  :: Nx, Ny, Nuv
+  real(dp), intent(in)  :: u(Nuv),v(Nuv)  ! uv coordinates
+                                          ! multiplied by 2*pi*dx, 2*pi*dy
+  real(dp), intent(in)  :: I2d(Nx,Ny)     ! Two Dimensional Image
+  real(dp), intent(out) :: Vreal(Nuv), Vimag(Nuv) ! Complex Visibility
+
+  complex(dpc) :: Vcmp(Nuv)
+
+  ! Some Other Parameters for FINUFFT
+  !   Sign of the exponent in the forward Fourier Transformation
+  !     0: positive (the standard in Radio Astronomy)
+  !     1: negative (the textbook standard; e.g. TMS)
+  integer,  parameter :: iflag=0
+  !   numerical Accuracy required for FINUFFT
+  real(dp),  parameter :: eps=ffteps
+  !   error log
+  integer :: ier
+
+  ! Call FINUFFT subroutine
+  call finufft2d2_f(Nuv,u,v,Vcmp,iflag,eps,Nx,Ny,dcmplx(I2d),ier)
+
+  ! Take real & imaginary parts
+  Vreal = dreal(Vcmp)
+  Vimag = dimag(Vcmp)
+
+  ! debug
+  !print *, ' ier = ',ier
+end subroutine
+
+
 subroutine NUFFT_adj(u,v,Vcmp,I2d,Nx,Ny,Nuv)
   !
   !  Adjoint Non-uniform Fast Fourier Transform
