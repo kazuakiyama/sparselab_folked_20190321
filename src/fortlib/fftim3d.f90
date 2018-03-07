@@ -321,7 +321,7 @@ subroutine calc_cost(&
   real(dp), intent(out) :: gradcost(1:Npix)
 
   ! integer
-  integer :: ipix, iz, Nstart, Nend, ipixz
+  integer :: ipix, iz, Nstart, Nend, ipixz, Nxy, istart, iend
 
   ! chisquares, gradients of each term of equations
   real(dp) :: chisq, reg  ! chisquare and regularization
@@ -377,12 +377,14 @@ subroutine calc_cost(&
   !$OMP   PRIVATE(iz, Nend) &
   !$OMP   REDUCTION(+:Vcmp)
   do iz=1, Nz
-    if(Nuvs(iz) == 0) then
-      continue
+    !if(Nuvs(iz) == 0) then
+    !  continue
+    !end if
+    if (Nuvs(iz) /= 0) then
+      Nend = Nstart + Nuvs(iz) -1
+      call NUFFT_fwd(u(Nstart:Nend),v(Nstart:Nend),I3d(:,:,iz),Vcmp(Nstart:Nend),Nx,Ny,Nuvs(iz))
+      Nstart = Nend + 1
     end if
-    Nend = Nstart + Nuvs(iz) -1
-    call NUFFT_fwd(u(Nstart:Nend),v(Nstart:Nend),I3d(:,:,iz),Vcmp(Nstart:Nend),Nx,Ny,Nuvs(iz))
-    Nstart = Nend + 1
   end do
   !$OMP END PARALLEL DO
 
@@ -406,13 +408,30 @@ subroutine calc_cost(&
     call chisq_cp(Vcmp,uvidxcp,CP,Varcp,fnorm,chisq,Vresre,Vresim,Nuv,Ncp)
   end if
 
+  ! copy the chisquare into that of cost functions
+  cost = chisq
+
   ! Adjoint Non-unifrom Fast Fourier Transform
   !  this will provide gradient of chisquare functions
-  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
+  Nstart = 1
+  Nxy = Nx*Ny
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Nstart,Nuvs,Nxy) &
+  !$OMP   PRIVATE(iz, Nend, istart, iend) &
+  !$OMP   REDUCTION(+:gradcost)
+  do iz=1, Nz
+    istart = (iz-1)*Nxy+1
+    iend = iz*Nxy
+    if(Nuvs(iz) /= 0) then
+      Nend = Nstart + Nuvs(iz) -1
+      call NUFFT_adj_resid(u(Nstart:Nend),v(Nstart:Nend),Vresre(Nstart:Nend),Vresim(Nstart:Nend),gradchisq2d(:,:),Nx,Ny,Nuvs(iz))
+      ! copy the gradient of chisquare into that of cost functions
+      call I1d_I2d_inv(xidx(istart:iend),yidx(istart:iend),gradcost(istart:iend),gradchisq2d,Nxy,Nx,Ny)
+      Nstart = Nend + 1
+    end if
+  end do
+  !$OMP END PARALLEL DO
 
-  ! copy the gradient of chisquare into that of cost functions
-  cost = chisq
-  call I1d_I2d_inv(xidx,yidx,gradcost,gradchisq2d,Npix,Nx,Ny)
   !write(*,*) 'cost',cost
   !write(*,*) 'gradcost',gradcost(1)
 
@@ -475,8 +494,8 @@ subroutine calc_cost(&
   !$OMP   PRIVATE(ipix, iz, ipixz) &
   !$OMP   REDUCTION(+: reg, gradreg)
   do iz=1, Nz
-    do ipix=1, Nx*Ny !Npix
-      ipixz = ipix + (Nx*Ny)*(iz - 1)
+    do ipix=1, Nxy !Npix
+      ipixz = ipix + Nxy*(iz - 1)
       ! L1
       if (lambl1 > 0) then
         reg = reg + lambl1 * l1_e(Iin_reg(ipixz))

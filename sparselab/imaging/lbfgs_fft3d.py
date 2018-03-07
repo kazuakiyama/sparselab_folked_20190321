@@ -43,9 +43,6 @@ lbfgsbprms = {
 #-------------------------------------------------------------------------
 def imaging3d(
         initimage,
-        #Nuvs,
-        #u, v,
-        #uvidxfcv, uvidxamp, uvidxcp, uvidxca,
         Nf=1,
         imagewin=None,
         vistable=None,amptable=None, bstable=None, catable=None,
@@ -238,7 +235,7 @@ def imaging3d(
         lambl1_sim = lambl1 / (fluxscale * Nyx)
         lambtv_sim = lambtv / (4 * fluxscale * Nyx)
         lambtsv_sim = lambtsv / (4 *fluxscale**2 * Nyx)
-        lambmem_sim = lambmem / (fluxscale*np.log(fluxscale) * Nyx)
+        lambmem_sim = lambmem / np.abs(fluxscale*np.log(fluxscale) * Nyx)
     else:
         lambl1_sim = lambl1
         lambtv_sim = lambtv
