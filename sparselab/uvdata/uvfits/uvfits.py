@@ -1056,8 +1056,8 @@ class UVFITS(object):
         dy_rad = np.deg2rad(imfits.header["dy"])
 
         # normalize u, v coordinates
-        u[:] *= 2*np.pi*dx_rad
-        v[:] *= 2*np.pi*dy_rad
+        u *= 2*np.pi*dx_rad
+        v *= 2*np.pi*dy_rad
 
         # model intensity
         I2d = np.float64(imfits.data[istokes, ifreq])
