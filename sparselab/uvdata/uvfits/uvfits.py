@@ -1547,7 +1547,6 @@ def _bindstokes(data, stokes1, stokes2, factr1, factr2):
     '''
     This is a subfunction for uvdata.UVFITS.
     '''
-    print(stokes1,stokes2,factr1, factr2)
     vcomp1 = data[:, :, :, :, :, stokes1, 0] + \
         1j * data[:, :, :, :, :, stokes1, 1]
     vweig1 = data[:, :, :, :, :, stokes1, 2]
