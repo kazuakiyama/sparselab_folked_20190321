@@ -119,16 +119,13 @@ subroutine imaging(&
   real(dp)              :: dsave(29)
   integer,  allocatable :: nbd(:),iwa(:)
 
-  ! multiple images
   real(dp), allocatable :: lower(:),upper(:),wa(:)
   complex(dpc), allocatable :: I2d(:,:)
-  !integer,  allocatable :: Nuvs(:)
   complex(dpc), allocatable :: Vcmp(:)
 
   ! loop variables
   integer :: i, iz, Nstart, Nend
   real(dp) :: u_tmp, v_tmp
-  !write(*,*) 'Test run'
 
   !-------------------------------------
   ! Initialize Data
@@ -164,7 +161,6 @@ subroutine imaging(&
   Vfcv = dcmplx(Vfcvr,Vfcvi)
   if (isfcv .eqv. .True.) then
     write(*,*) 'Shift Tracking Center of Full complex visibilities.'
-    !write(*,*) 'Vfcv before',Vfcv(1)
     !$OMP PARALLEL DO DEFAULT(SHARED) &
     !$OMP   FIRSTPRIVATE(u,v,Nxref,Nyref,Nx,Ny,Nfcv) &
     !$OMP   PRIVATE(i,u_tmp,v_tmp)
@@ -176,7 +172,6 @@ subroutine imaging(&
                         Vfcv(i),Vfcv(i))
     end do
     !$OMP END PARALLEL DO
-    !write(*,*) 'Vfcv after ',Vfcv(1)
   end if
   !-------------------------------------
   ! L-BFGS-B
@@ -239,26 +234,6 @@ subroutine imaging(&
       end if
     end if
   end do
-  !
-  ! ! multiple Iouts
-  ! !call I1d_I2d_fwd(xidx,yidx,Iout,I2d,Npix,Nx,Ny)
-  ! call NUFFT_fwd(u,v,Iout,Vcmp,Nx,Ny,Nuv)
-  ! call Nuv_Nuvs(Nuv, Nz, Nuvs)
-  ! Nstart = 1
-  ! !$OMP PARALLEL DO DEFAULT(SHARED) &
-  ! !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Nstart,Nuvs) &
-  ! !$OMP   PRIVATE(iz, Nend) &
-  ! do iz=1,Nz
-  !   if(Nuvs(iz) == 0) then
-  !     continue
-  !   end if
-  !   Nend = Nstart + Nuvs(iz) -1
-  !   call NUFFT_adj(u(Nstart:Nend),v(Nstart:Nend),Vcmp(Nstart:Nend),I2d,Nx,Ny,Nuvs(iz))
-  !   call I1d_I2d_inv(xidx,yidx,Iout,REAL(I2d),Npix,Nx,Ny)
-  !   write(*,*) "len(Iout): ", size(Iout)
-  !   Nstart = Nend + 1
-  ! end do
-  ! !$OMP END PARALLEL DO
   !
   ! deallocate arrays
   deallocate(Vfcv)
@@ -346,7 +321,7 @@ subroutine calc_cost(&
   real(dp), intent(out) :: gradcost(1:Npix)
 
   ! integer
-  integer :: ipix, iz, Nstart, Nend
+  integer :: ipix, iz, Nstart, Nend, ipixz
 
   ! chisquares, gradients of each term of equations
   real(dp) :: chisq, reg  ! chisquare and regularization
@@ -356,7 +331,6 @@ subroutine calc_cost(&
   real(dp), allocatable :: gradchisq2d(:,:)
   real(dp), allocatable :: gradreg(:)
   real(dp), allocatable :: Vresre(:),Vresim(:)
-  !integer,  allocatable :: Nuvlist(:)
   complex(dpc), allocatable :: Vcmp(:)
 
   !------------------------------------
@@ -375,22 +349,17 @@ subroutine calc_cost(&
   chisq = 0d0
   !
   !   allocatable arrays
-  !allocate(I3d(Nx,Ny,Nz),Nuvlist(Nz))
   allocate(I3d(Nx,Ny,Nz))
   allocate(gradchisq2d(Nx,Ny))
   allocate(Vresre(Nuv),Vresim(Nuv),Vcmp(Nuv))
   I3d(:,:,:)=0d0
-  !Nuvlist(:) = 0d0
   gradchisq2d(:,:) = 0d0
   Vresre(:) = 0d0
   Vresim(:) = 0d0
   Vcmp(:) = dcmplx(0d0,0d0)
-  !print *, 'Test 1...................'
 
-  !write(*,*) "Iin:", Iin(1:5)
   ! Copy 1d image to 3d image
   call I1d_I3d_fwd(xidx,yidx,Iin,I3d,Npix,Nx,Ny,Nz)
-  !write(*,*) "I1d --> I3d:", I3d(1,1,1)
 
   ! Forward Non-unifrom Fast Fourier Transform
   Nstart = 1
@@ -502,33 +471,34 @@ subroutine calc_cost(&
   end if
   ! Single pixel based regularizations
   !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem, I3d_reg, Nz) &
-  !$OMP   PRIVATE(ipix, iz) &
+  !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem, I3d_reg, Nx, Ny, Nz) &
+  !$OMP   PRIVATE(ipix, iz, ipixz) &
   !$OMP   REDUCTION(+: reg, gradreg)
   do iz=1, Nz
-    do ipix=1, Npix
+    do ipix=1, Nx*Ny !Npix
+      ipixz = ipix + (Nx*Ny)*(iz - 1)
       ! L1
       if (lambl1 > 0) then
-        reg = reg + lambl1 * l1_e(Iin_reg(ipix))
-        gradreg(ipix) = gradreg(ipix) + lambl1 * l1_grade(Iin_reg(ipix))
+        reg = reg + lambl1 * l1_e(Iin_reg(ipixz))
+        gradreg(ipixz) = gradreg(ipixz) + lambl1 * l1_grade(Iin_reg(ipixz))
       end if
 
       ! MEM
       if (lambmem > 0) then
-        reg = reg + lambmem * mem_e(Iin_reg(ipix))
-        gradreg(ipix) = gradreg(ipix) + lambmem * mem_grade(Iin_reg(ipix))
+        reg = reg + lambmem * mem_e(Iin_reg(ipixz))
+        gradreg(ipixz) = gradreg(ipixz) + lambmem * mem_grade(Iin_reg(ipixz))
       end if
 
       ! TV
       if (lambtv > 0) then
         reg = reg + lambtv * tv_e(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
-        gradreg(ipix) = gradreg(ipix) + lambl1 * tv_grade(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
+        gradreg(ipixz) = gradreg(ipixz) + lambl1 * tv_grade(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
       end if
 
       ! TSV
       if (lambtsv > 0) then
         reg = reg + lambtsv * tsv_e(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
-        gradreg(ipix) = gradreg(ipix) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
+        gradreg(ipixz) = gradreg(ipixz) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
       end if
     end do
   end do

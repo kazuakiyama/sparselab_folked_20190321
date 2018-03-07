@@ -258,12 +258,9 @@ def imaging3d(
     v *= 2*np.pi*dy_rad
 
     # copy the initimage to the number of frames
-    Iin = [Iin]*Nf
-    xidx = [xidx]*Nf
-    yidx = [yidx]*Nf
-    Iin = np.concatenate(Iin)
-    xidx = np.concatenate(xidx)
-    yidx = np.concatenate(yidx)
+    Iin = np.concatenate([Iin]*Nf)
+    xidx = np.concatenate([xidx]*Nf)
+    yidx = np.concatenate([yidx]*Nf)
 
     # run imaging
     Iout = fortlib.fftim3d.imaging(
@@ -324,21 +321,20 @@ def imaging3d(
     for i in np.arange(len(xidx)):
         outimage.data[istokes, ifreq, yidx[i] - 1, xidx[i] - 1] = Iout[i]
     outimage.update_fits()
-    #print(len(Iout))
-    #print(len(xidx))
-    #print(Nyx)
     '''
     # multiple outimage
     outimlist = []
     ipix = 0
-    for z in np.arange(Nf):
+    iz = 0
+    while iz < Nf:
         outimage = copy.deepcopy(initimage)
         outimage.data[istokes, ifreq] = 0.
         for i in np.arange(Nyx):
             outimage.data[istokes, ifreq, yidx[i]-1, xidx[i]-1] = Iout[ipix+i]
         outimage.update_fits()
         outimlist.append(outimage)
-        ipix += i
+        ipix += Nyx-1
+        iz += 1
 
     return outimlist
 

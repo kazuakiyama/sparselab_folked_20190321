@@ -83,14 +83,16 @@ subroutine I1d_I3d_fwd(xidx,yidx,I1d,I3d,N1d,Nx,Ny,Nz)
   real(dp),intent(in) :: I1d(N1d)
   real(dp),intent(inout) :: I3d(Nx,Ny,Nz)
   !
-  integer :: i, iz
+  integer :: i, iz, Nxy
+  !
+  Nxy = Nx*Ny
   !
   !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(N1d,Nz,I1d,xidx,yidx) &
+  !$OMP   FIRSTPRIVATE(Nxy,Nz,I1d,xidx,yidx) &
   !$OMP   PRIVATE(i,iz)
   do iz=1,Nz
-    do i=1,N1d
-      I3d(xidx(i),yidx(i),iz)=I1d(i)
+    do i=1,Nxy !N1d
+      I3d(xidx(i),yidx(i),iz)=I1d(i + Nxy*(iz - 1))
     end do
   end do
   !$OMP END PARALLEL DO
