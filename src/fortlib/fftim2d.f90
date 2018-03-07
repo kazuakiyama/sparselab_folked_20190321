@@ -473,7 +473,7 @@ subroutine calc_cost(&
     ! TV
     if (lambtv > 0) then
       reg = reg + lambtv * tv_e(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
-      gradreg(ipix) = gradreg(ipix) + lambl1 * tv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
+      gradreg(ipix) = gradreg(ipix) + lambtv * tv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
     end if
 
     ! TSV
