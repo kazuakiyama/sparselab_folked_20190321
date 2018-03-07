@@ -1019,6 +1019,68 @@ class UVFITS(object):
         UVW = uvw.T
         return UVW
 
+    def get_vismodel(self,imfits,istokes=0,ifreq=0):
+        '''
+        This method will compude model visivilities based on uv-coverages of
+        data and the input image.
+
+        Args:
+          imfits (imdata.IMFITS object): input image data
+          istokes (int, default=0): the stoked index of the image to be used
+          ifreq (int, default=0): the frequency index of the image to be used
+
+        Returns:
+          Vreal, Vimag (ndarray, float64):
+            real and imaginary parts of the model visibilities
+        '''
+        #data number of u,v,w
+        Ndata, Ndec, Nra, Nif, Nch, Nstokes, Ncomp=self.visdata.data.shape
+
+        # u,v,w,uv distance
+        UVW=self.get_uvw()
+        u = UVW[0,:,0,0]
+        v = UVW[1,:,0,0]
+        del UVW
+
+        # model image
+        if type(imfits) != type(imdata.IMFITS()):
+            raise ValueError("The input imfits must be an imdata.IMFITS object.")
+        #   get number of pixels and also reference pixels
+        Nx    = imfits.header["nx"]
+        Ny    = imfits.header["ny"]
+        Nxref = imfits.header["nxref"]
+        Nyref = imfits.header["nyref"]
+
+        # dx_rad,dy_rad
+        dx_rad = np.deg2rad(imfits.header["dx"])
+        dy_rad = np.deg2rad(imfits.header["dy"])
+
+        # normalize u, v coordinates
+        u[:] *= 2*np.pi*dx_rad
+        v[:] *= 2*np.pi*dy_rad
+
+        # model intensity
+        I2d = np.float64(imfits.data[istokes, ifreq])
+        I2d = np.asfortranarray(I2d.T)
+
+        # model visibility
+        Vreal,Vimag = fortlib.fftlib.nufft_fwd_real(u,v,I2d)
+
+        # phase shift (the image center to the reference pixel)
+        #    pixel deviation of the center of
+        #    the image from the reference pixel
+        ix = Nx/2 + 1 - Nxref
+        iy = Ny/2 + 1 - Nyref
+
+        # complex visbility
+        Vcmp = Vreal+1j*Vimag
+
+        # new visibility due to the deviation (ix,iy)
+        Vcmp = Vcmp*np.exp(1j*(u*ix+v*iy))
+        Vreal = np.real(Vcmp)
+        Vimag = np.imag(Vcmp)
+
+        return Vreal,Vimag
 
     def avspc(self, dofreq=0, minpoint=2):
         '''
