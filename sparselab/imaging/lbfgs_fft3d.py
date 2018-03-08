@@ -251,7 +251,6 @@ def imaging3d(
         )
         Nuvs = [len(u)]
     elif Nf > 1:
-
         u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs = get_uvlist_loop(Nf=Nf,
             fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
         )
@@ -263,8 +262,8 @@ def imaging3d(
     # copy the initimage to the number of frames
     if Nf > 1:
         Iin = np.concatenate([Iin]*Nf)
-        xidx = np.concatenate([xidx]*Nf)
-        yidx = np.concatenate([yidx]*Nf)
+        #xidx = np.concatenate([xidx]*Nf)
+        #yidx = np.concatenate([yidx]*Nf)
 
     # run imaging
     Iout = fortlib.fftim3d.imaging(
@@ -358,83 +357,50 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
     uvidxfcv, uvidxamp, uvidxcp, uvidxca = [], [], [], []
     Nuvs = []
     idxcon = 0
-    for i in np.arange(Nf):
+    for i in xrange(Nf):
         fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
         if fcvconcat is not None:
-            frmidx = fcvconcat["frmidx"]
-            idx = np.where(frmidx == i) #tuple
-            idx = idx[0].tolist() #list
-            if idx != []:
+            idx = fcvconcat["frmidx"] == i
+            if True in idx:
                 fcvsingle = fcvconcat.loc[idx, :]
 
         if ampconcat is not None:
-            frmidx = ampconcat["frmidx"]
-            idx = np.where(frmidx == i) #tuple
-            idx = idx[0].tolist() #list
-            if idx != []:
+            idx = fcvconcat["frmidx"] == i
+            if True in idx:
                 ampsingle = ampconcat.loc[idx, :]
 
         if bsconcat is not None:
-            frmidx = bsconcat["frmidx"]
-            idx = np.where(frmidx == i) #tuple
-            idx = idx[0].tolist() #list
-            if idx != []:
+            idx = fcvconcat["frmidx"] == i
+            if True in idx:
                 bssingle = bsconcat.loc[idx, :]
 
         if caconcat is not None:
-            frmidx = caconcat["frmidx"]
-            idx = np.where(frmidx == i) #tuple
-            idx = idx[0].tolist() #list
-            if idx != []:
+            idx = fcvconcat["frmidx"] == i
+            if True in idx:
                 casingle = caconcat.loc[idx, :]
 
-        if ((fcvsingle is not None) or (ampsingle is not None) or
-                (bssingle is not None) or (casingle is not None)):
+        if ((fcvsingle is None) and (ampsingle is None) and
+            (bssingle is None)  and (casingle is None)):
+            Nuvs.append(0)
+        else:
             u0, v0, uvidxfcv0, uvidxamp0, uvidxcp0, uvidxca0 = get_uvlist(
                 fcvtable=fcvsingle, amptable=ampsingle, bstable=bssingle, catable=casingle)
             u.append(u0)
             v.append(v0)
             Nuvs.append(len(u0))
-            if (fcvsingle is not None):
-                for fcvi in uvidxfcv0:
-                    if fcvi >= 0:
-                        uvidxfcv.append(fcvi+idxcon)
-                    else:
-                        uvidxfcv.append(fcvi-idxcon)
-            if (ampsingle is not None):
-                for ampi in uvidxamp0:
-                    if ampi >= 0:
-                        uvidxamp.append(ampi+idxcon)
-                    else:
-                        uvidxamp.append(ampi-idxcon)
-            if (bssingle is not None):
-                tmparray = []
-                for row in range(3):
-                    tmplist = []
-                    for cpi in uvidxcp0[row]:
-                        if cpi >= 0:
-                            tmplist.append(cpi+idxcon)
-                        else:
-                            tmplist.append(cpi-idxcon)
-                    tmparray.append(tmplist)
-                uvidxcp.append(np.vstack((tmparray)))
-            if (casingle is not None):
-                tmparray = []
-                for row in range(4):
-                    tmplist = []
-                    for cai in uvidxca0[row]:
-                        if cai >= 0:
-                            tmplist.append(cai+idxcon)
-                        else:
-                            tmplist.append(cai-idxcon)
-                    tmparray.append(tmplist)
-                uvidxca.append(np.vstack((tmparray)))
-
+            if fcvsingle is not None:
+                uvidxfcv0 = np.sign(uvidxfcv0) * (np.abs(uvidxfcv0)+idxcon)
+                uvidxfcv.append(uvidxfcv0)
+            if ampsingle is not None:
+                uvidxamp0 = np.sign(uvidxamp0) * (np.abs(uvidxamp0)+idxcon)
+                uvidxamp.append(uvidxamp0)
+            if bssingle is not None:
+                uvidxcp0 = np.sign(uvidxcp0) * (np.abs(uvidxcp0)+idxcon)
+                uvidxcp.append(uvidxcp0)
+            if casingle is not None:
+                uvidxca0 = np.sign(uvidxca0) * (np.abs(uvidxca0)+idxcon)
+                uvidxca.append(uvidxca0)
             idxcon += len(u0)
-
-        if ((fcvsingle is None) and (ampsingle is None) and
-                (bssingle is None) and (casingle is None)):
-            Nuvs.append(0)
 
     u = np.concatenate(u)
     v = np.concatenate(v)

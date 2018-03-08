@@ -11,7 +11,7 @@ module fftim3d
                    tsv_e, tsv_grade,&
                    mem_e, mem_grade,&
                    comreg, zeroeps
-  use image3d, only: I1d_I3d_fwd,I1d_I3d_inv
+  !use image3d, only: I1d_I3d_fwd,I1d_I3d_inv
   implicit none
 contains
 !-------------------------------------------------------------------------------
@@ -36,22 +36,22 @@ subroutine imaging(&
   implicit none
   ! Image
   integer,  intent(in) :: Npix, Nx, Ny, Nz
-  real(dp), intent(in) :: Iin(Npix)
+  real(dp), intent(in) :: Iin(Npix*Nz)
   real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
                                         ! 1 = the leftmost/lowermost pixel
   integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
 
   ! uv coordinates
   integer,  intent(in) :: Nuv
-  integer,  intent(in) :: Nuvs(Nz)
+  integer,  intent(in) :: Nuvs(Nz)        ! number of uv data for each frame
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
 
   ! Regularization Parameters
-  real(dp), intent(in) :: lambl1  ! Regularization Parameter for L1-norm
-  real(dp), intent(in) :: lambtv  ! Regularization Parameter for iso-TV
-  real(dp), intent(in) :: lambtsv ! Regularization Parameter for TSV
-  real(dp), intent(in) :: lambmem ! Regularization Parameter for MEM
-  real(dp), intent(in) :: lambcom ! Regularization Parameter for Center of Mass
+  real(dp), intent(in) :: lambl1    ! Regularization Parameter for L1-norm
+  real(dp), intent(in) :: lambtv    ! Regularization Parameter for iso-TV
+  real(dp), intent(in) :: lambtsv   ! Regularization Parameter for TSV
+  real(dp), intent(in) :: lambmem   ! Regularization Parameter for MEM
+  real(dp), intent(in) :: lambcom   ! Regularization Parameter for Center of Mass
 
   ! Imaging Parameter
   integer,  intent(in) :: Niter     ! iteration number
@@ -65,12 +65,12 @@ subroutine imaging(&
   real(dp), intent(in) :: pcom      ! power weight of C.O.M regularization
 
   ! Parameters related to full complex visibilities
-  logical,      intent(in) :: isfcv           ! is data?
-  integer,      intent(in) :: Nfcv            ! number of data
-  integer,      intent(in) :: uvidxfcv(Nfcv)  ! uvidx
-  real(dp),     intent(in) :: Vfcvr(Nfcv)     ! data
-  real(dp),     intent(in) :: Vfcvi(Nfcv)     ! data
-  real(dp),     intent(in) :: Varfcv(Nfcv)    ! variance
+  logical,  intent(in) :: isfcv           ! is data?
+  integer,  intent(in) :: Nfcv            ! number of data
+  integer,  intent(in) :: uvidxfcv(Nfcv)  ! uvidx
+  real(dp), intent(in) :: Vfcvr(Nfcv)     ! data
+  real(dp), intent(in) :: Vfcvi(Nfcv)     ! data
+  real(dp), intent(in) :: Varfcv(Nfcv)    ! variance
 
   ! Parameters related to amplitude
   logical,  intent(in) :: isamp           ! is amplitudes?
@@ -96,9 +96,9 @@ subroutine imaging(&
   ! Paramters related to the L-BFGS-B
   integer,  intent(in) :: m
   real(dp), intent(in) :: factr, pgtol
-  !
+
   ! Output Image
-  real(dp), intent(out) :: Iout(Npix)
+  real(dp), intent(out) :: Iout(Npix*Nz)
 
   ! full complex visibilities to be used for calculations
   complex(dpc), allocatable :: Vfcv(:)
@@ -108,8 +108,9 @@ subroutine imaging(&
   real(dp) :: gradcost(1:Npix)  ! its gradient
 
   ! Number of Data
-  integer :: Ndata  ! number of data
-  real(dp) :: fnorm ! normalization factor for chisquares
+  integer :: Ndata, Nparm   ! number of data, parameters
+  real(dp) :: fnorm         ! normalization factor for chisquares
+  integer :: Nuvs_sum(Nz)
 
   ! variables and parameters tuning L-BFGS-B
   integer,  parameter   :: iprint = 1
@@ -118,20 +119,17 @@ subroutine imaging(&
   integer               :: isave(44)
   real(dp)              :: dsave(29)
   integer,  allocatable :: nbd(:),iwa(:)
-
   real(dp), allocatable :: lower(:),upper(:),wa(:)
-  complex(dpc), allocatable :: I2d(:,:)
-  complex(dpc), allocatable :: Vcmp(:)
 
   ! loop variables
-  integer :: i, iz, Nstart, Nend
+  integer :: i
   real(dp) :: u_tmp, v_tmp
 
   !-------------------------------------
   ! Initialize Data
   !-------------------------------------
-  allocate(Vcmp(Nuv))
-  Vcmp(:) = dcmplx(0d0,0d0)
+  ! Number of Parameters
+  Nparm = Npix * Nz
 
   ! Check Ndata
   Ndata = 0
@@ -149,11 +147,13 @@ subroutine imaging(&
   end if
   fnorm = real(Ndata)
   write(*,*) 'Number of Data          ', Ndata
+  write(*,*) 'Number of Paramter/frame', Npix
+  write(*,*) 'Number of Frames        ', Nz
   write(*,*) 'Number of uv coordinates', Nuv
 
   ! copy images (Iin -> Iout)
   write(*,*) 'Initialize the parameter vector'
-  call dcopy(Npix,Iin,1,Iout,1)
+  call dcopy(Nparm,Iin,1,Iout,1)
 
   ! shift tracking center of full complex visibilities from the reference pixel
   ! to the center of the image
@@ -173,17 +173,25 @@ subroutine imaging(&
     end do
     !$OMP END PARALLEL DO
   end if
+
+  ! Compute accumulated number of uvdata before each frame
+  !   Nuvs_sum(i) + 1 will be the start index number for i-th frame
+  !   Nuvs_sum(i) + Nuvs(i) will be the end index number for i-th frame
+  Nuvs_sum(1)=0
+  do i=2, Nz
+    Nuvs_sum(i) = Nuvs_sum(i-1) + Nuvs(i-1)
+  end do
   !-------------------------------------
   ! L-BFGS-B
   !-------------------------------------
   write(*,*) 'Initialize the L-BFGS-B'
   ! initialise L-BFGS-B
   !   Allocate some arrays
-  allocate(iwa(3*Npix))
-  allocate(wa(2*m*Npix + 5*Npix + 11*m*m + 8*m))
+  allocate(iwa(3*Nparm))
+  allocate(wa(2*m*Nparm + 5*Nparm + 11*m*m + 8*m))
 
   !   set boundary conditions
-  allocate(lower(Npix),upper(Npix),nbd(Npix))
+  allocate(lower(Nparm),upper(Nparm),nbd(Nparm))
   if (nonneg .eqv. .True.) then
     nbd(:) = 1  ! put lower limit
     lower(:) = 0d0  ! put lower limit
@@ -198,17 +206,14 @@ subroutine imaging(&
           .or. task == 'NEW_X' &
           .or. task == 'START')
     ! This is the call to the L-BFGS-B code.
-    call setulb ( Npix, m, Iout, lower, upper, nbd, cost, gradcost, &
+    call setulb ( Nparm, m, Iout, lower, upper, nbd, cost, gradcost, &
                   factr, pgtol, wa, iwa, task, iprint,&
                   csave, lsave, isave, dsave )
     if (task(1:2) == 'FG') then
-      ! thresholding
-      where(abs(Iout)<zeroeps) Iout=0d0
-
       ! Calculate cost function and gradcostent of cost function
       call calc_cost(&
         Iout,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
-        u,v,Nuvs,&
+        u,v,Nuvs,Nuvs_sum,&
         lambl1,lambtv,lambtsv,lambmem,lambcom,&
         fnorm,transtype,transprm,pcom,&
         isfcv,uvidxfcv,Vfcv,Varfcv,&
@@ -216,7 +221,7 @@ subroutine imaging(&
         iscp,uvidxcp,CP,Varcp,&
         isca,uvidxca,CA,Varca,&
         cost,gradcost,&
-        Npix,Nuv,Nfcv,Namp,Ncp,Nca&
+        Nparm,Npix,Nuv,Nfcv,Namp,Ncp,Nca&
       )
     else
       ! If iteration number exceeds the total iteration number, make a flag
@@ -226,14 +231,10 @@ subroutine imaging(&
       else if (mod(isave(30),100) == 0) then
         print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
       end if
-
-      ! If we have a flag to STOP the L-BFGS-B algorithm, print it out.
-      if (task(1:4) .eq. 'STOP') then
-        print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
-        write (6,*) task
-      end if
     end if
   end do
+  print '("Iteration :",I5,"/",I5,"  Cost :",D13.6)',isave(30),Niter,cost
+  write (6,*) task
   !
   ! deallocate arrays
   deallocate(Vfcv)
@@ -247,7 +248,7 @@ end subroutine
 !
 subroutine calc_cost(&
   Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
-  u,v,Nuvs,&
+  u,v,Nuvs,Nuvs_sum,&
   lambl1,lambtv,lambtsv,lambmem,lambcom,&
   fnorm,transtype,transprm,pcom,&
   isfcv,uvidxfcv,Vfcv,Varfcv,&
@@ -255,7 +256,7 @@ subroutine calc_cost(&
   iscp,uvidxcp,CP,Varcp,&
   isca,uvidxca,CA,Varca,&
   cost,gradcost,&
-  Npix,Nuv,Nfcv,Namp,Ncp,Nca&
+  Nparm,Npix,Nuv,Nfcv,Namp,Ncp,Nca&
 )
   !
   ! Calculate Cost Functions
@@ -263,13 +264,14 @@ subroutine calc_cost(&
   implicit none
 
   ! Image
-  integer,  intent(in) :: Npix, Nx, Ny, Nz
-  real(dp), intent(in) :: Iin(Npix), Nxref, Nyref
+  integer,  intent(in) :: Nparm, Npix, Nx, Ny, Nz
+  real(dp), intent(in) :: Iin(Nparm), Nxref, Nyref
   integer,  intent(in) :: xidx(Npix), yidx(Npix)
 
   ! uv coordinate
   integer,  intent(in) :: Nuv
-  integer,  intent(in) :: Nuvs(Nz)
+  integer,  intent(in) :: Nuvs_sum(Nz)    ! accumulated number of uv data *before* each frame
+  integer,  intent(in) :: Nuvs(Nz)        ! number of uv data for each frame
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
 
   ! Regularization Parameters
@@ -318,16 +320,16 @@ subroutine calc_cost(&
 
   ! Outputs
   real(dp), intent(out) :: cost
-  real(dp), intent(out) :: gradcost(1:Npix)
+  real(dp), intent(out) :: gradcost(Nparm)
 
   ! integer
-  integer :: ipix, iz, Nstart, Nend, ipixz, Nxy, istart, iend
+  integer :: ipix, iz, iparm, istart, iend
 
   ! chisquares, gradients of each term of equations
   real(dp) :: chisq, reg  ! chisquare and regularization
 
   ! allocatable arrays
-  real(dp), allocatable :: I3d(:,:,:),Iin_reg(:),I3d_reg(:,:,:)
+  real(dp), allocatable :: I2d(:,:),Iin_reg(:)
   real(dp), allocatable :: gradchisq2d(:,:)
   real(dp), allocatable :: gradreg(:)
   real(dp), allocatable :: Vresre(:),Vresim(:)
@@ -347,35 +349,42 @@ subroutine calc_cost(&
   ! Initialize
   !   scalars
   chisq = 0d0
-  !
-  !   allocatable arrays
-  allocate(I3d(Nx,Ny,Nz))
-  allocate(gradchisq2d(Nx,Ny))
-  allocate(Vresre(Nuv),Vresim(Nuv),Vcmp(Nuv))
-  I3d(:,:,:)=0d0
-  gradchisq2d(:,:) = 0d0
-  Vresre(:) = 0d0
-  Vresim(:) = 0d0
-  Vcmp(:) = dcmplx(0d0,0d0)
-
-  ! Copy 1d image to 3d image
-  call I1d_I3d_fwd(xidx,yidx,Iin,I3d,Npix,Nx,Ny,Nz)
 
   ! Forward Non-unifrom Fast Fourier Transform
-  Nstart = 1
+  !   allocatable arrays
+  allocate(Vcmp(Nuv))
+  Vcmp(:) = dcmplx(0d0,0d0)
   !
   !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Nstart,Nuvs) &
-  !$OMP   PRIVATE(iz, Nend) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v) &
+  !$OMP   PRIVATE(iz, istart, iend, I2d) &
   !$OMP   REDUCTION(+:Vcmp)
   do iz=1, Nz
+    ! If there is a data corresponding to this frame
     if (Nuvs(iz) /= 0) then
-      Nend = Nstart + Nuvs(iz) -1
-      call NUFFT_fwd(u(Nstart:Nend),v(Nstart:Nend),I3d(:,:,iz),Vcmp(Nstart:Nend),Nx,Ny,Nuvs(iz))
-      Nstart = Nend + 1
+      ! allocate 2D image for imaging
+      allocate(I2d(Nx,Ny))
+      I2d = 0d0
+      call I1d_I2d_fwd(xidx,yidx,Iin((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
+
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      ! run forward NUFFT
+      call NUFFT_fwd(u(istart:iend),v(istart:iend),I2d,Vcmp(istart:iend),&
+                     Nx,Ny,Nuvs(iz))
+
+      ! deallocate array
+      deallocate(I2d)
     end if
   end do
   !$OMP END PARALLEL DO
+
+  ! allocate arrays for residuals
+  allocate(Vresre(Nuv), Vresim(Nuv))
+  Vresre=0d0
+  Vresim=0d0
 
   ! Full complex visibility
   if (isfcv .eqv. .True.) then
@@ -396,143 +405,149 @@ subroutine calc_cost(&
   if (iscp .eqv. .True.) then
     call chisq_cp(Vcmp,uvidxcp,CP,Varcp,fnorm,chisq,Vresre,Vresim,Nuv,Ncp)
   end if
+  deallocate(Vcmp)
+
+  ! Adjoint Non-unifrom Fast Fourier Transform
+  !  this will provide gradient of chisquare functions
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v,Vresre,Vresim) &
+  !$OMP   PRIVATE(iz, istart, iend, gradchisq2d) &
+  !$OMP   REDUCTION(+:gradcost)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if(Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(gradchisq2d(Nx,Ny))
+      gradchisq2d(:,:) = 0d0
+
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      ! run adujoint NUFFT
+      call NUFFT_adj_resid(u(istart:iend),v(istart:iend),&
+                           Vresre(istart:iend),Vresim(istart:iend),&
+                           gradchisq2d,Nx,Ny,Nuvs(iz))
+
+      ! copy the gradient of chisquare into that of cost functions
+      call I1d_I2d_fwd(xidx,yidx,gradcost((iz-1)*Npix+1:iz*Npix),&
+                       gradchisq2d,Npix,Nx,Ny)
+
+      ! deallocate array
+      deallocate(gradchisq2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vresre,Vresim,Vcmp)
 
   ! copy the chisquare into that of cost functions
   cost = chisq
 
-  ! Adjoint Non-unifrom Fast Fourier Transform
-  !  this will provide gradient of chisquare functions
-  Nstart = 1
-  Nxy = Nx*Ny
-  !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Nstart,Nuvs,Nxy) &
-  !$OMP   PRIVATE(iz, Nend, istart, iend) &
-  !$OMP   REDUCTION(+:gradcost)
-  do iz=1, Nz
-    istart = (iz-1)*Nxy+1
-    iend = iz*Nxy
-    if(Nuvs(iz) /= 0) then
-      Nend = Nstart + Nuvs(iz) -1
-      call NUFFT_adj_resid(u(Nstart:Nend),v(Nstart:Nend),Vresre(Nstart:Nend),Vresim(Nstart:Nend),gradchisq2d(:,:),Nx,Ny,Nuvs(iz))
-      ! copy the gradient of chisquare into that of cost functions
-      call I1d_I2d_inv(xidx(istart:iend),yidx(istart:iend),gradcost(istart:iend),gradchisq2d,Nxy,Nx,Ny)
-      Nstart = Nend + 1
-    end if
-  end do
-  !$OMP END PARALLEL DO
-
-  write(*,*) 'cost',cost
-  write(*,*) 'gradcost',gradcost(1)
-
-  ! deallocate array
-  deallocate(I3d,gradchisq2d)
-  deallocate(Vresre,Vresim,Vcmp)
-
   !------------------------------------
   ! Centoroid Regularizer
   !------------------------------------
-  if (lambcom > 0) then
-    ! initialize
-    !   scalars
-    reg = 0
-    !   allocatable arrays
-    allocate(gradreg(Npix))
-    gradreg(:) = 0d0
-
-    ! calc cost and its gradient
-    call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin,reg,gradreg,Npix)
-    cost = cost + lambcom * reg
-    call daxpy(Npix, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
-
-    ! deallocate array
-    deallocate(gradreg)
-  end if
+  ! if (lambcom > 0) then
+  !   ! initialize
+  !   !   scalars
+  !   reg = 0
+  !   !   allocatable arrays
+  !   allocate(gradreg(Npix))
+  !   gradreg(:) = 0d0
+  !
+  !   ! calc cost and its gradient
+  !   call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin,reg,gradreg,Npix)
+  !   cost = cost + lambcom * reg
+  !   call daxpy(Npix, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
+  !
+  !   ! deallocate array
+  !   deallocate(gradreg)
+  ! end if
 
   !------------------------------------
-  ! Regularization Functions
+  ! 2D Regularization Functions
   !------------------------------------
   ! Initialize
   !   scalars
   reg = 0d0
   !   allocatable arrays
-  allocate(gradreg(Npix),Iin_reg(Npix))
+  allocate(gradreg(Nparm),Iin_reg(Nparm))
   gradreg(:) = 0d0
   Iin_reg(:) = 0d0
-  if (lambtv > 0 .or. lambtsv > 0) then
-    allocate(I3d_reg(Nx,Ny,Nz))
-  end if
 
   ! Transform Image
   if (transtype == 1) then
     ! Log Forward
-    call log_fwd(transprm,Iin,Iin_reg,Npix)
+    call log_fwd(transprm,Iin,Iin_reg,Nparm)
   else if (transtype == 2) then
     ! Gamma contrast
-    call gamma_fwd(transprm,Iin,Iin_reg,Npix)
+    call gamma_fwd(transprm,Iin,Iin_reg,Nparm)
   else
-    call dcopy(Npix,Iin,1,Iin_reg,1)
+    call dcopy(Nparm,Iin,1,Iin_reg,1)
   end if
 
-  ! Copy transformed image to I3d
-  if (lambtv > 0 .or. lambtsv > 0) then
-    call I1d_I3d_fwd(xidx,yidx,Iin_reg,I3d_reg,Npix,Nx,Ny,Nz)
-  end if
-  ! Single pixel based regularizations
   !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Npix, Iin_reg, lambl1, lambmem, I3d_reg, Nx, Ny, Nz) &
-  !$OMP   PRIVATE(ipix, iz, ipixz) &
+  !$OMP   FIRSTPRIVATE(Npix, Nz, lambl1, lambmem, lambtv, lambtsv,&
+  !$OMP                Iin_reg, xidx, yidx) &
+  !$OMP   PRIVATE(iz, ipix, iparm, I2d) &
   !$OMP   REDUCTION(+: reg, gradreg)
   do iz=1, Nz
-    do ipix=1, Nxy !Npix
-      ipixz = ipix + Nxy*(iz - 1)
+    ! allocate 2d image if lambtv/tsv > 0
+    if (lambtv > 0 .or. lambtsv > 0) then
+      allocate(I2d(Nx,Ny))
+      I2d(:,:)=0d0
+      call I1d_I2d_fwd(xidx,yidx,Iin_reg((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
+    end if
+
+    ! compute regularization function
+    do ipix=1, Npix
+      iparm = (iz-1)*Nz + ipix
       ! L1
       if (lambl1 > 0) then
-        reg = reg + lambl1 * l1_e(Iin_reg(ipixz))
-        gradreg(ipixz) = gradreg(ipixz) + lambl1 * l1_grade(Iin_reg(ipixz))
+        reg = reg + lambl1 * l1_e(Iin_reg(iparm))
+        gradreg(iparm) = gradreg(iparm) + lambl1 * l1_grade(Iin_reg(iparm))
       end if
 
       ! MEM
       if (lambmem > 0) then
-        reg = reg + lambmem * mem_e(Iin_reg(ipixz))
-        gradreg(ipixz) = gradreg(ipixz) + lambmem * mem_grade(Iin_reg(ipixz))
+        reg = reg + lambmem * mem_e(Iin_reg(iparm))
+        gradreg(iparm) = gradreg(iparm) + lambmem * mem_grade(Iin_reg(iparm))
       end if
 
       ! TV
       if (lambtv > 0) then
-        reg = reg + lambtv * tv_e(xidx(ipixz),yidx(ipixz),I3d_reg(:,:,iz),Nx,Ny)
-        gradreg(ipixz) = gradreg(ipixz) + lambl1 * tv_grade(xidx(ipixz),yidx(ipixz),I3d_reg(:,:,iz),Nx,Ny)
+        reg = reg + lambtv * tv_e(xidx(iparm),yidx(iparm),I2d,Nx,Ny)
+        gradreg(iparm) = gradreg(iparm) + lambtv * tv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
       end if
 
       ! TSV
       if (lambtsv > 0) then
-        reg = reg + lambtsv * tsv_e(xidx(ipixz),yidx(ipixz),I3d_reg(:,:,iz),Nx,Ny)
-        gradreg(ipixz) = gradreg(ipixz) + lambtsv * tsv_grade(xidx(ipixz),yidx(ipixz),I3d_reg(:,:,iz),Nx,Ny)
+        reg = reg + lambtsv * tsv_e(xidx(iparm),yidx(iparm),I2d,Nx,Ny)
+        gradreg(iparm) = gradreg(iparm) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
       end if
     end do
+
+    ! deallocate I2d
+    if (lambtv > 0 .or. lambtsv > 0) then
+      deallocate(I2d)
+    end if
   end do
   !$OMP END PARALLEL DO
+  deallocate(Iin_reg)
 
   ! multiply variable conversion factor to gradients
   if (transtype == 1) then
     ! Log Forward
-    call log_grad(transprm,Iin,gradreg,Npix)
+    call log_grad(transprm,Iin,gradreg,Nparm)
   else if (transtype == 2) then
     ! Gamma contrast
-    call gamma_grad(transprm,Iin,gradreg,Npix)
+    call gamma_grad(transprm,Iin,gradreg,Nparm)
   end if
 
   ! add regularization function and its gradient to cost function and its gradient.
   cost = cost + reg
-  call daxpy(Npix, 1d0, gradreg, 1, gradcost, 1) ! gradcost := gradreg + gradcos
-  !write(*,*) 'reg',reg
-  !write(*,*) 'gradreg',gradreg(1)
-  !write(*,*) 'cost',cost
-  !write(*,*) 'gradcost',gradcost(1)
+  call daxpy(Nparm, 1d0, gradreg, 1, gradcost, 1) ! gradcost := gradreg + gradcos
 
   ! deallocate arrays
-  deallocate(gradreg,Iin_reg)
-  if (lambtv > 0 .or. lambtsv > 0) then
-    deallocate(I3d_reg)
-  end if
+  deallocate(gradreg)
 end subroutine
 end module
