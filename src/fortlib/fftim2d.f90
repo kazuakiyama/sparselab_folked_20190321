@@ -430,10 +430,6 @@ subroutine calc_cost(&
   allocate(gradreg(Npix),Iin_reg(Npix))
   gradreg(:) = 0d0
   Iin_reg(:) = 0d0
-  if (lambtv > 0 .or. lambtsv > 0) then
-    allocate(I2d(Nx,Ny))
-    I2d(:,:)=0d0
-  end if
 
   ! Transform Image
   if (transtype == 1) then
@@ -448,6 +444,8 @@ subroutine calc_cost(&
 
   ! Copy transformed image to I2d
   if (lambtv > 0 .or. lambtsv > 0) then
+    allocate(I2d(Nx,Ny))
+    I2d(:,:)=0d0
     call I1d_I2d_fwd(xidx,yidx,Iin_reg,I2d,Npix,Nx,Ny)
   end if
 
@@ -483,6 +481,10 @@ subroutine calc_cost(&
     end if
   end do
   !$OMP END PARALLEL DO
+  if (lambtv > 0 .or. lambtsv > 0) then
+    deallocate(I2d)
+  end if
+  deallocate(Iin_reg)
 
   ! multiply variable conversion factor to gradients
   if (transtype == 1) then
@@ -498,9 +500,6 @@ subroutine calc_cost(&
   call daxpy(Npix, 1d0, gradreg, 1, gradcost, 1) ! gradcost := gradreg + gradcos
 
   ! deallocate arrays
-  deallocate(gradreg,Iin_reg)
-  if (lambtv > 0 .or. lambtsv > 0) then
-    deallocate(I2d)
-  end if
+  deallocate(gradreg)
 end subroutine
 end module
