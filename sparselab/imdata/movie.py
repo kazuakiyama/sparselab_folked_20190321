@@ -45,8 +45,10 @@ class MOVIE(object):
                 unit of time difference (sec, min, hrs, day)
             Nf (integer):
                 number of frames
-            initimage (imdata.IMFITS object):
+            init2dim (imdata.IMFITS object):
                 initial image
+            dtable:
+                vistable, amptable, bstable, catable
         Returns:
             imdata.MOVIE object
         '''
@@ -138,4 +140,3 @@ class MOVIE(object):
         tmtable = at.Time(tmtable).datetime
         frmidx = concatab["frmidx"]
         plt.plot(tmtable, frmidx, 'k.')
-        #plt.show()

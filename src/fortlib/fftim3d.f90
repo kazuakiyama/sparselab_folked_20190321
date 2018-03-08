@@ -363,23 +363,12 @@ subroutine calc_cost(&
 
   ! Forward Non-unifrom Fast Fourier Transform
   Nstart = 1
-  !write(*,*) "Nuv: ", Nuv
-  !write(*,*) "Nuvs: ", Nuvs
-
-  ! calc Nuvlist
-  !call Nuv_Nuvlist(Nuv, Nz, Nuvlist)
-  !write(*,*) "Nuv: ", Nuv
-  !write(*,*) "Nz: ", Nz
-  !write(*,*) "Nuvs: ", Nuvs
   !
   !$OMP PARALLEL DO DEFAULT(SHARED) &
   !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Nstart,Nuvs) &
   !$OMP   PRIVATE(iz, Nend) &
   !$OMP   REDUCTION(+:Vcmp)
   do iz=1, Nz
-    !if(Nuvs(iz) == 0) then
-    !  continue
-    !end if
     if (Nuvs(iz) /= 0) then
       Nend = Nstart + Nuvs(iz) -1
       call NUFFT_fwd(u(Nstart:Nend),v(Nstart:Nend),I3d(:,:,iz),Vcmp(Nstart:Nend),Nx,Ny,Nuvs(iz))
@@ -432,8 +421,8 @@ subroutine calc_cost(&
   end do
   !$OMP END PARALLEL DO
 
-  !write(*,*) 'cost',cost
-  !write(*,*) 'gradcost',gradcost(1)
+  write(*,*) 'cost',cost
+  write(*,*) 'gradcost',gradcost(1)
 
   ! deallocate array
   deallocate(I3d,gradchisq2d)
@@ -510,14 +499,14 @@ subroutine calc_cost(&
 
       ! TV
       if (lambtv > 0) then
-        reg = reg + lambtv * tv_e(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
-        gradreg(ipixz) = gradreg(ipixz) + lambl1 * tv_grade(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
+        reg = reg + lambtv * tv_e(xidx(ipixz),yidx(ipixz),I3d_reg(:,:,iz),Nx,Ny)
+        gradreg(ipixz) = gradreg(ipixz) + lambl1 * tv_grade(xidx(ipixz),yidx(ipixz),I3d_reg(:,:,iz),Nx,Ny)
       end if
 
       ! TSV
       if (lambtsv > 0) then
-        reg = reg + lambtsv * tsv_e(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
-        gradreg(ipixz) = gradreg(ipixz) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I3d_reg(:,:,iz),Nx,Ny)
+        reg = reg + lambtsv * tsv_e(xidx(ipixz),yidx(ipixz),I3d_reg(:,:,iz),Nx,Ny)
+        gradreg(ipixz) = gradreg(ipixz) + lambtsv * tsv_grade(xidx(ipixz),yidx(ipixz),I3d_reg(:,:,iz),Nx,Ny)
       end if
     end do
   end do
@@ -547,28 +536,3 @@ subroutine calc_cost(&
   end if
 end subroutine
 end module
-
-!-------------------------------------------------------------------------------
-! Divide Nuv to Nuvs array
-!-------------------------------------------------------------------------------
-! subroutine Nuv_Nuvlist(Nuv, Nz, Nuvlist)
-!   !
-!   implicit none
-!   !
-!   integer, intent(in) :: Nuv,Nz
-!   integer, intent(out) :: Nuvlist(1:Nz)
-!   !
-!   integer :: i
-!   Nuvlist(:) = 0d0
-!   !
-!   !$OMP PARALLEL DO DEFAULT(SHARED) &
-!   !$OMP   FIRSTPRIVATE(Nuv,Nz) &
-!   !$OMP   PRIVATE(i)
-!   do i=1,Nz
-!     Nuvlist(i) = Nuv/Nz
-!   end do
-!   !$OMP END PARALLEL DO
-!   if (MOD(Nuv, Nz) /= 0) then
-!     Nuvlist(size(Nuvlist)) = Nuvlist(size(Nuvlist)) + MOD(Nuv, Nz)
-!   end if
-! end subroutine

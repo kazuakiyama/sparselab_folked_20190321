@@ -54,7 +54,6 @@ def imaging3d(
         totalflux=None, fluxconst=False,
         istokes=0, ifreq=0):
     '''
-
     '''
     # Sanity Check: Data
     if ((vistable is None) and (amptable is None) and
@@ -246,18 +245,26 @@ def imaging3d(
     lambcom_sim = lambcom # No normalization for COM regularization
 
     # get uv coordinates and uv indice
-    u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs = get_uvlist_loop(Nf=Nf,
-        fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
-    )
+    if Nf == 1:
+        u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
+            fcvtable=fcvtable, amptable=amptable, bstable=bstable, catable=catable
+        )
+        Nuvs = [len(u)]
+    elif Nf > 1:
+
+        u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs = get_uvlist_loop(Nf=Nf,
+            fcvconcat=fcvtable, ampconcat=amptable, bsconcat=bstable, caconcat=catable
+        )
 
     # normalize u, v coordinates
     u *= 2*np.pi*dx_rad
     v *= 2*np.pi*dy_rad
 
     # copy the initimage to the number of frames
-    Iin = np.concatenate([Iin]*Nf)
-    xidx = np.concatenate([xidx]*Nf)
-    yidx = np.concatenate([yidx]*Nf)
+    if Nf > 1:
+        Iin = np.concatenate([Iin]*Nf)
+        xidx = np.concatenate([xidx]*Nf)
+        yidx = np.concatenate([yidx]*Nf)
 
     # run imaging
     Iout = fortlib.fftim3d.imaging(
@@ -350,6 +357,7 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
     u, v = [], []
     uvidxfcv, uvidxamp, uvidxcp, uvidxca = [], [], [], []
     Nuvs = []
+    idxcon = 0
     for i in np.arange(Nf):
         fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
         if fcvconcat is not None:
@@ -387,41 +395,71 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
             u.append(u0)
             v.append(v0)
             Nuvs.append(len(u0))
-            if i == 0:
-                uvidxfcv.append(uvidxfcv0)
-                uvidxamp.append(uvidxamp0)
-                uvidxcp.append(uvidxcp0)
-                uvidxca.append(uvidxca0)
-            else:
-                uvidxfcv.append(uvidxfcv0+idxcon)
-                uvidxamp.append(uvidxamp0+idxcon)
-                uvidxcp.append(uvidxcp0+idxcon)
-                uvidxca.append(uvidxca0+idxcon)
-            idxcon = len(u0)
+            if (fcvsingle is not None):
+                for fcvi in uvidxfcv0:
+                    if fcvi >= 0:
+                        uvidxfcv.append(fcvi+idxcon)
+                    else:
+                        uvidxfcv.append(fcvi-idxcon)
+            if (ampsingle is not None):
+                for ampi in uvidxamp0:
+                    if ampi >= 0:
+                        uvidxamp.append(ampi+idxcon)
+                    else:
+                        uvidxamp.append(ampi-idxcon)
+            if (bssingle is not None):
+                tmparray = []
+                for row in range(3):
+                    tmplist = []
+                    for cpi in uvidxcp0[row]:
+                        if cpi >= 0:
+                            tmplist.append(cpi+idxcon)
+                        else:
+                            tmplist.append(cpi-idxcon)
+                    tmparray.append(tmplist)
+                uvidxcp.append(np.vstack((tmparray)))
+            if (casingle is not None):
+                tmparray = []
+                for row in range(4):
+                    tmplist = []
+                    for cai in uvidxca0[row]:
+                        if cai >= 0:
+                            tmplist.append(cai+idxcon)
+                        else:
+                            tmplist.append(cai-idxcon)
+                    tmparray.append(tmplist)
+                uvidxca.append(np.vstack((tmparray)))
+
+            idxcon += len(u0)
+
         if ((fcvsingle is None) and (ampsingle is None) and
                 (bssingle is None) and (casingle is None)):
             Nuvs.append(0)
 
     u = np.concatenate(u)
     v = np.concatenate(v)
-    uvidxfcv = np.concatenate(uvidxfcv)
-    uvidxamp = np.concatenate(uvidxamp)
-    uvidxcp = np.hstack(uvidxcp)
-    uvidxca = np.hstack(uvidxca)
 
-    if fcvconcat is None:
+    if fcvconcat is not None:
+        #uvidxfcv = np.concatenate(uvidxfcv)
+        uvidxfcv = np.array(uvidxfcv)
+    else:
         uvidxfcv = np.zeros(1, dtype=np.int32)
-    if ampconcat is None:
-        uvidxamp = np.zeros(1, dtype=np.int32)
-    if bsconcat is None:
-        uvidxcp = np.zeros([3, 1], dtype=np.int32, order="F")
-    if caconcat is None:
-        uvidxca = np.zeros([4, 1], dtype=np.int32, order="F")
 
-    #print("uvidxfcv: ", type(uvidxfcv), uvidxfcv.shape)
-    #print("uvidxamp: ", type(uvidxamp), uvidxamp.shape)
-    #print("uvidxcp: ", type(uvidxcp), uvidxcp.shape)
-    #print("uvidxca: ", type(uvidxca), uvidxca.shape)
+    if ampconcat is not None:
+        #uvidxamp = np.concatenate(uvidxamp)
+        uvidxamp = np.array(uvidxamp)
+    else:
+        uvidxamp = np.zeros(1, dtype=np.int32)
+
+    if bsconcat is not None:
+        uvidxcp = np.hstack(uvidxcp)
+    else:
+        uvidxcp = np.zeros([3, 1], dtype=np.int32, order="F")
+
+    if caconcat is not None:
+        uvidxca = np.hstack(uvidxca)
+    else:
+        uvidxca = np.zeros([4, 1], dtype=np.int32, order="F")
 
     return (u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs)
 
@@ -543,8 +581,5 @@ def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1
     else:
         uvidxca = uvidx[Nfcv + Namp + 3 * Ncp:Nfcv + Namp + 3 *
                         Ncp + 4 * Nca].reshape([Nca, 4], order="F").transpose()
-    #print("u: ", type(u), u.shape)
-    #print("v: ", type(v), v.shape)
-    #print("uvidxamp: ", type(uvidxamp), uvidxamp.shape)
-    #print("uvidxcp: ", type(uvidxcp), uvidxcp.shape)
+
     return (u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca)
