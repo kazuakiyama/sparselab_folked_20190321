@@ -10,7 +10,8 @@ module fftim3d
                    tv_e, tv_grade,&
                    tsv_e, tsv_grade,&
                    mem_e, mem_grade,&
-                   comreg, zeroeps
+                   comreg, zeroeps,&
+                   rt_e, rt_grade
   !use image3d, only: I1d_I3d_fwd,I1d_I3d_inv
   implicit none
 contains
@@ -20,7 +21,7 @@ contains
 subroutine imaging(&
   Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
   u,v,Nuvs,&
-  lambl1,lambtv,lambtsv,lambmem,lambcom,&
+  lambl1,lambtv,lambtsv,lambmem,lambcom,lambrt,&
   Niter,nonneg,transtype,transprm,pcom,&
   isfcv,uvidxfcv,Vfcvr,Vfcvi,Varfcv,&
   isamp,uvidxamp,Vamp,Varamp,&
@@ -52,6 +53,7 @@ subroutine imaging(&
   real(dp), intent(in) :: lambtsv   ! Regularization Parameter for TSV
   real(dp), intent(in) :: lambmem   ! Regularization Parameter for MEM
   real(dp), intent(in) :: lambcom   ! Regularization Parameter for Center of Mass
+  real(dp), intent(in) :: lambrt  ! Regularization Parameter for Dynamical Imaging (pix-to-pix)
 
   ! Imaging Parameter
   integer,  intent(in) :: Niter     ! iteration number
@@ -214,7 +216,7 @@ subroutine imaging(&
       call calc_cost(&
         Iout,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
         u,v,Nuvs,Nuvs_sum,&
-        lambl1,lambtv,lambtsv,lambmem,lambcom,&
+        lambl1,lambtv,lambtsv,lambmem,lambcom,lambrt,&
         fnorm,transtype,transprm,pcom,&
         isfcv,uvidxfcv,Vfcv,Varfcv,&
         isamp,uvidxamp,Vamp,Varamp,&
@@ -249,7 +251,7 @@ end subroutine
 subroutine calc_cost(&
   Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
   u,v,Nuvs,Nuvs_sum,&
-  lambl1,lambtv,lambtsv,lambmem,lambcom,&
+  lambl1,lambtv,lambtsv,lambmem,lambcom,lambrt,&
   fnorm,transtype,transprm,pcom,&
   isfcv,uvidxfcv,Vfcv,Varfcv,&
   isamp,uvidxamp,Vamp,Varamp,&
@@ -280,6 +282,7 @@ subroutine calc_cost(&
   real(dp), intent(in) :: lambtsv ! Regularization Parameter for TSV
   real(dp), intent(in) :: lambmem ! Regularization Parameter for MEM
   real(dp), intent(in) :: lambcom ! Regularization Parameter for Center of Mass
+  real(dp), intent(in) :: lambrt  ! Regularization Parameter for Dynamical Imaging (pix-to-pix)
 
   ! Imaging Parameter
   real(dp), intent(in) :: fnorm     ! normalization factor for chisquare
@@ -329,7 +332,7 @@ subroutine calc_cost(&
   real(dp) :: chisq, reg  ! chisquare and regularization
 
   ! allocatable arrays
-  real(dp), allocatable :: I2d(:,:),Iin_reg(:)
+  real(dp), allocatable :: I2d(:,:),I2d2(:,:),Iin_reg(:)
   real(dp), allocatable :: gradchisq2d(:,:)
   real(dp), allocatable :: gradreg(:)
   real(dp), allocatable :: Vresre(:),Vresim(:)
@@ -452,11 +455,11 @@ subroutine calc_cost(&
   !   !   scalars
   !   reg = 0
   !   !   allocatable arrays
-  !   allocate(gradreg(Npix))
+  !   allocate(gradreg(Nparm))
   !   gradreg(:) = 0d0
   !
   !   ! calc cost and its gradient
-  !   call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin,reg,gradreg,Npix)
+  !   call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin,reg,gradreg,Nparm)
   !   cost = cost + lambcom * reg
   !   call daxpy(Npix, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
   !
@@ -489,14 +492,18 @@ subroutine calc_cost(&
   !$OMP PARALLEL DO DEFAULT(SHARED) &
   !$OMP   FIRSTPRIVATE(Npix, Nz, lambl1, lambmem, lambtv, lambtsv,&
   !$OMP                Iin_reg, xidx, yidx) &
-  !$OMP   PRIVATE(iz, ipix, iparm, I2d) &
+  !$OMP   PRIVATE(iz, ipix, iparm, I2d, I2d2) &
   !$OMP   REDUCTION(+: reg, gradreg)
   do iz=1, Nz
     ! allocate 2d image if lambtv/tsv > 0
     if (lambtv > 0 .or. lambtsv > 0) then
       allocate(I2d(Nx,Ny))
+      allocate(I2d2(Nx,Ny))
       I2d(:,:)=0d0
       call I1d_I2d_fwd(xidx,yidx,Iin_reg((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
+      if (iz < Nz) then
+        call I1d_I2d_fwd(xidx,yidx,Iin_reg(iz*Npix+1:(iz+1)*Npix),I2d2,Npix,Nx,Ny)
+      end if
     end if
 
     ! compute regularization function
@@ -516,20 +523,26 @@ subroutine calc_cost(&
 
       ! TV
       if (lambtv > 0) then
-        reg = reg + lambtv * tv_e(xidx(iparm),yidx(iparm),I2d,Nx,Ny)
+        reg = reg + lambtv * tv_e(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
         gradreg(iparm) = gradreg(iparm) + lambtv * tv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
       end if
 
       ! TSV
       if (lambtsv > 0) then
-        reg = reg + lambtsv * tsv_e(xidx(iparm),yidx(iparm),I2d,Nx,Ny)
+        reg = reg + lambtsv * tsv_e(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
         gradreg(iparm) = gradreg(iparm) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
+      end if
+
+      ! Dynamical(Rt)
+      if (lambrt > 0 .and. iz < Nz) then
+        reg = reg + lambrt * rt_e(xidx(ipix),yidx(ipix),I2d,I2d2,Nx,Ny)
+        gradreg(iparm) = gradreg(iparm) + lambrt * rt_grade(xidx(ipix),yidx(ipix),I2d,I2d2,Nx,Ny)
       end if
     end do
 
     ! deallocate I2d
     if (lambtv > 0 .or. lambtsv > 0) then
-      deallocate(I2d)
+      deallocate(I2d,I2d2)
     end if
   end do
   !$OMP END PARALLEL DO

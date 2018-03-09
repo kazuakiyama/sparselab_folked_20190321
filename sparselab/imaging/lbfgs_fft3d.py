@@ -46,7 +46,8 @@ def imaging3d(
         Nf=1,
         imagewin=None,
         vistable=None,amptable=None, bstable=None, catable=None,
-        lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,normlambda=True,
+        lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,lambrt=-1.,
+        normlambda=True,
         niter=1000,
         nonneg=True,
         transform=None, transprm=None,
@@ -244,6 +245,9 @@ def imaging3d(
     # Center of Mass regularization
     lambcom_sim = lambcom # No normalization for COM regularization
 
+    # Dynamical Imaging regularization
+    lambrt_sim = lambrt # No normalization for Rt regularization
+
     # get uv coordinates and uv indice
     if Nf == 1:
         u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
@@ -287,6 +291,7 @@ def imaging3d(
         lambtsv=np.float64(lambtsv_sim),
         lambmem=np.float64(lambmem_sim),
         lambcom=np.float64(lambcom_sim),
+        lambrt=np.float64(lambrt_sim),
         # Imaging Parameter
         niter=np.int32(niter),
         nonneg=nonneg,

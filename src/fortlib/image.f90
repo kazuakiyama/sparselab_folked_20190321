@@ -481,6 +481,72 @@ real(dp) function tsv_grade(xidx,yidx,I2d,Nx,Ny)
   !
 end function
 !
+! Dynamical Imaging (pixel-to-pixel)
+!
+real(dp) function rt_e(xidx,yidx,I2d,I2d2,Nx,Ny)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny,xidx,yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2d2(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  real(dp):: dIt
+  !
+  ! initialize rt term
+  i = xidx
+  j = yidx
+  !
+  dIt  = I2d2(i,j) - I2d(i,j)
+  !
+  rt_e = dIt*dIt
+end function
+!
+! Gradient of Dynamical Imaging (pixel-to-pixel)
+!
+real(dp) function rt_grade(xidx,yidx,I2d,I2d2,Nx,Ny)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny
+  integer, intent(in)  :: xidx, yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2d2(Nx,Ny)
+  !
+  ! variables
+  integer :: i0,j0,i1,j1,i2,j2
+  !
+  ! initialize rt term
+  rt_grade = 0d0
+  !
+  ! take indice
+  i1 = xidx
+  j1 = yidx
+  i0 = i1 - 1
+  j0 = j1 - 1
+  i2 = i1 + 1
+  j2 = j1 + 1
+  !
+  ! dIx = I(i+1,j) - I(i,j)
+  if (i2 <= Nx) then
+    rt_grade = rt_grade - 2*(I2d2(i2,j1) - I2d(i1,j1))
+  end if
+  !
+  ! dIy = I(i,j+1) - I(i,j)
+  if (j2 <= Ny) then
+    rt_grade = rt_grade - 2*(I2d2(i1,j2) - I2d(i1,j1))
+  end if
+  !
+  ! dIx = I(i,j) - I(i-1,j)
+  if (i0 > 0) then
+    rt_grade = rt_grade + 2*(I2d2(i1,j1) - I2d(i0,j1))
+  end if
+  !
+  ! dIy = I(i,j) - I(i,j-1)
+  if (j0 > 0) then
+    rt_grade = rt_grade + 2*(I2d2(i1,j1) - I2d(i1,j0))
+  end if
+  !
+end function
+!
 ! Centoroid Regularization
 !
 subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
