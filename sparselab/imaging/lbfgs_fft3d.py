@@ -365,17 +365,17 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
                 fcvsingle = fcvconcat.loc[idx, :]
 
         if ampconcat is not None:
-            idx = fcvconcat["frmidx"] == i
+            idx = ampconcat["frmidx"] == i
             if True in idx:
                 ampsingle = ampconcat.loc[idx, :]
 
         if bsconcat is not None:
-            idx = fcvconcat["frmidx"] == i
+            idx = bsconcat["frmidx"] == i
             if True in idx:
                 bssingle = bsconcat.loc[idx, :]
 
         if caconcat is not None:
-            idx = fcvconcat["frmidx"] == i
+            idx = caconcat["frmidx"] == i
             if True in idx:
                 casingle = caconcat.loc[idx, :]
 
@@ -406,14 +406,14 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
     v = np.concatenate(v)
 
     if fcvconcat is not None:
-        #uvidxfcv = np.concatenate(uvidxfcv)
-        uvidxfcv = np.array(uvidxfcv)
+        uvidxfcv = np.concatenate(uvidxfcv)
+        #uvidxfcv = np.array(uvidxfcv)
     else:
         uvidxfcv = np.zeros(1, dtype=np.int32)
 
     if ampconcat is not None:
-        #uvidxamp = np.concatenate(uvidxamp)
-        uvidxamp = np.array(uvidxamp)
+        uvidxamp = np.concatenate(uvidxamp)
+        #uvidxamp = np.array(uvidxamp)
     else:
         uvidxamp = np.zeros(1, dtype=np.int32)
 

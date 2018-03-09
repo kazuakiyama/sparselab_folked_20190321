@@ -105,7 +105,7 @@ subroutine imaging(&
 
   ! chisquare and grad chisq
   real(dp) :: cost              ! cost function
-  real(dp) :: gradcost(1:Npix)  ! its gradient
+  real(dp) :: gradcost(1:Npix*Nz)  ! its gradient
 
   ! Number of Data
   integer :: Ndata, Nparm   ! number of data, parameters
@@ -364,7 +364,7 @@ subroutine calc_cost(&
     if (Nuvs(iz) /= 0) then
       ! allocate 2D image for imaging
       allocate(I2d(Nx,Ny))
-      I2d = 0d0
+      I2d(:,:) = 0d0
       call I1d_I2d_fwd(xidx,yidx,Iin((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
 
       ! Index of data
@@ -383,8 +383,8 @@ subroutine calc_cost(&
 
   ! allocate arrays for residuals
   allocate(Vresre(Nuv), Vresim(Nuv))
-  Vresre=0d0
-  Vresim=0d0
+  Vresre(:) = 0d0
+  Vresim(:) = 0d0
 
   ! Full complex visibility
   if (isfcv .eqv. .True.) then
@@ -405,6 +405,7 @@ subroutine calc_cost(&
   if (iscp .eqv. .True.) then
     call chisq_cp(Vcmp,uvidxcp,CP,Varcp,fnorm,chisq,Vresre,Vresim,Nuv,Ncp)
   end if
+
   deallocate(Vcmp)
 
   ! Adjoint Non-unifrom Fast Fourier Transform
@@ -430,7 +431,7 @@ subroutine calc_cost(&
                            gradchisq2d,Nx,Ny,Nuvs(iz))
 
       ! copy the gradient of chisquare into that of cost functions
-      call I1d_I2d_fwd(xidx,yidx,gradcost((iz-1)*Npix+1:iz*Npix),&
+      call I1d_I2d_inv(xidx,yidx,gradcost((iz-1)*Npix+1:iz*Npix),&
                        gradchisq2d,Npix,Nx,Ny)
 
       ! deallocate array
@@ -438,7 +439,7 @@ subroutine calc_cost(&
     end if
   end do
   !$OMP END PARALLEL DO
-  deallocate(Vresre,Vresim,Vcmp)
+  deallocate(Vresre,Vresim)!,Vcmp)
 
   ! copy the chisquare into that of cost functions
   cost = chisq
@@ -500,7 +501,7 @@ subroutine calc_cost(&
 
     ! compute regularization function
     do ipix=1, Npix
-      iparm = (iz-1)*Nz + ipix
+      iparm = (iz-1)*Npix + ipix
       ! L1
       if (lambl1 > 0) then
         reg = reg + lambl1 * l1_e(Iin_reg(iparm))
