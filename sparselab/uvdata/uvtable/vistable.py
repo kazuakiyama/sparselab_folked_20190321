@@ -198,6 +198,19 @@ class VisTable(UVTable):
         outtable = outtable.loc[outtable["amp"]/outtable["sigma"]>threshold, :].reset_index(drop=True)
         return outtable
 
+
+    def eval_image(self, imfits, mask):
+        pass
+        #uvdata.VisTable object (storing model full complex visibility)
+
+    def residual_image(self, imfits, mask):
+        pass
+        #uvdata VisTable object (storing residual full complex visibility)
+
+    def chisq_image(self, imfits, mask):
+        pass
+        #(chisquare, reduced chisquare)
+
     def eval_geomodel(self, geomodel, evalargs={}):
         '''
         Evaluate model values and output them to a new table
