@@ -167,6 +167,7 @@ def imaging3d(
             fcvtable = None
         else:
             fcvtable = vistable.copy()
+            #fcvtable = fcvtable.sort_values(by=['frmidx', 'ifid', 'utc'])
 
     if fcvtable is None:
         isfcv = False
@@ -190,6 +191,7 @@ def imaging3d(
         varamp = dammyreal
     else:
         isamp = True
+        #amptable = amptable.sort_values(by=['frmidx', 'ifid', 'utc'])
         vamp = np.array(amptable["amp"], dtype=np.float64)
         varamp = np.square(np.array(amptable["sigma"], dtype=np.float64))
         Ndata += len(vamp)
@@ -201,6 +203,7 @@ def imaging3d(
         varcp = dammyreal
     else:
         iscp = True
+        #bstable = bstable.sort_values(by=['frmidx', 'ifid', 'utc'])
         cp = np.deg2rad(np.array(bstable["phase"], dtype=np.float64))
         varcp = np.square(
             np.array(bstable["sigma"] / bstable["amp"], dtype=np.float64))
@@ -213,6 +216,7 @@ def imaging3d(
         varca = dammyreal
     else:
         isca = True
+        #catable = catable.sort_values(by=['frmidx', 'ifid', 'utc'])
         ca = np.array(catable["logamp"], dtype=np.float64)
         varca = np.square(np.array(catable["logsigma"], dtype=np.float64))
         Ndata += len(ca)
@@ -361,51 +365,80 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
     u, v = [], []
     uvidxfcv, uvidxamp, uvidxcp, uvidxca = [], [], [], []
     Nuvs = []
-    idxcon = 0
-    for i in xrange(Nf):
-        fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
-        if fcvconcat is not None:
-            idx = fcvconcat["frmidx"] == i
-            if True in idx:
-                fcvsingle = fcvconcat.loc[idx, :]
+    #'''
+    if (fcvconcat is not None):
+        maxif = max(fcvconcat["ifid"].values)
+    if (ampconcat is not None):
+        maxif = max(ampconcat["ifid"].values)
+    if (bsconcat is not None):
+        maxif = max(bsconcat["ifid"].values)
+    if (caconcat is not None):
+        maxif = max(caconcat["ifid"].values)
+    #'''
+    ch = 0
+    while ch <= maxif:
+        idxcon = 0
+        for i in xrange(Nf):
+            fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
+            if fcvconcat is not None:
+                frmid = fcvconcat["frmidx"] == i
+                ifid = fcvconcat["ifid"] == ch
+                idx = np.where((frmid == True) & (ifid == True))
+                #idx = np.where(frmid == True)
+                if idx[0] != []:
+                    fcvsingle = fcvconcat.loc[idx[0], :]
+                    #fcvsingle = fcvsingle.sort_values(by=['ifid', 'utc'])
 
-        if ampconcat is not None:
-            idx = ampconcat["frmidx"] == i
-            if True in idx:
-                ampsingle = ampconcat.loc[idx, :]
+            if ampconcat is not None:
+                frmid = ampconcat["frmidx"] == i
+                ifid = ampconcat["ifid"] == ch
+                idx = np.where((frmid == True) & (ifid == True))
+                #idx = np.where(frmid == True)
+                if idx[0] != []:
+                    ampsingle = ampconcat.loc[idx[0], :]
+                    #ampsingle = ampsingle.sort_values(by=['ifid', 'utc'])
 
-        if bsconcat is not None:
-            idx = bsconcat["frmidx"] == i
-            if True in idx:
-                bssingle = bsconcat.loc[idx, :]
+            if bsconcat is not None:
+                frmid = bsconcat["frmidx"] == i
+                ifid = bsconcat["ifid"] == ch
+                idx = np.where((frmid == True) & (ifid == True))
+                #idx = np.where(frmid == True)
+                if idx[0] != []:
+                    bssingle = bsconcat.loc[idx[0], :]
+                    #bssingle = bssingle.sort_values(by=['ifid', 'utc'])
 
-        if caconcat is not None:
-            idx = caconcat["frmidx"] == i
-            if True in idx:
-                casingle = caconcat.loc[idx, :]
+            if caconcat is not None:
+                frmid = caconcat["frmidx"] == i
+                ifid = caconcat["ifid"] == ch
+                idx = np.where((frmid == True) & (ifid == True))
+                #idx = np.where(frmid == True)
+                if idx[0] != []:
+                    casingle = caconcat.loc[idx[0], :]
+                    #casingle = casingle.sort_values(by=['ifid', 'utc'])
 
-        if ((fcvsingle is None) and (ampsingle is None) and
-            (bssingle is None)  and (casingle is None)):
-            Nuvs.append(0)
-        else:
-            u0, v0, uvidxfcv0, uvidxamp0, uvidxcp0, uvidxca0 = get_uvlist(
-                fcvtable=fcvsingle, amptable=ampsingle, bstable=bssingle, catable=casingle)
-            u.append(u0)
-            v.append(v0)
-            Nuvs.append(len(u0))
-            if fcvsingle is not None:
-                uvidxfcv0 = np.sign(uvidxfcv0) * (np.abs(uvidxfcv0)+idxcon)
-                uvidxfcv.append(uvidxfcv0)
-            if ampsingle is not None:
-                uvidxamp0 = np.sign(uvidxamp0) * (np.abs(uvidxamp0)+idxcon)
-                uvidxamp.append(uvidxamp0)
-            if bssingle is not None:
-                uvidxcp0 = np.sign(uvidxcp0) * (np.abs(uvidxcp0)+idxcon)
-                uvidxcp.append(uvidxcp0)
-            if casingle is not None:
-                uvidxca0 = np.sign(uvidxca0) * (np.abs(uvidxca0)+idxcon)
-                uvidxca.append(uvidxca0)
-            idxcon += len(u0)
+            if ((fcvsingle is None) and (ampsingle is None) and
+                (bssingle is None)  and (casingle is None)):
+                Nuvs.append(0)
+            else:
+                u0, v0, uvidxfcv0, uvidxamp0, uvidxcp0, uvidxca0 = get_uvlist(
+                    fcvtable=fcvsingle, amptable=ampsingle, bstable=bssingle, catable=casingle)
+                u.append(u0)
+                v.append(v0)
+                Nuvs.append(len(u0))
+                if fcvsingle is not None:
+                    uvidxfcv0 = np.sign(uvidxfcv0) * (np.abs(uvidxfcv0)+idxcon)
+                    uvidxfcv.append(uvidxfcv0)
+                if ampsingle is not None:
+                    uvidxamp0 = np.sign(uvidxamp0) * (np.abs(uvidxamp0)+idxcon)
+                    uvidxamp.append(uvidxamp0)
+                if bssingle is not None:
+                    uvidxcp0 = np.sign(uvidxcp0) * (np.abs(uvidxcp0)+idxcon)
+                    uvidxcp.append(uvidxcp0)
+                if casingle is not None:
+                    uvidxca0 = np.sign(uvidxca0) * (np.abs(uvidxca0)+idxcon)
+                    uvidxca.append(uvidxca0)
+                idxcon += len(u0)
+        ch += 1
 
     u = np.concatenate(u)
     v = np.concatenate(v)

@@ -125,6 +125,7 @@ class MOVIE(object):
                     frmtable.loc[i, "frmidx"] = idx[j]
             if utctime[i] >= tmframe[-1]:
                 frmtable.loc[i, "frmidx"] = idx[-1]
+        #frmtable.sort_values(by=['frmidx', 'ifid', 'utc'])
         return frmtable
 
     def initimlist(self):
