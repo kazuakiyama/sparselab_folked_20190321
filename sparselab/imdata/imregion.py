@@ -92,7 +92,7 @@ class ImRegTable(pd.DataFrame):
 
     ## csv
     # save to csv file
-    def to_csv2(self, filename, index=False, index_label=False, **args):
+    def to_csv(self, filename, index=False, index_label=False, **args):
         '''
         Output table into csv files using pd.DataFrame.to_csv().
         Default parameter will be
@@ -550,6 +550,7 @@ class ImRegTable(pd.DataFrame):
         return editimage
 
     ## Mask Image
+    # 1.0 or 0.0
     def maskimage(self,image):
         '''
         Make a mask image. Each pixel of the output image is stored as a
@@ -596,7 +597,20 @@ class ImRegTable(pd.DataFrame):
         maskimage.update_fits()
         return maskimage
 
-
+    # True or False
+    def imagewin(self,image,istokes=0, ifreq=0):
+        '''
+        Make a mask image. Each pixel of the output image is stored as a 
+        True/False.
+        
+        Args:
+            image (IMFITS)
+        Returns:
+            numpy.array.
+        '''                
+        maskimage = self.maskimage(image)
+        imagewin = maskimage.data[istokes,ifreq] == 1.0
+        return imagewin
 
 class ImRegSeries(pd.Series):
 
@@ -757,7 +771,7 @@ def reg_to_ds9reg(row,image):
         print("|dx| = %f, |dy| = %f" % (round(-dx,9),round(dy,9)))
     else:
         pass
-    x = -row["xc"]/dx + nxref
+    x = row["xc"]/dx + nxref
     y = row["yc"]/dy + nyref
 
     if row["shape"] is "box":
@@ -802,7 +816,7 @@ def ds9reg_to_reg(ds9reg,image,angunit="mas"):
             angle = list[4]
             width *= (-dx)
             height *= dy
-            xc = (x - nxref) * (-dx)
+            xc = (x - nxref) * dx
             yc = (y - nyref) * dy
             region = region.add_box(xc=xc,yc=yc,
                                  width=width,height=height,angle=angle,
@@ -814,7 +828,7 @@ def ds9reg_to_reg(ds9reg,image,angunit="mas"):
             y = list[1]
             r = list[2]
             radius = r * (-dx)
-            xc = (x - nxref) * (-dx)
+            xc = (x - nxref) * dx
             yc = (y - nyref) * dy
             region = region.add_circle(xc=xc,yc=yc,
                                           radius=radius,angunit=angunit)
@@ -828,7 +842,7 @@ def ds9reg_to_reg(ds9reg,image,angunit="mas"):
             angle = list[4]-90.0
             maja = a * 2.0 * dy
             mina = b * 2.0 * (-dx)
-            xc = (x - nxref) * (-dx)
+            xc = (x - nxref) * dx
             yc = (y - nyref) * dy
             region = region.add_ellipse(xc=xc,yc=yc,
                                  maja=maja,mina=mina,angle=angle,angunit=angunit)
