@@ -29,8 +29,8 @@ from .uvtable   import UVTable, UVSeries
 from .gvistable import GVisTable, GVisSeries
 from .catable   import CATable, CASeries
 from .bstable   import BSTable, BSSeries
-from ... import imdata
-
+from .tools import get_uvlist
+from ... import imdata, fortlib
 
 # ------------------------------------------------------------------------------
 # Classes
@@ -199,17 +199,188 @@ class VisTable(UVTable):
         return outtable
 
 
-    def eval_image(self, imfits, mask):
-        pass
-        #uvdata.VisTable object (storing model full complex visibility)
+    def eval_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
+        #uvdata.VisTable object (storing model full complex visibility
+        model = self._call_fftlib(imfits=imfits,mask=mask,amptable=amptable,
+                                  istokes=istokes, ifreq=ifreq)
 
-    def residual_image(self, imfits, mask):
-        pass
+        if not amptable:
+            modelr = model[0][2]
+            modeli = model[0][3]
+            fcv = modelr + 1j*modeli
+            amp = np.abs(fcv)
+            phase = np.angle(fcv,deg=True)
+            fcvmodel = self.copy()
+            fcvmodel["amp"] = amp
+            fcvmodel["phase"] = phase
+            return fcvmodel
+        else:
+            Ndata = model[1]
+            model = model[0][2]
+            amptable = self.copy()
+            amptable["amp"] = model
+            amptable["phase"] = np.zeros(Ndata)
+            return amptable
+    
+    def residual_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
         #uvdata VisTable object (storing residual full complex visibility)
+        model = self._call_fftlib(imfits=imfits,mask=mask,amptable=amptable,
+                                  istokes=istokes, ifreq=ifreq)
+        
+        if not amptable:
+            residr = model[0][4]
+            residi = model[0][5]
+            resid = residr + 1j*residi
+            resida = np.abs(resid)
+            residp = np.angle(resid,deg=True)
+            residtable = self.copy()
+            residtable["amp"] = resida
+            residtable["phase"] = residp            
+            return residtable
+        else:
+            Ndata = model[1]
+            resida = model[0][3]
+            residtable = self.copy()
+            residtable["amp"] = resida
+            residtable["phase"] = np.zeros(Ndata) 
+            return residtable
 
-    def chisq_image(self, imfits, mask):
-        pass
-        #(chisquare, reduced chisquare)
+    def chisq_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
+        # calcurate chisqared and reduced chisqred.
+        model = self._call_fftlib(imfits=imfits,mask=mask,amptable=amptable,
+                                  istokes=istokes, ifreq=ifreq)
+        chisq = model[0][0]
+        Ndata = model[1]
+        
+        if not amptable:
+            rchisq = chisq/(Ndata*2)
+        else:
+            rchisq = chisq/Ndata
+
+        return chisq,rchisq
+        
+    def _call_fftlib(self, imfits, mask, amptable, istokes=0, ifreq=0):
+        # get initial images
+        istokes = istokes
+        ifreq = ifreq
+        
+        # size of images
+        Iin = np.float64(imfits.data[istokes, ifreq])
+        Nx = imfits.header["nx"]
+        Ny = imfits.header["ny"]
+        Nyx = Nx * Ny
+        
+        # pixel coordinates
+        x, y = imfits.get_xygrid(twodim=True, angunit="rad")
+        xidx = np.arange(Nx) + 1
+        yidx = np.arange(Ny) + 1
+        xidx, yidx = np.meshgrid(xidx, yidx)
+        Nxref = imfits.header["nxref"]
+        Nyref = imfits.header["nyref"]
+        dx_rad = np.deg2rad(imfits.header["dx"])
+        dy_rad = np.deg2rad(imfits.header["dy"])
+        
+        # apply the imaging area
+        if mask is None:
+            print("Imaging Window: Not Specified. We calcurate the image on all the pixels.")
+            Iin = Iin.reshape(Nyx)
+            x = x.reshape(Nyx)
+            y = y.reshape(Nyx)
+            xidx = xidx.reshape(Nyx)
+            yidx = yidx.reshape(Nyx)
+        else:
+            print("Imaging Window: Specified. Images will be calcurated on specified pixels.")
+            idx = np.where(mask)
+            Iin = Iin[idx]
+            x = x[idx]
+            y = y[idx]
+            xidx = xidx[idx]
+            yidx = yidx[idx]
+        
+        # Full Complex Visibility
+        if not amptable:
+            Ndata = 0
+            fcvtable = self.copy()
+            phase = np.deg2rad(np.array(fcvtable["phase"], dtype=np.float64))
+            amp = np.array(fcvtable["amp"], dtype=np.float64)
+            vfcvr = np.float64(amp*np.cos(phase))
+            vfcvi = np.float64(amp*np.sin(phase))
+            varfcv = np.square(np.array(fcvtable["sigma"], dtype=np.float64))
+            Ndata += len(varfcv)
+            del phase, amp
+            
+            # get uv coordinates and uv indice
+            u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
+                    fcvtable=fcvtable, amptable=None, bstable=None, catable=None
+                    )
+            
+            # normalize u, v coordinates
+            u *= 2*np.pi*dx_rad
+            v *= 2*np.pi*dy_rad
+       
+            # run model_fcv
+            model = fortlib.fftlib.model_fcv(
+                    # Images
+                    iin=np.float64(Iin),
+                    xidx=np.int32(xidx),
+                    yidx=np.int32(yidx),
+                    nxref=np.float64(Nxref),
+                    nyref=np.float64(Nyref),
+                    nx=np.int32(Nx),
+                    ny=np.int32(Ny),
+                    # UV coordinates,
+                    u=u,
+                    v=v,
+                    # Full Complex Visibilities
+                    uvidxfcv=np.int32(uvidxfcv),
+                    vfcvr=np.float64(vfcvr),
+                    vfcvi=np.float64(vfcvi),
+                    varfcv=np.float64(varfcv)
+                    )
+            
+            return model,Ndata
+        
+        else:
+            Ndata = 0
+            amptable = self.copy()
+            dammyreal = np.zeros(1, dtype=np.float64)
+            vfcvr = dammyreal
+            vfcvi = dammyreal
+            varfcv = dammyreal
+            vamp = np.array(amptable["amp"], dtype=np.float64)
+            varamp = np.square(np.array(amptable["sigma"], dtype=np.float64))
+            Ndata += len(vamp)
+
+            # get uv coordinates and uv indice
+            u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
+                    fcvtable=None, amptable=amptable, bstable=None, catable=None
+                    )
+            
+            # normalize u, v coordinates
+            u *= 2*np.pi*dx_rad
+            v *= 2*np.pi*dy_rad
+                
+            # run model_fcv
+            model = fortlib.fftlib.model_amp(
+                    # Images
+                    iin=np.float64(Iin),
+                    xidx=np.int32(xidx),
+                    yidx=np.int32(yidx),
+                    nxref=np.float64(Nxref),
+                    nyref=np.float64(Nyref),
+                    nx=np.int32(Nx),
+                    ny=np.int32(Ny),
+                    # UV coordinates,
+                    u=u,
+                    v=v,
+                    # Full Complex Visibilities
+                    uvidxamp=np.int32(uvidxamp),
+                    vamp=np.float64(vamp),
+                    varamp=np.float64(varamp)
+                    )
+            
+            return model,Ndata
+
 
     def eval_geomodel(self, geomodel, evalargs={}):
         '''
