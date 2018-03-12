@@ -1,120 +1,121 @@
 module uvdata
   !$use omp_lib
-  use param, only: dp, sp
+  use param, only: dp, sp, shug, seps
   implicit none
 contains
 !
 ! average
 !
-subroutine average(uvdata,coord1,coord2,ant,subarray,tsec,solint,minpoint, &
-                   uvdataout,coord1out,coord2out,isdata,&
-                   Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nant,Narr)
-  integer, intent(in) :: Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Ndata
-  integer, intent(in) :: Nt,Nant,Narr
-  real(sp), intent(in) :: uvdata(Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Ndata)
-  integer, intent(in) :: coord1(3,Ndata),ant(Nant),subarray(Narr)
-  real(dp), intent(in) :: coord2(2,Ndata)
-  integer, intent(in) :: minpoint
-  real(dp), intent(in) :: solint,tsec(Nt)
-  integer, intent(out) :: coord1out(3,Nant*(Nant-1)/2*Narr*Nt)
-  real(dp), intent(out) :: coord2out(2,Nant*(Nant-1)/2*Narr*Nt)
-  real(sp), intent(out) :: uvdataout(Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Nant*(Nant-1)/2*Narr*Nt)
-  logical, intent(out) :: isdata(Nant*(Nant-1)/2*Narr*Nt)
+subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
+                   uvdataout,&
+                   Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx)
+  ! Number of Data
+  integer, intent(in) :: Nstokes,Nch,Nif,Nra,Ndec,Ndata
+  ! Number of Time
+  integer, intent(in) :: Nt,Nidx
+  ! Parameter for time averaging
+  real(dp), intent(in) :: solint    ! integration time in sec
+  integer, intent(in) :: minpoint   ! minimum points that data will be averaged
+  ! Input Data
+  real(sp), intent(in) :: uvdata(3,Nstokes,Nch,Nif,Nra,Ndec,Ndata)
+  real(dp), intent(in) :: tin(Ndata)! UTC time of the input data
+  real(dp), intent(in) :: tout(Nt)  ! UTC time of the output data
+  integer, intent(in) :: start(Nidx), end(Nidx) ! start/end index of each baseline & source
+  ! Output Data
+  real(sp), intent(out) :: uvdataout(3,Nstokes,Nch,Nif,Nra,Ndec,Nidx*Nt)
 
-  integer :: i1,i2,i3,i4,i5,i6,i7
-  integer :: Nbl, Ndata2, dammy
-  integer :: iant1(Nant*(Nant-1)/2), iant2(Nant*(Nant-1)/2), ibl, iarr, it
-  integer :: count
-  logical :: flag
-
-  Nbl = Nant*(Nant-1)/2
-  Ndata2 = Nbl*Narr*Nt
+  integer :: i1,i2,i3,i4,i5,i6,i7,idx,it
+  integer :: Ndata_idx
+  integer, allocatable:: cnt(:,:,:,:,:)
+  real(sp), allocatable:: vrsum(:,:,:,:,:),visum(:,:,:,:,:),wsum(:,:,:,:,:)
+  real(sp), allocatable:: uvdatatmp(:,:,:,:,:,:,:)
+  real(dp), allocatable:: tintmp(:)
 
   ! initialize arrays
   uvdataout(:,:,:,:,:,:,:) = 0.0
-  coord1out(:,:) = 0d0
-  coord2out(:,:) = 0d0
-  isdata(:) = .False.
-
-  ! initialize iant1, iant2
-  i2 = 1
-  i3 = 2
-  do i1 = 1, Nbl
-    iant1(i1) = i2
-    iant2(i1) = i3
-    i2 = i2 + 1
-    if (i2 > Nant) then
-      i2 = i3
-      i3 = i3+1
-    end if
-  end do
 
   !$OMP PARALLEL DO DEFAULT(SHARED)&
-  !$OMP   FIRSTPRIVATE(Ncomp,Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nbl,Ndata2, &
-  !$OMP                iant1,iant2,ant,subarray,tsec,solint,minpoint, &
-  !$OMP                coord1,coord2) &
-  !$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,count,dammy,ibl,iarr,flag)
-  do i1=1,Ndata2
-    ! get indexes
-    ibl = mod(i1, Nbl) + 1
-    dammy = (i1-ibl)/Nbl
-    iarr = mod(dammy, Narr) + 1
-    dammy = (dammy - iarr)/Narr
-    it = mod(dammy, Nt) + 1
+  !$OMP   FIRSTPRIVATE(tout,solint,minpoint,start,end,&
+  !$OMP                Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx) &
+  !$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,idx,it,Ndata_idx,&
+  !$OMP           uvdatatmp,tintmp,cnt,vrsum,visum,wsum) &
+  !$OMP   REDUCTION(+:uvdataout)
+  do idx=1, Nidx
+    Ndata_idx = end(idx) - start(idx) + 1
 
-    coord1out(1,i1) = ant(iant1(ibl))
-    coord1out(2,i1) = ant(iant2(ibl))
-    coord1out(3,i1) = subarray(iarr)
-    coord2out(1,i1) = tsec(it)
+    ! allocate and initialize arrays
+    !   temporal input data for this particular data index
+    allocate(uvdatatmp(3,Nstokes,Nch,Nif,Nra,Ndec,Ndata_idx))
+    uvdatatmp(:,:,:,:,:,:,1:Ndata_idx) = uvdata(:,:,:,:,:,:,start(idx):end(idx))
+    !   temporal time data for this particular data index
+    allocate(tintmp(Ndata_idx))
+    tintmp(1:Ndata_idx) = tin(start(idx):end(idx))
+    !   This is a counter that how many data points are included in a specific
+    !   time segment
+    allocate(cnt(Nstokes,Nch,Nif,Nra,Ndec))
+    !   sum of real/imag/weight data
+    allocate(vrsum(Nstokes,Nch,Nif,Nra,Ndec))
+    allocate(visum(Nstokes,Nch,Nif,Nra,Ndec))
+    allocate(wsum(Nstokes,Nch,Nif,Nra,Ndec))
 
-    count = 0
-    do i2=1,Ndata
-      ! check this segment has on the same baseline, subarray and within solint.
-      flag = coord1(i2,1) == coord1out(1,i1)
-      flag = flag .and. (coord1(2,i2) == coord1out(2,i1))
-      flag = flag .and. (coord1(3,i2) == coord1out(3,i1))
-      flag = flag .and. (abs(coord2(1,i2)-coord2out(1,i1)) < solint)
-      if (flag .eqv. .False.) then
-        cycle
-      end if
+    ! Take weighted sum for each time segments
+    do it=1, Nt
+      ! allocate and initialize arrays
+      cnt=0
+      vrsum=0d0
+      visum=0d0
+      wsum=0d0
 
-      ! Take sum of visibilities and weights
-      isdata(i1) = .True.  ! Note that data are averaged
-      count = count + 1    ! number of points
-      coord2out(2,i1) = coord2out(2,i1) + coord2(2,i2)
-      do i3=1, Ndec
-        do i4=1, Nra
-          do i5=1, Nif
-            do i6=1, Nch
-              do i7=1, Nstokes
-                if (uvdata(3,i7,i6,i5,i4,i3,i2) < epsilon(1.0)) then
-                  cycle
-                end if
-                if (uvdata(3,i7,i6,i5,i4,i3,i2) > huge(1.0)) then
-                  cycle
-                end if
-                if (uvdata(3,i7,i6,i5,i4,i3,i2) .ne. uvdata(3,i7,i6,i5,i4,i3,i2)) then
-                  cycle
-                end if
-                uvdataout(1:2,i7,i6,i5,i4,i3,i1) &
-                  = uvdata(1:2,i7,i6,i5,i4,i3,i2) * uvdata(3,i7,i6,i5,i4,i3,i2) &
-                  + uvdataout(1:2,i7,i6,i5,i4,i3,i1)
-                uvdataout(3,i7,i6,i5,i4,i3,i1) &
-                  = uvdataout(3,i7,i6,i5,i4,i3,i1) + uvdata(3,i7,i6,i5,i4,i3,i2)
+      ! take weighted sum
+      do i1=1,Ndata_idx
+        ! if data is not in the time segment covered by tout(it), skip all precedure
+        if (abs(tintmp(i1)-tout(it)) > solint/2) then
+          cycle
+        end if
+        do i2=1,Ndec
+          do i3=1,Nra
+            do i4=1,Nif
+              do i5=1,Nch
+                do i6=1,Nstokes
+                  ! Check if this data is flagged or not
+                  if (uvdatatmp(3,i6,i5,i4,i3,i2,i1) < seps) then
+                    cycle
+                  end if
+                  if (uvdatatmp(3,i6,i5,i4,i3,i2,i1) > shug) then
+                    cycle
+                  end if
+                  if (uvdatatmp(3,i6,i5,i4,i3,i2,i1) .ne. uvdatatmp(3,i6,i5,i4,i3,i2,i1)) then
+                    cycle
+                  end if
+                  ! take summation of data
+                  vrsum(i6,i5,i4,i3,i2)= uvdatatmp(1,i6,i5,i4,i3,i2,i1) &
+                                       * uvdatatmp(3,i6,i5,i4,i3,i2,i1) &
+                                       + vrsum(i6,i5,i4,i3,i2)
+                  visum(i6,i5,i4,i3,i2)= uvdatatmp(2,i6,i5,i4,i3,i2,i1) &
+                                       * uvdatatmp(3,i6,i5,i4,i3,i2,i1) &
+                                       + visum(i6,i5,i4,i3,i2)
+                  wsum(i6,i5,i4,i3,i2) = uvdatatmp(3,i6,i5,i4,i3,i2,i1) &
+                                       + wsum(i6,i5,i4,i3,i2)
+                  cnt(i6,i5,i4,i3,i2) = cnt(i6,i5,i4,i3,i2) + 1
+                end do
               end do
             end do
           end do
         end do
+        ! normalize weighted sum of Vreal, Vimag
+        where(cnt>=minpoint)
+          vrsum = vrsum/wsum
+          visum = visum/wsum
+        end where
+
+        ! copy results to output array
+        uvdataout(1,:,:,:,:,:,(idx-1)*Nt+it)=vrsum(:,:,:,:,:)
+        uvdataout(2,:,:,:,:,:,(idx-1)*Nt+it)=visum(:,:,:,:,:)
+        uvdataout(3,:,:,:,:,:,(idx-1)*Nt+it)=wsum(:,:,:,:,:)
       end do
+      deallocate(cnt,vrsum,visum,wsum)
     end do
-    if (isdata(i1) .eqv. .True.) then
-      uvdataout(1,:,:,:,:,:,i1) = uvdataout(1,:,:,:,:,:,i1)/uvdataout(3,:,:,:,:,:,i1)
-      uvdataout(2,:,:,:,:,:,i1) = uvdataout(2,:,:,:,:,:,i1)/uvdataout(3,:,:,:,:,:,i1)
-    end if
-    if (count < minpoint) then
-      uvdataout(3,:,:,:,:,:,i1) = 0
-      isdata(i1) = .False.
-    end if
+    deallocate(uvdatatmp,tintmp)
   end do
   !$OMP END PARALLEL DO
 end subroutine
@@ -168,10 +169,10 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
           do i5=1, Nif
             do i6=1, Nch
               do i7=1, Nstokes
-                if (uvdataout(3,i7,i6,i5,i4,i3,i2) < epsilon(1.0)) then
+                if (uvdataout(3,i7,i6,i5,i4,i3,i2) < seps) then
                   cycle
                 end if
-                if (uvdataout(3,i7,i6,i5,i4,i3,i2) > huge(1.0)) then
+                if (uvdataout(3,i7,i6,i5,i4,i3,i2) > shug) then
                   cycle
                 end if
                 if (uvdataout(3,i7,i6,i5,i4,i3,i2) .ne. uvdataout(3,i7,i6,i5,i4,i3,i2)) then
@@ -248,10 +249,10 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
         do i4=1, Nif
           do i5=1, Nch
             do i6=1, Nstokes
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) < epsilon(1.0)) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) < seps) then
                 uvdataout(3,i6,i5,i4,i3,i2,i1) = 0
               end if
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) > huge(1.0)) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) > shug) then
                 uvdataout(3,i6,i5,i4,i3,i2,i1) = 0
               end if
               if (uvdata(3,i6,i5,i4,i3,i2,i1) .ne. uvdata(3,i6,i5,i4,i3,i2,i1)) then
@@ -291,10 +292,10 @@ subroutine avspc_dofreq0(uvdata,uvdataout,&
         do i4=1,Nif
           do i5=1,Nch
             do i6=1,Nstokes
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) < epsilon(1.0)) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) < seps) then
                 cycle
               end if
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) > huge(1.0)) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) > shug) then
                 cycle
               end if
               if (uvdata(3,i6,i5,i4,i3,i2,i1) .ne. uvdata(3,i6,i5,i4,i3,i2,i1)) then
@@ -342,10 +343,10 @@ subroutine avspc_dofreq1(uvdata,uvdataout,&
           imagsum(:) = 0
           do i5=1,Nch
             do i6=1,Nstokes
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) < epsilon(1.0)) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) < seps) then
                 cycle
               end if
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) > huge(1.0)) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) > shug) then
                 cycle
               end if
               if (uvdata(3,i6,i5,i4,i3,i2,i1) .ne. uvdata(3,i6,i5,i4,i3,i2,i1)) then
