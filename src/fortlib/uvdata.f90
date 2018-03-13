@@ -7,7 +7,7 @@ contains
 ! average
 !
 subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
-                   uvdataout,&
+                   uvdataout,isdata,&
                    Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx)
   ! Number of Data
   integer, intent(in) :: Nstokes,Nch,Nif,Nra,Ndec,Ndata
@@ -23,6 +23,7 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
   integer, intent(in) :: start(Nidx), end(Nidx) ! start/end index of each baseline & source
   ! Output Data
   real(sp), intent(out) :: uvdataout(3,Nstokes,Nch,Nif,Nra,Ndec,Nidx*Nt)
+  logical, intent(out) :: isdata(Nidx*Nt)
 
   integer :: i1,i2,i3,i4,i5,i6,i7,idx,it
   integer :: Ndata_idx
@@ -33,13 +34,14 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
 
   ! initialize arrays
   uvdataout(:,:,:,:,:,:,:) = 0.0
+  isdata(:) = .False.
 
-  !$OMP PARALLEL DO DEFAULT(SHARED)&
-  !$OMP   FIRSTPRIVATE(tout,solint,minpoint,start,end,&
-  !$OMP                Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx) &
-  !$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,idx,it,Ndata_idx,&
-  !$OMP           uvdatatmp,tintmp,cnt,vrsum,visum,wsum) &
-  !$OMP   REDUCTION(+:uvdataout)
+  !!$OMP PARALLEL DO DEFAULT(SHARED)&
+  !!$OMP   FIRSTPRIVATE(tout,solint,minpoint,start,end,&
+  !!$OMP                Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx) &
+  !!$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,idx,it,Ndata_idx,&
+  !!$OMP           uvdatatmp,tintmp,cnt,vrsum,visum,wsum) &
+  !!$OMP   REDUCTION(+:uvdataout)
   do idx=1, Nidx
     Ndata_idx = end(idx) - start(idx) + 1
 
@@ -77,7 +79,6 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
             do i4=1,Nif
               do i5=1,Nch
                 do i6=1,Nstokes
-                  ! Check if this data is flagged or not
                   if (uvdatatmp(3,i6,i5,i4,i3,i2,i1) < seps) then
                     cycle
                   end if
@@ -97,27 +98,35 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
                   wsum(i6,i5,i4,i3,i2) = uvdatatmp(3,i6,i5,i4,i3,i2,i1) &
                                        + wsum(i6,i5,i4,i3,i2)
                   cnt(i6,i5,i4,i3,i2) = cnt(i6,i5,i4,i3,i2) + 1
-                end do
-              end do
-            end do
-          end do
-        end do
-        ! normalize weighted sum of Vreal, Vimag
-        where(cnt>=minpoint)
-          vrsum = vrsum/wsum
-          visum = visum/wsum
-        end where
+                end do !Stokes
+              end do !ch
+            end do !IF
+          end do !RA
+        end do !DEC
+      end do !Ndata_idx
+      ! normalize weighted sum of Vreal, Vimag
+      where(cnt>=minpoint)
+        vrsum = vrsum/wsum
+        visum = visum/wsum
+        cnt = cnt - minpoint + 1
+      elsewhere
+        cnt = 0
+      end where
 
-        ! copy results to output array
-        uvdataout(1,:,:,:,:,:,(idx-1)*Nt+it)=vrsum(:,:,:,:,:)
-        uvdataout(2,:,:,:,:,:,(idx-1)*Nt+it)=visum(:,:,:,:,:)
-        uvdataout(3,:,:,:,:,:,(idx-1)*Nt+it)=wsum(:,:,:,:,:)
-      end do
-      deallocate(cnt,vrsum,visum,wsum)
-    end do
+      ! copy results to output array
+      uvdataout(1,:,:,:,:,:,(idx-1)*Nt+it)=vrsum(:,:,:,:,:)
+      uvdataout(2,:,:,:,:,:,(idx-1)*Nt+it)=visum(:,:,:,:,:)
+      uvdataout(3,:,:,:,:,:,(idx-1)*Nt+it)=wsum(:,:,:,:,:)
+
+      ! check if data exists
+      if (sum(cnt) > 0) then
+        isdata((idx-1)*Nt+it) = .True.
+      end if
+    end do ! Nt
+    deallocate(cnt,vrsum,visum,wsum)
     deallocate(uvdatatmp,tintmp)
-  end do
-  !$OMP END PARALLEL DO
+  end do ! Nidx
+  !!$OMP END PARALLEL DO
 end subroutine
 !
 ! weightcal

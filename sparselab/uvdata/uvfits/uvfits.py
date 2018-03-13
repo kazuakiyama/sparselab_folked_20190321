@@ -1082,10 +1082,104 @@ class UVFITS(object):
 
         return Vreal,Vimag
 
+    def uvavg(self, solint=10, minpoint=2):
+        '''
+        This method will weighted-average full complex visibilities in time direction.
+
+        Args:
+          solint (float; default=10):
+            Time averaging interval (in sec)
+
+            minpoint (int; default =2.):
+              Number of points required to re-evaluate weights.
+              If data do not have enough number of points at each time/frequency
+              segments specified with dofreq, weight will be set to 0
+              meaning that the corresponding point will be flagged out.
+
+        Returns: uvfits.UVFITS object
+        '''
+        outfits = copy.deepcopy(self)
+
+        # Sort visdata
+        print("(1/6) Sort Visibility Data")
+        outfits.visdata.sort(by=["subarray","ant1","ant2","source","utc"])
+
+        # Check number of Baselines
+        print("(2/6) Check Number of Baselines")
+        # pick up combinations
+        combset = []
+        comblst = []
+        sappend = combset.append
+        lappend = comblst.append
+        for idx in outfits.visdata.coord.index:
+            tmp = outfits.visdata.coord.loc[idx,["subarray","ant1","ant2","source","freqsel"]].tolist()
+            lappend(tmp)
+            if tmp not in combset:
+                sappend(tmp)
+        del sappend,lappend,tmp
+        stlst = np.asarray([comblst.index(comb) for comb in combset], dtype=np.int32)
+        edlst = np.asarray([comblst.count(comb) for comb in combset], dtype=np.int32)
+        edlst += stlst
+        stlst += 1
+        Nidx = len(stlst)
+
+        print("(3/6) Create Timestamp")
+        tsecin = outfits.get_utc().cxcsec
+        tsecout = np.arange(tsecin.min(),tsecin.max()+solint,solint)
+        Nt = len(tsecout)
+
+        # Check number of Baselines
+        print("(4/6) Average UV data")
+        out = fortlib.uvdata.average(
+            uvdata=np.float32(outfits.visdata.data.T),
+            tin=np.float64(tsecin),
+            tout=np.float64(tsecout),
+            start=np.int32(stlst),
+            end=np.int32(edlst),
+            solint=solint,
+            minpoint=minpoint,
+        )
+        isdata = np.asarray(out[1],dtype=np.bool)
+        outfits.visdata.data = np.ascontiguousarray(out[0].T)[np.where(isdata)]
+        del out
+
+        print("(5/6) Forming UV data")
+        utc = [tsecout for i in xrange(Nidx)]
+        usec = [0.0 for i in xrange(Nidx*Nt)]
+        vsec = [0.0 for i in xrange(Nidx*Nt)]
+        wsec = [0.0 for i in xrange(Nidx*Nt)]
+        subarray = [[combset[idx][0] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        ant1 = [[combset[idx][1] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        ant2 = [[combset[idx][2] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        source = [[combset[idx][3] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        inttim = [solint for i in xrange(Nidx*Nt)]
+        freqsel = [[combset[idx][4] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        utc = at.Time(np.concatenate(utc), format="cxcsec", scale="utc").datetime
+
+        outfits.visdata.coord = pd.DataFrame()
+        outfits.visdata.coord["utc"] = utc
+        outfits.visdata.coord["usec"] = np.float64(usec)
+        outfits.visdata.coord["vsec"] = np.float64(vsec)
+        outfits.visdata.coord["wsec"] = np.float64(wsec)
+        outfits.visdata.coord["subarray"] = np.int64(np.concatenate(subarray))
+        outfits.visdata.coord["ant1"] = np.int64(np.concatenate(ant1))
+        outfits.visdata.coord["ant2"] = np.int64(np.concatenate(ant2))
+        outfits.visdata.coord["source"] = np.int64(np.concatenate(source))
+        outfits.visdata.coord["inttim"] = np.float64(inttim)
+        outfits.visdata.coord["freqsel"] = np.int64(np.concatenate(freqsel))
+        del utc,usec,vsec,wsec,subarray,ant1,ant2,source,inttim,freqsel
+        del combset,comblst,stlst,edlst,Nt,Nidx
+        outfits.visdata.coord = outfits.visdata.coord.loc[isdata,:]
+        outfits.visdata.coord.reset_index(drop=True,inplace=True)
+        outfits.visdata.sort()
+
+        print("(6/6) UVW recaluation")
+        outfits = outfits.uvw_recalc()
+        return outfits
+
     def avspc(self, dofreq=0, minpoint=2):
         '''
-        This method will recalculate sigmas and weights of data from scatter
-        in full complex visibilities over specified frequency and time segments.
+        This method will weighted-average full complex visibilities in frequency directions.
 
         Args:
           dofreq (int; default = 0):
@@ -1093,12 +1187,14 @@ class UVFITS(object):
               dofreq = 0: average over IFs and channels
               dofreq = 1: average over channels at each IF
 
-          solint (float; default = 120.):
-            solution interval in sec
+          minpoint (int; default =2.):
+            Number of points required to re-evaluate weights.
+            If data do not have enough number of points at each time/frequency
+            segments specified with dofreq, weight will be set to 0
+            meaning that the corresponding point will be flagged out.
 
         Returns: uvfits.UVFITS object
         '''
-        # Area Settigns
         outfits = copy.deepcopy(self)
 
         # Update visibilities
@@ -1146,6 +1242,12 @@ class UVFITS(object):
 
         So, we do not guarantee that this function will provide accurate
         uvw coordinates enough for astrometric VLBI observations.
+
+        Args:
+            No inputs
+
+        Returns:
+            UVFITS object where uvw coordinates are re-calculated.
         '''
         print("Start UVW recalculation")
 
@@ -1167,7 +1269,7 @@ class UVFITS(object):
         gsthour = np.float64(utctime.sidereal_time('apparent', 'greenwich').hour)
 
         # compute alpha & delta
-        print("  (2/4) Compute RA, DEC of the Sources in GCRS")
+        print("  (2/4) Get RA, DEC of the Sources")
         for frqsel in frqsels:
             idx1 = outfits.visdata.coord["freqsel"]==frqsel
             srcs = sorted(set(outfits.visdata.coord.loc[idx1,"source"]))
@@ -1180,7 +1282,11 @@ class UVFITS(object):
                 idx2 = outfits.visdata.coord["source"]==src
                 idx3 = np.where(idx1&idx2)
                 utctmp = utctime[idx3]
-                radec = radec.transform_to(acd.GCRS(obstime=utctmp))
+                #
+                #It seems that uvw coordinates are generally computed for
+                #J2000.0. (see documents for AIPS UVFIX)
+                #radec = radec.transform_to(acd.GCRS(obstime=utctmp))
+
                 alpha[idx3] = radec.ra.rad
                 delta[idx3] = radec.dec.rad
 
@@ -1239,6 +1345,12 @@ class UVFITS(object):
 
           solint (float; default = 60.):
             solution interval in sec
+
+          minpoint (int; default =2.):
+            Number of points required to re-evaluate weights.
+            If data do not have enough number of points at each time/frequency
+            segments specified with dofreq/solint, weight will be set to 0
+            meaning that the corresponding point will be flagged out.
 
         Returns: uvfits.UVFITS object
         '''
@@ -1596,6 +1708,16 @@ class VisibilityData(object):
             raise ValueError(errmsg)
 
     def sort(self, by=["utc","ant1","ant2","subarray"]):
+        '''
+        This method will data with arbitrary columns specified with 'by'
+
+        Args:
+          by (list-like, default=["utc","ant1","ant2","subarray"]):
+            Reference columns used to sort data.
+
+        Returns:
+          Nothing. Data will be updated.
+        '''
         # Check if ant1 > ant2
         self.coord.reset_index(drop=True, inplace=True)
         idx = self.coord["ant1"] > self.coord["ant2"]
