@@ -913,7 +913,7 @@ subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
   ! Data
   integer,  intent(in):: Ncp            ! Number of data
-  integer,  intent(in):: uvidxcp(4,Ncp) ! UV Index of cp data
+  integer,  intent(in):: uvidxcp(3,Ncp) ! UV Index of cp data
   real(dp), intent(in):: CP(Ncp)        ! Closure Phase data
   real(dp), intent(in):: Varcp(Ncp)     ! variances of ca data
   ! Outputs

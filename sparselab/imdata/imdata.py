@@ -693,6 +693,53 @@ class IMFITS(object):
         '''
         return np.abs(self.data[istokes, ifreq]).sum()
 
+    def imagecost(self, func, out, istokes=0, ifreq=0, compower=1.0):
+        '''
+        return image cost.
+
+        Args:
+            func (string): cost function ("l1", "mem", "tv", "tsv", or "com").
+            out (string): output cost ("cost", "costmap", "gradmap").
+            istokes (integer): index for Stokes Parameter at which l1-norm will be calculated.
+            ifreq (integer): index for Frequency at which l1-norm will be calculated.
+            compower (float): power if func = "com".
+        '''
+        # get initial images
+        istokes = istokes
+        ifreq = ifreq
+        nxref = self.header["nxref"]
+        nyref = self.header["nyref"]
+        Iin = np.float64(self.data[istokes, ifreq])
+        
+        if func is "l1":
+            costs = fortlib.image.i2d_l1(i2d=np.float64(Iin))                         
+        elif func is "mem":
+            costs = fortlib.image.i2d_mem(i2d=np.float64(Iin)) 
+        elif func is "tv":
+            costs = fortlib.image.i2d_tv(i2d=np.float64(Iin))
+        elif func is "tsv":
+            costs = fortlib.image.i2d_tsv(i2d=np.float64(Iin))
+        elif func is "com":
+            costs = fortlib.image.i2d_com(i2d=np.float64(Iin),
+                                          nxref=np.float64(nxref),
+                                          nyref=np.float64(nyref),
+                                          alpha=np.float64(compower))
+        
+        cost = costs[0]
+        costmap = costs[1]
+        gradmap = costs[2]       
+        
+        if out is "cost":
+            return cost
+        elif out is "costmap":
+            costmapfits = copy.deepcopy(self)
+            costmapfits.data[istokes,ifreq] = costmap
+            return costmapfits
+        elif out is "gradmap":
+            gradmapfits = copy.deepcopy(self)
+            gradmapfits.data[istokes,ifreq] = gradmap
+            return gradmapfits
+
     #-------------------------------------------------------------------------
     # Plotting
     #-------------------------------------------------------------------------
