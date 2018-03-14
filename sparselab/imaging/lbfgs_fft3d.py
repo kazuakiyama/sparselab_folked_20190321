@@ -62,6 +62,12 @@ def imaging3d(
         print("Error: No data are input.")
         return -1
 
+    # Sanity Check: Sort
+    if vistable is not None:
+        vistable = vistable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
+    if amptable is not None:
+        amptable = amptable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
+
     # Sanity Check: Total Flux constraint
     dofluxconst = False
     if ((vistable is None) and (amptable is None) and (totalflux is None)):
@@ -167,7 +173,6 @@ def imaging3d(
             fcvtable = None
         else:
             fcvtable = vistable.copy()
-            #fcvtable = fcvtable.sort_values(by=['frmidx', 'ifid', 'utc'])
 
     if fcvtable is None:
         isfcv = False
@@ -191,7 +196,6 @@ def imaging3d(
         varamp = dammyreal
     else:
         isamp = True
-        #amptable = amptable.sort_values(by=['frmidx', 'ifid', 'utc'])
         vamp = np.array(amptable["amp"], dtype=np.float64)
         varamp = np.square(np.array(amptable["sigma"], dtype=np.float64))
         Ndata += len(vamp)
@@ -203,7 +207,6 @@ def imaging3d(
         varcp = dammyreal
     else:
         iscp = True
-        #bstable = bstable.sort_values(by=['frmidx', 'ifid', 'utc'])
         cp = np.deg2rad(np.array(bstable["phase"], dtype=np.float64))
         varcp = np.square(
             np.array(bstable["sigma"] / bstable["amp"], dtype=np.float64))
@@ -216,7 +219,6 @@ def imaging3d(
         varca = dammyreal
     else:
         isca = True
-        #catable = catable.sort_values(by=['frmidx', 'ifid', 'utc'])
         ca = np.array(catable["logamp"], dtype=np.float64)
         varca = np.square(np.array(catable["logsigma"], dtype=np.float64))
         Ndata += len(ca)
@@ -270,8 +272,6 @@ def imaging3d(
     # copy the initimage to the number of frames
     if Nf > 1:
         Iin = np.concatenate([Iin]*Nf)
-        #xidx = np.concatenate([xidx]*Nf)
-        #yidx = np.concatenate([yidx]*Nf)
 
     # run imaging
     Iout = fortlib.fftim3d.imaging(
@@ -365,56 +365,33 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
     u, v = [], []
     uvidxfcv, uvidxamp, uvidxcp, uvidxca = [], [], [], []
     Nuvs = []
-    '''
-    if (fcvconcat is not None):
-        maxif = max(fcvconcat["ifid"].values)
-    if (ampconcat is not None):
-        maxif = max(ampconcat["ifid"].values)
-    if (bsconcat is not None):
-        maxif = max(bsconcat["ifid"].values)
-    if (caconcat is not None):
-        maxif = max(caconcat["ifid"].values)
-    '''
-    #ch = 0
-    #while ch <= maxif:
+
     idxcon = 0
     for i in xrange(Nf):
         fcvsingle, ampsingle, bssingle, casingle = None, None, None, None
         if fcvconcat is not None:
             frmid = fcvconcat["frmidx"] == i
-            #ifid = fcvconcat["ifid"] == ch
-            #idx = np.where((frmid == True) & (ifid == True))
             idx = np.where(frmid == True)
             if idx[0] != []:
                 fcvsingle = fcvconcat.loc[idx[0], :]
-                #fcvsingle = fcvsingle.sort_values(by=['ifid', 'utc'])
 
         if ampconcat is not None:
             frmid = ampconcat["frmidx"] == i
-            #ifid = ampconcat["ifid"] == ch
-            #idx = np.where((frmid == True) & (ifid == True))
             idx = np.where(frmid == True)
             if idx[0] != []:
                 ampsingle = ampconcat.loc[idx[0], :]
-                #ampsingle = ampsingle.sort_values(by=['ifid', 'utc'])
 
         if bsconcat is not None:
             frmid = bsconcat["frmidx"] == i
-            #ifid = bsconcat["ifid"] == ch
-            #idx = np.where((frmid == True) & (ifid == True))
             idx = np.where(frmid == True)
             if idx[0] != []:
                 bssingle = bsconcat.loc[idx[0], :]
-                #bssingle = bssingle.sort_values(by=['ifid', 'utc'])
 
         if caconcat is not None:
             frmid = caconcat["frmidx"] == i
-            #ifid = caconcat["ifid"] == ch
-            #idx = np.where((frmid == True) & (ifid == True))
             idx = np.where(frmid == True)
             if idx[0] != []:
                 casingle = caconcat.loc[idx[0], :]
-                #casingle = casingle.sort_values(by=['ifid', 'utc'])
 
         if ((fcvsingle is None) and (ampsingle is None) and
             (bssingle is None)  and (casingle is None)):
@@ -438,20 +415,17 @@ def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=
                 uvidxca0 = np.sign(uvidxca0) * (np.abs(uvidxca0)+idxcon)
                 uvidxca.append(uvidxca0)
             idxcon += len(u0)
-        #ch += 1
 
     u = np.concatenate(u)
     v = np.concatenate(v)
 
     if fcvconcat is not None:
         uvidxfcv = np.concatenate(uvidxfcv)
-        #uvidxfcv = np.array(uvidxfcv)
     else:
         uvidxfcv = np.zeros(1, dtype=np.int32)
 
     if ampconcat is not None:
         uvidxamp = np.concatenate(uvidxamp)
-        #uvidxamp = np.array(uvidxamp)
     else:
         uvidxamp = np.zeros(1, dtype=np.int32)
 
@@ -480,7 +454,6 @@ def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1
     ustack = None
     vstack = None
     if fcvtable is not None:
-        #fcvtable = fcvtable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"])
         ustack = np.array(fcvtable["u"], dtype=np.float64)
         vstack = np.array(fcvtable["v"], dtype=np.float64)
         Nfcv = len(ustack)
@@ -488,7 +461,6 @@ def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1
         Nfcv = 0
 
     if amptable is not None:
-        #amptable = amptable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"])
         utmp = np.array(amptable["u"], dtype=np.float64)
         vtmp = np.array(amptable["v"], dtype=np.float64)
         Namp = len(utmp)
@@ -502,7 +474,6 @@ def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1
         Namp = 0
 
     if bstable is not None:
-        #bstable = bstable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"])
         utmp1 = np.array(bstable["u12"], dtype=np.float64)
         vtmp1 = np.array(bstable["v12"], dtype=np.float64)
         utmp2 = np.array(bstable["u23"], dtype=np.float64)
@@ -520,7 +491,6 @@ def get_uvlist(fcvtable=None, amptable=None, bstable=None, catable=None, thres=1
         Ncp = 0
 
     if catable is not None:
-        #catable = catable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"])
         utmp1 = np.array(catable["u1"], dtype=np.float64)
         vtmp1 = np.array(catable["v1"], dtype=np.float64)
         utmp2 = np.array(catable["u2"], dtype=np.float64)

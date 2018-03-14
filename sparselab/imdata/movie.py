@@ -54,7 +54,6 @@ class MOVIE(object):
         '''
         # formatting the input tstart
         self.tstart = at.Time(tstart)
-        #self.tstart = at.Time(np.datetime_as_string(tstart))
         # formatting the input tint
         if tintunit == "sec":
             self.tint = at.TimeDelta(tint, format='sec')
@@ -113,7 +112,6 @@ class MOVIE(object):
         # call timetable
         tmtable = self.timetable()
         idx = tmtable["frame"].values
-        #tmframe = tmtable["utc"].values
         tmframe = np.asarray(tmtable["utc"], np.str)
         tmframe = at.Time(tmframe)
         tmframe = tmframe.datetime
@@ -125,7 +123,7 @@ class MOVIE(object):
                     frmtable.loc[i, "frmidx"] = idx[j]
             if utctime[i] >= tmframe[-1]:
                 frmtable.loc[i, "frmidx"] = idx[-1]
-        #frmtable.sort_values(by=['frmidx', 'ifid', 'utc'])
+        frmtable = frmtable.sort_values(by=["frmidx", "utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
         return frmtable
 
     def initimlist(self):
