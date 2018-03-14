@@ -15,6 +15,10 @@ import itertools
 import collections
 import datetime
 import tqdm
+#
+import math
+import scipy.optimize as optimization
+from scipy.optimize import leastsq
 
 # numerical packages
 import numpy as np
@@ -1082,104 +1086,424 @@ class UVFITS(object):
 
         return Vreal,Vimag
 
-    def uvavg(self, solint=10, minpoint=2):
+
+##########
+# main
+    def get_gain(self,imfits,cltable,istokes=0):
         '''
-        This method will weighted-average full complex visibilities in time direction.
 
-        Args:
-          solint (float; default=10):
-            Time averaging interval (in sec)
-
-            minpoint (int; default =2.):
-              Number of points required to re-evaluate weights.
-              If data do not have enough number of points at each time/frequency
-              segments specified with dofreq, weight will be set to 0
-              meaning that the corresponding point will be flagged out.
-
-        Returns: uvfits.UVFITS object
         '''
-        outfits = copy.deepcopy(self)
+        # model visibilityの導入
+        Vmodel_real,Vmodel_imag = self.get_vismodel(imfits)
 
-        # Sort visdata
-        print("(1/6) Sort Visibility Data")
-        outfits.visdata.sort(by=["subarray","ant1","ant2","source","utc"])
+        #サブアレイごとに評価
+        subarrids = self.subarrays.keys()
 
-        # Check number of Baselines
-        print("(2/6) Check Number of Baselines")
-        # pick up combinations
-        combset = []
-        comblst = []
-        sappend = combset.append
-        lappend = comblst.append
-        for idx in outfits.visdata.coord.index:
-            tmp = outfits.visdata.coord.loc[idx,["subarray","ant1","ant2","source","freqsel"]].tolist()
-            lappend(tmp)
-            if tmp not in combset:
-                sappend(tmp)
-        del sappend,lappend,tmp
-        stlst = np.asarray([comblst.index(comb) for comb in combset], dtype=np.int32)
-        edlst = np.asarray([comblst.count(comb) for comb in combset], dtype=np.int32)
-        edlst += stlst
-        stlst += 1
-        Nidx = len(stlst)
+        for subarrid in subarrids:
 
-        print("(3/6) Create Timestamp")
-        tsecin = outfits.get_utc().cxcsec
-        tsecout = np.arange(tsecin.min(),tsecin.max()+solint,solint)
-        Nt = len(tsecout)
+            # Ntimeとかの導入
+            Ntime,Nif,Nch,Nstokes,Nant,Ncomp = cltable.gaintabs[subarrid]["gain"].shape
+            #print("Ntime,Nif,Nch,Nstokes,Nant",Ntime,Nif,Nch,Nstokes,Nant)
 
-        # Check number of Baselines
-        print("(4/6) Average UV data")
-        out = fortlib.uvdata.average(
-            uvdata=np.float32(outfits.visdata.data.T),
-            tin=np.float64(tsecin),
-            tout=np.float64(tsecout),
-            start=np.int32(stlst),
-            end=np.int32(edlst),
-            solint=solint,
-            minpoint=minpoint,
-        )
-        isdata = np.asarray(out[1],dtype=np.bool)
-        outfits.visdata.data = np.ascontiguousarray(out[0].T)[np.where(isdata)]
-        del out
+            # utc_old[Ndata]
+            utc_old = np.datetime_as_string(self.visdata.coord["utc"])
+            utc_old = at.Time(utc_old,scale="utc")
+            #print("utc_old[Ndata]",utc_old.shape)
 
-        print("(5/6) Forming UV data")
-        utc = [tsecout for i in xrange(Nidx)]
-        usec = [0.0 for i in xrange(Nidx*Nt)]
-        vsec = [0.0 for i in xrange(Nidx*Nt)]
-        wsec = [0.0 for i in xrange(Nidx*Nt)]
-        subarray = [[combset[idx][0] for i in xrange(Nt)] for idx in xrange(Nidx)]
-        ant1 = [[combset[idx][1] for i in xrange(Nt)] for idx in xrange(Nidx)]
-        ant2 = [[combset[idx][2] for i in xrange(Nt)] for idx in xrange(Nidx)]
-        source = [[combset[idx][3] for i in xrange(Nt)] for idx in xrange(Nidx)]
-        inttim = [solint for i in xrange(Nidx*Nt)]
-        freqsel = [[combset[idx][4] for i in xrange(Nt)] for idx in xrange(Nidx)]
-        utc = at.Time(np.concatenate(utc), format="cxcsec", scale="utc").datetime
+            # utc[Ntime]
+            utc = cltable.gaintabs[subarrid]["utc"] # utcを天文時間に直すらしい
+            #print("utc[Ntime]",utc.shape)
 
-        outfits.visdata.coord = pd.DataFrame()
-        outfits.visdata.coord["utc"] = utc
-        outfits.visdata.coord["usec"] = np.float64(usec)
-        outfits.visdata.coord["vsec"] = np.float64(vsec)
-        outfits.visdata.coord["wsec"] = np.float64(wsec)
-        outfits.visdata.coord["subarray"] = np.int64(np.concatenate(subarray))
-        outfits.visdata.coord["ant1"] = np.int64(np.concatenate(ant1))
-        outfits.visdata.coord["ant2"] = np.int64(np.concatenate(ant2))
-        outfits.visdata.coord["source"] = np.int64(np.concatenate(source))
-        outfits.visdata.coord["inttim"] = np.float64(inttim)
-        outfits.visdata.coord["freqsel"] = np.int64(np.concatenate(freqsel))
-        del utc,usec,vsec,wsec,subarray,ant1,ant2,source,inttim,freqsel
-        del combset,comblst,stlst,edlst,Nt,Nidx
-        outfits.visdata.coord = outfits.visdata.coord.loc[isdata,:]
-        outfits.visdata.coord.reset_index(drop=True,inplace=True)
-        outfits.visdata.sort()
+            # complex gain
+            g = cltable.gaintabs[subarrid]["gain"]
+            #print("g.shape",g.shape)
+            #g[Ntime,Nif,Nch,Nstokes,Nant,3], 3=greal,gimag,sigma
 
-        print("(6/6) UVW recaluation")
-        outfits = outfits.uvw_recalc()
-        return outfits
+            gain = np.zeros((Nif,Nch,Nstokes,Ntime,Nant,2))
+            #print "Nant",Nant
+            for iif,ich in itertools.product(xrange(Nif),xrange(Nch)):
+            #for iif,ich in itertools.product(xrange(1),xrange(1)):
+
+                #for itime in xrange(1):
+                for itime in xrange(Ntime):
+                    #print("itime=",itime,"/",Ntime)
+                    # utc_old[idata]のうち、どのidataで()==()となるか、Trueで返す
+                    idx_utc = utc_old[:] == utc[itime]
+                    #print("utc_old.shape,utc.shape",utc_old.shape,utc.shape)
+                    # ある時間のVobs,sigmaの導入
+                    fdata=self.visdata.data[np.where(idx_utc)]
+                    Vobs_real_itime = fdata[:,0,0,0,0,0,0]
+                    Vobs_imag_itime = fdata[:,0,0,0,0,0,1]
+                    sigma_itime     = fdata[:,0,0,0,0,0,2]
+                    #print("fdata.shape",fdata.shape)
+
+                    # Vmodelのidx_utcの部分のみ抜き出す
+                    Vmodel_real_itime = Vmodel_real[np.where(idx_utc)]
+                    Vmodel_imag_itime = Vmodel_imag[np.where(idx_utc)]
+                    #print("Vmodel_real_itime.shape",Vmodel_real_itime.shape)
+                    #print("Vmodel_imag_itime.shape",Vmodel_imag_itime.shape)
+
+
+                    # +αの項目をつける
+                    #print("before Vobs_real_itime.shape",Vobs_real_itime.shape)
+                    #print("before Vobs_real_itime",Vobs_real_itime)
+                    #
+                    # uv distance
+                    uvw      = self.get_uvw()
+                    uv_itime = uvw[3,np.where(idx_utc)]
+                    #print("uv_itime.shape",uv_itime.shape)
+
+                    # あるitimeにおけるサブアレイ番号の導入
+                    self.visdata.coord_itime = self.visdata.coord.loc[idx_utc,:].reset_index(drop=True)
+                    subarray =self.visdata.coord_itime["subarray"]
+                    #
+
+                    ########################
+                    # array number
+                    ant1_itime   = self.visdata.coord_itime["ant1"] # Ndataのうち、idx_utc=trueの成分のみを持つベクトル。antena1の番号
+                    ant2_itime   = self.visdata.coord_itime["ant2"] # antena2の番号
+                    Ndata_itime,  = ant1_itime.shape # ant1_itimeの成分の数
+                    #print("ant1_itime",ant1_itime)
+
+                    ###########################################################################
+                    # obs visibility for simple test
+                    #Vobs_real_itime = Vmodel_real_itime.copy()
+                    #Vobs_imag_itime = Vmodel_imag_itime.copy()
+                    #sigma_itime     = 0.001*np.ones(Vmodel_real_itime.shape)
+
+                    #for idata in xrange(Ndata_itime):
+                    #    g_test1 = 1.
+                    #    g_test2 = 1.
+                    #    if ant1_itime[idata]==2:
+                    #        g_test1 = 3.
+                    #    if ant2_itime[idata]==2:
+                    #        g_test2 = 3.
+                    #    Vtest  = Vobs_real_itime[idata]+1j*Vobs_imag_itime[idata]
+                    #    Vobs_real_itime[idata]  = np.real(np.conj(g_test1)*g_test2*Vtest)
+                    #    Vobs_imag_itime[idata]  = np.imag(np.conj(g_test1)*g_test2*Vtest)
+                    #print("after Vobs_real_itime",Vobs_real_itime)
+                    ###########################################################################
+
+
+
+                    # 参加しているアレイのみを取り出す
+                    ant1_itime_joinant = np.int32(list(set(np.array(ant1_itime)))) # ant1_itimeの参加している成分
+                    ant2_itime_joinant = np.int32(list(set(np.array(ant2_itime)))) # ant2_itimeの参加している成分
+                    ant_min            = ant1_itime_joinant[0]                     # アレイ番号の最小値
+                    ant_max            = ant2_itime_joinant[len(ant1_itime_joinant)-1] # アレイ番号の最大値
+
+                    # 参加しているアレイ番号に対する番号の関数
+                    # ant1_itime_joinant[i]=j -> inv_ant1[j]=i
+                    Nid_ant1=len(ant1_itime_joinant) # ant1_itime_joinantの成分の総数=id総数
+                    Nid_ant2=len(ant2_itime_joinant) # ant2のid総数=Nid_ant1
+                    #print "Nid_ant1",Nid_ant1
+                    # 参加している全アレイ
+                    ant_itime_joinant  =set(np.concatenate([ant1_itime_joinant,ant2_itime_joinant],axis=0))
+                    #print "ant_itime_joinant",ant_itime_joinant
+                    # 全アレイの総数
+                    Nid_ant = len(ant_itime_joinant)
+                    #print("Nid_ant",Nid_ant)
+                    # base lineの総数
+                    Nbl = math.factorial(Nid_ant)/(math.factorial(2)*math.factorial(Nid_ant-2))
+
+                    #print("Nbl,ant_itime_joinant",Nbl,ant_itime_joinant)
+
+                    id_ant1=np.int32(np.zeros(ant_max+1)) #アレイ番号の最大値+1の成分数をもつ配列
+                    id_ant2=np.int32(np.zeros(ant_max+1)) # 同じ
+                    for i in xrange(Nid_ant1):
+                        id_ant1[ant1_itime_joinant[i]]=i # アレイ番号 ant1_itime_joinant[i]に対応するidの値
+                        #print(ant1_itime_joinant[i],i)
+                    for i in xrange(Nid_ant2):
+                        id_ant2[ant2_itime_joinant[i]]=i
+                        #print(ant2_itime_joinant[i],i)
+                    #########################
+
+
+                    # あるitimeにおける参加したアレイのみのw,Xreal,Ximagの導入
+                    w_itime     = np.zeros((Nid_ant1,Nid_ant1)) # Nid_ant1=ant1_itime_joinantの成分の総数=id総数
+                    Xreal_itime = np.zeros((Nid_ant1,Nid_ant1))
+                    Ximag_itime = np.zeros((Nid_ant1,Nid_ant1))
+                    uvdis       = np.zeros((Nid_ant1,Nid_ant1))
+                    #この配列の係数はant1_itime_joinant[i]=jの"i"であることに注意
+
+                    # 各iantに対するgainはもう取り出されているとする
+                    gain0_real = np.ones(Nid_ant)
+                    gain0_imag = np.zeros(Nid_ant)
+                    gain0 = np.concatenate([gain0_real,gain0_imag],axis=0)
+                    # ここで3=greal,gimag,gfrag
+
+                    # あるitimeでの量から計算
+                    #print("1",id_ant1.shape,set(ant1_itime))
+                    #print("2",id_ant2.shape,set(ant2_itime))
+
+                    for idata in xrange(Ndata_itime):
+                        #print("ant1_itime[idata],id_ant1",ant1_itime[idata],id_ant1[ant1_itime[idata]])
+                        #print("ant2_itime[idata],id_ant2",ant2_itime[idata],id_ant2[ant2_itime[idata]])
+
+                        #id_ant1[ant1_itime[idata]] アレイ１番号ant1_itime[idata]に対応するid番号
+                        w_itime[id_ant1[ant1_itime[idata]],id_ant2[ant2_itime[idata]]]\
+                        = np.sqrt(Vobs_real_itime[idata]**2+Vobs_imag_itime[idata]**2)/sigma_itime[idata]
+                        X = (Vobs_real_itime[idata]+1j*Vobs_imag_itime[idata])/(Vmodel_real_itime[idata]+1j*Vmodel_imag_itime[idata])
+                        Xreal_itime[id_ant1[ant1_itime[idata]],id_ant2[ant2_itime[idata]]] = np.real(X)
+                        Ximag_itime[id_ant1[ant1_itime[idata]],id_ant2[ant2_itime[idata]]] = np.imag(X)
+                        uvdis[id_ant1[ant1_itime[idata]],id_ant2[ant2_itime[idata]]] = uv_itime[0,idata,iif,ich]
+                        #print("idata",idata,"Xreal,Ximag",np.real(X),np.imag(X))
+
+                    #print("Xreal_itime=",Xreal_itime)
+                    # あるitimeでのdVの関数化
+                    #dVconv = self.error_func(gain0,Nid_ant1,Nid_ant2,w_itime,Xreal_itime,Ximag_itime)
+                    #print("dVconv.shape",dVconv.shape)
+                    #print("check:",gain0.shape,Nid_ant1,Nid_ant2,w_itime.shape,Xreal_itime.shape,Ximag_itime.shape)
+                    #print("dVconv",dVconv)
+                    #print("ant1_itime_joinant.shape",ant1_itime_joinant.shape)
+                    #ddVdg  = dfuncdg(gain0,Nid_ant1,Nid_ant2,w_itime,Xreal_itime,Ximag_itime)
+                    #print "ddVdg.shape",ddVdg.shape
+                    #print "ddVdg",ddVdg
+
+                    #print("gain0.shape",gain0.shape)
+                    #print("Nid_ant",Nid_ant)
+                    if Nbl>Nid_ant:
+                        result = optimization.leastsq(self.error_func,gain0,
+                        args=(Nid_ant1,Nid_ant2,w_itime,Xreal_itime,Ximag_itime),Dfun=self.dfuncdg)
+
+                    #print result
+                    g = result[0]
+                    #print("len(result)",len(result))
+                    greal, gimag =np.split(g, 2, axis=0)
+                    #print("greal",greal)
+                    #print("gimag",gimag)
+
+                    #print "ant_itime_joinant",ant_itime_joinant
+                    #print "ant2_itime_joinant",ant2_itime_joinant
+
+                    for i in xrange(0,Nid_ant1):
+                        gain[iif,ich,istokes,itime,ant1_itime_joinant[i],0]= greal[i]
+                        gain[iif,ich,istokes,itime,ant1_itime_joinant[i],1]= gimag[i]
+
+                    gain[iif,ich,istokes,itime,ant2_itime_joinant[Nid_ant2-1],0]= greal[Nid_ant-1]
+                    gain[iif,ich,istokes,itime,ant2_itime_joinant[Nid_ant2-1],1]= gimag[Nid_ant-1]
+
+                    print("gain_real",gain[iif,ich,istokes,itime,:,0])
+                    print("gain_imag",gain[iif,ich,istokes,itime,:,1])
+                    #print "gain_frag",gain[iif,ich,istokes,itime,:,2]
+
+        return gain
+
+
+# 1
+    def error_func(self,gain,Nid_ant1,Nid_ant2,w_itime,Xreal_itime,Ximag_itime):
+        # wij,Xijもベクトルにした方が計算コストが少なくなる
+        # Nid_ant1: ant1_itime_joinantの成分の総数=id総数
+        dVreal=np.zeros((Nid_ant1*Nid_ant2))
+        dVimag=np.zeros((Nid_ant1*Nid_ant2))
+
+        N=-1
+        for id_ant1,id_ant2 in itertools.product(xrange(0,Nid_ant1),xrange(0,Nid_ant2)):
+            # (後で修正) Nid_ant1だけでitertoolを用いてかけるらしい
+
+            Xreal = Xreal_itime[id_ant1,id_ant2]
+            Ximag = Ximag_itime[id_ant1,id_ant2]
+            X = Xreal_itime[id_ant1,id_ant2]+1j*Ximag_itime[id_ant1,id_ant2]
+
+            g1real = gain[id_ant1]
+            g1imag = gain[id_ant1+Nid_ant1+1]
+            g2real = gain[1+id_ant2]
+            g2imag = gain[1+id_ant2+Nid_ant2+1]
+            g1     = g1real+1j*g1imag
+            g2     = g2real+1j*g2imag
+
+            dV    = w_itime[id_ant1,id_ant2]*(X-np.conj(g1)*g2)
+
+            if id_ant2== 0:
+                N=N+1
+            dVreal[id_ant2+N*Nid_ant1] = np.real(dV)
+            dVimag[id_ant2+N*Nid_ant1] = np.imag(dV)
+
+            # (後で修正) g1,g2を複素数で書かずに実数、虚数で陽に書くほうが早い
+            #dVreal[id_ant2+N*Nid_ant1] = w_itime[id_ant1,id_ant2]*(Xreal-(g1real*g2real+g1imag*g2imag))
+            #dVimag[id_ant2+N*Nid_ant1] = w_itime[id_ant1,id_ant2]*(Ximag-(-g1imag*g2real+g1real*g2imag))
+
+            dVconv=np.concatenate([dVreal,dVimag],axis=0)
+        return dVconv
+
+
+# 2
+    def dfuncdg(self,gain,Nid_ant1,Nid_ant2,w_itime,Xreal_itime,Ximag_itime):
+        ddVrealdgreal=np.zeros((Nid_ant1*Nid_ant2))
+        ddVimagdgreal=np.zeros((Nid_ant1*Nid_ant2))
+        ddVrealdgimag=np.zeros((Nid_ant1*Nid_ant2))
+        ddVimagdgimag=np.zeros((Nid_ant1*Nid_ant2))
+
+        id_antk_prev=0
+        N=-1
+        for id_antk in xrange(0,Nid_ant1+1):
+            for id_ant1,id_ant2 in itertools.product(xrange(0,Nid_ant1),xrange(0,Nid_ant2)):
+                if id_antk==id_antk_prev+1:
+                    id_antk_prev=id_antk_prev+1
+                    N=-1
+
+                greal1 = gain[id_ant1]
+                gimag1 = gain[id_ant1+Nid_ant1+1]  #Nid_ant1+1=Nid_ant 全アレイの総数
+                greal2 = gain[1+id_ant2]
+                gimag2 = gain[1+id_ant2+Nid_ant2+1]
+
+                A111 = 0
+                A121 = 0
+                A211 = 0
+                A221 = 0
+                A112 = 0
+                A122 = 0
+                A212 = 0
+                A222 = 0
+                w=w_itime[id_ant1,id_ant2]
+                if id_ant1==id_antk:
+                    A111 =  greal2
+                    A121 =  gimag2
+                    A211 =  gimag2
+                    A221 = -greal2
+                if id_ant2==id_antk-1:
+                    A112 =  greal1
+                    A122 = -gimag1
+                    A212 =  gimag1
+                    A222 =  greal1
+                if id_ant2== 0:
+                    N=N+1
+
+                ddVrealdgreal[id_ant2+N*Nid_ant1] = -w*(A111+A112)
+                ddVimagdgreal[id_ant2+N*Nid_ant1] = -w*(A121+A122)
+                ddVdgreal=np.concatenate([ddVrealdgreal,ddVimagdgreal],axis=0)
+
+                ddVrealdgimag[id_ant2+N*Nid_ant1] = w*(A211+A212)
+                ddVimagdgimag[id_ant2+N*Nid_ant1] = w*(A221+A222)
+                ddVdgimag=np.concatenate([ddVrealdgimag,ddVimagdgimag],axis=0)
+
+            if id_antk==0:
+                ddVdgreal_conv= np.array([ddVdgreal])
+                ddVdgimag_conv= np.array([ddVdgimag])
+            if id_antk>0:
+                ddVdgreal_conv=np.concatenate([ddVdgreal_conv,np.array([ddVdgreal])],axis=0)
+                ddVdgimag_conv=np.concatenate([ddVdgimag_conv,np.array([ddVdgimag])],axis=0)
+
+        ddVdgconv = np.concatenate([ddVdgreal_conv,ddVdgimag_conv],axis=0)
+
+        return ddVdgconv.T
+
+##########
+
+
+    # model visibilityの導入
+    def get_vis_cor(self,imfits,cltable,istokes=0):
+        Vmodel_real,Vmodel_imag = self.get_vismodel(imfits)
+
+        #def get_vis_correction(self,imfits,cltable):
+        subarrids = self.subarrays.keys()
+        for subarrid in subarrids:
+            # Ntimeとかの導入
+            Ntime,Nif,Nch,Nstokes,Nant,Ncomp = cltable.gaintabs[subarrid]["gain"].shape
+            Ndata, Ndec, Nra, Nif, Nch, Nstokes, Ncomp=self.visdata.data.shape
+            Vobscor=np.zeros((Ndata, Ndec, Nra, Nif, Nch, Nstokes,Ncomp))
+            #print("Ntime,Nif,Nch,Nstokes,Nant",Ntime,Nif,Nch,Nstokes,Nant)
+            # utc_old[Ndata]
+            utc_old = np.datetime_as_string(self.visdata.coord["utc"])
+            utc_old = at.Time(utc_old,scale="utc")
+            #print("utc_old[Ndata]",utc_old.shape)
+
+            # utc[Ntime]
+            utc = cltable.gaintabs[subarrid]["utc"] # utcを天文時間に直すらしい
+            #print("utc[Ntime]",utc.shape)
+
+            # complex gain
+            gain = self.get_gain(imfits,cltable)
+
+            #(Nif,Nch,Nstokes,Ntime,Nant,2)
+            #print "Nant",Nant
+            for iif,ich in itertools.product(xrange(Nif),xrange(Nch)):
+            #for iif,ich in itertools.product(xrange(1),xrange(1)):
+                for itime in xrange(Ntime):
+                    #for itime in xrange(itime):
+
+                    idx_utc = utc_old[:] == utc[itime]
+                    # Vmodelのidx_utcの部分のみ抜き出す
+                    Vmodel_real_itime = Vmodel_real[np.where(idx_utc)]
+                    Vmodel_imag_itime = Vmodel_imag[np.where(idx_utc)]
+
+                    greal = gain[iif,ich,istokes,itime,:,0]
+                    gimag = gain[iif,ich,istokes,itime,:,1]
+                    #print("greal.shape,gimag.shape",greal.shape,gimag.shape)
+                    #print("greal=",greal)
+                    #print("gimag=",gimag)
+                    #print("itime=",itime,"/",Ntime)
+
+                    idx_utc = utc_old[:] == utc[itime]
+                    self.visdata.coord_itime = self.visdata.coord.loc[idx_utc,:].reset_index(drop=True)
+
+                    #print("utc_old.shape,utc.shape",utc_old.shape,utc.shape)
+                    fdata=self.visdata.data
+                    Vobs_real = fdata[:,0,0,iif,ich,istokes,0]
+                    Vobs_imag = fdata[:,0,0,iif,ich,istokes,1]
+                    sigma     = fdata[:,0,0,iif,ich,istokes,2]
+
+
+                    #print("fdata.shape",fdata.shape)
+                    #Ndata, Ndec, Nra, Nif, Nch, Nstokes, Ncomp=self.visdata.data.shape
+
+                    ########################
+                    # アンテナ番号の導入
+                    ant1_itime   = self.visdata.coord_itime["ant1"] # Ndataのうち、idx_utc=trueの成分のみを持つベクトル。antena1の番号
+                    ant2_itime   = self.visdata.coord_itime["ant2"] # antena2の番号
+                    Ndata_itime,  = ant1_itime.shape # ant1_itimeの成分の数
+                    #print("ant1_itime",ant1_itime)
+                    ###########################################################################
+                    # test
+                    #Vobs_real_itime = Vmodel_real_itime.copy()
+                    #Vobs_imag_itime = Vmodel_imag_itime.copy()
+                    #sigma_itime     = 0.001*np.ones(Vmodel_real_itime.shape)
+                    #for idata in xrange(Ndata_itime):
+                    #    g_test1 = 1.
+                    #    g_test2 = 1.
+                    #    if ant1_itime[idata]==2:
+                    #        g_test1 = 3.
+                    #    if ant2_itime[idata]==2:
+                    #        g_test2 = 3.
+
+                    #    Vtest  = Vobs_real_itime[idata]+1j*Vobs_imag_itime[idata]
+                    #    Vobs_real_itime[idata]  = np.real(np.conj(g_test1)*g_test2*Vtest)
+                    #    Vobs_imag_itime[idata]  = np.imag(np.conj(g_test1)*g_test2*Vtest)
+                    #print("after Vobs_real_itime",Vobs_real_itime)
+                    ###########################################################################
+
+
+                    ########################
+                    # アンテナ番号の導入
+                    ant1_itime   = self.visdata.coord_itime["ant1"] # Ndataのうち、idx_utc=trueの成分のみを持つベクトル。antena1の番号
+                    ant2_itime   = self.visdata.coord_itime["ant2"] # antena2の番号
+                    Ndata_itime, = ant1_itime.shape # ant1_itimeの成分の数
+                    #print("ant1_itime.shape",ant1_itime.shape)
+                    #print("ant1_itime",ant1_itime)
+
+                    Vobs = Vobs_real+1j*Vobs_imag
+                    g = greal[:]+1j*gimag[:]
+                    Vobs_real_cor = np.real(Vobs[:]/(np.conj(g[ant1_itime[:]])*g[ant2_itime[:]]))
+                    Vobs_imag_cor = np.imag(Vobs[:]/(np.conj(g[ant1_itime[:]])*g[ant2_itime[:]]))
+                    sigma_itime_cor     = np.real(sigma[:]/(np.conj(g[ant1_itime[:]])*g[ant2_itime[:]]))
+
+                    Vobscor[:, 0, 0, iif, ich, istokes,0] = Vobs_real_itime_cor[:]
+                    Vobscor[:, 0, 0, iif, ich, istokes,1] = Vobs_imag_itime_cor
+                    Vobscor[:, 0, 0, iif, ich, istokes,2] = sigma_itime_cor
+
+                    # チェック: vis modelとvis obsとの比較
+
+                    print("Vmodel_real_itime=",Vmodel_real_itime)
+                    print("Vobs_real_itime_cor",Vobs_real_itime_cor)
+
+        return Vobscor
+
+
 
     def avspc(self, dofreq=0, minpoint=2):
         '''
-        This method will weighted-average full complex visibilities in frequency directions.
+        This method will recalculate sigmas and weights of data from scatter
+        in full complex visibilities over specified frequency and time segments.
 
         Args:
           dofreq (int; default = 0):
@@ -1187,14 +1511,12 @@ class UVFITS(object):
               dofreq = 0: average over IFs and channels
               dofreq = 1: average over channels at each IF
 
-          minpoint (int; default =2.):
-            Number of points required to re-evaluate weights.
-            If data do not have enough number of points at each time/frequency
-            segments specified with dofreq, weight will be set to 0
-            meaning that the corresponding point will be flagged out.
+          solint (float; default = 120.):
+            solution interval in sec
 
         Returns: uvfits.UVFITS object
         '''
+        # Area Settigns
         outfits = copy.deepcopy(self)
 
         # Update visibilities
@@ -1242,12 +1564,6 @@ class UVFITS(object):
 
         So, we do not guarantee that this function will provide accurate
         uvw coordinates enough for astrometric VLBI observations.
-
-        Args:
-            No inputs
-
-        Returns:
-            UVFITS object where uvw coordinates are re-calculated.
         '''
         print("Start UVW recalculation")
 
@@ -1269,7 +1585,7 @@ class UVFITS(object):
         gsthour = np.float64(utctime.sidereal_time('apparent', 'greenwich').hour)
 
         # compute alpha & delta
-        print("  (2/4) Get RA, DEC of the Sources")
+        print("  (2/4) Compute RA, DEC of the Sources in GCRS")
         for frqsel in frqsels:
             idx1 = outfits.visdata.coord["freqsel"]==frqsel
             srcs = sorted(set(outfits.visdata.coord.loc[idx1,"source"]))
@@ -1282,11 +1598,7 @@ class UVFITS(object):
                 idx2 = outfits.visdata.coord["source"]==src
                 idx3 = np.where(idx1&idx2)
                 utctmp = utctime[idx3]
-                #
-                #It seems that uvw coordinates are generally computed for
-                #J2000.0. (see documents for AIPS UVFIX)
-                #radec = radec.transform_to(acd.GCRS(obstime=utctmp))
-
+                radec = radec.transform_to(acd.GCRS(obstime=utctmp))
                 alpha[idx3] = radec.ra.rad
                 delta[idx3] = radec.dec.rad
 
@@ -1345,12 +1657,6 @@ class UVFITS(object):
 
           solint (float; default = 60.):
             solution interval in sec
-
-          minpoint (int; default =2.):
-            Number of points required to re-evaluate weights.
-            If data do not have enough number of points at each time/frequency
-            segments specified with dofreq/solint, weight will be set to 0
-            meaning that the corresponding point will be flagged out.
 
         Returns: uvfits.UVFITS object
         '''
@@ -1708,16 +2014,6 @@ class VisibilityData(object):
             raise ValueError(errmsg)
 
     def sort(self, by=["utc","ant1","ant2","subarray"]):
-        '''
-        This method will data with arbitrary columns specified with 'by'
-
-        Args:
-          by (list-like, default=["utc","ant1","ant2","subarray"]):
-            Reference columns used to sort data.
-
-        Returns:
-          Nothing. Data will be updated.
-        '''
         # Check if ant1 > ant2
         self.coord.reset_index(drop=True, inplace=True)
         idx = self.coord["ant1"] > self.coord["ant2"]
@@ -1789,8 +2085,8 @@ class ArrayData(object):
         self.antable_cols = self.antable_cols.split(",")
         self.antable = pd.DataFrame(columns=self.antable_cols)
         self.anorbparm = np.zeros([0,0]) # Nant, Orbital Parmeters
-        self.anpolcalA = np.zeros([0,0]) # Nant, Npcal*NO_IF
-        self.anpolcalB = np.zeros([0,0]) # Nant, Npcal*NO_IF
+        self.anpolcalA = np.zeros([0,0,0]) # Nant, Npcal, NO_IF
+        self.anpolcalB = np.zeros([0,0,0]) # Nant, Npcal, NO_IF
 
     def check(self):
         '''
@@ -1810,11 +2106,9 @@ class ArrayData(object):
         if dofreq == 0:
             self.header["NO_IF"]=1
             if self.header["NOPCAL"] != 0:
-                Nant, Nif = self.anpolcalA.shape
-                Npcal = self.header["NOPCAL"]
-                Nif = Nif//Npcal
-                self.anpolcalA = self.anpolcalA.reshape([Nant,Npcal*Nif])
-                self.anpolcalB = self.anpolcalB.reshape([Nant,Npcal*Nif])
+                Nant, Npcal, NIF = self.anpolcalA.shape
+                self.anpolcalA = self.anpolcalA[:,:,0].reshape([Nant,Npcal,1])
+                self.anpolcalB = self.anpolcalB[:,:,0].reshape([Nant,Npcal,1])
 
 
     def __repr__(self):
