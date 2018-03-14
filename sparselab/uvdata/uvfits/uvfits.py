@@ -1537,6 +1537,7 @@ class UVFITS(object):
             select &= np.isinf(outdata["sigma"]) == False
             outdata = outdata.loc[select, :].reset_index(drop=True)
 
+        #outdata = outdata.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
         return outdata
 
 
