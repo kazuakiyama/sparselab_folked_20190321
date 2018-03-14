@@ -239,14 +239,15 @@ class VisTable(UVTable):
             residtable = self.copy()
             residtable["amp"] = resida
             residtable["phase"] = residp            
-            return residtable
+            
         else:
             Ndata = model[1]
             resida = model[0][3]
             residtable = self.copy()
             residtable["amp"] = resida
             residtable["phase"] = np.zeros(Ndata) 
-            return residtable
+            
+        return residtable
 
     def chisq_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
         # calcurate chisqared and reduced chisqred.

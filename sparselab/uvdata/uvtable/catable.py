@@ -65,7 +65,7 @@ class CATable(UVTable):
         return CASeries
 
     def eval_image(self, imfits, mask=None, istokes=0, ifreq=0):
-        #uvdata.BSTable object (storing model closure phase)
+        #uvdata.CATable object (storing model closure phase)
         model = self._call_fftlib(imfits=imfits,mask=mask,
                                   istokes=istokes, ifreq=ifreq)
         Ndata = model[1]
@@ -76,7 +76,7 @@ class CATable(UVTable):
         return catable
     
     def residual_image(self, imfits, mask=None, istokes=0, ifreq=0):
-        #uvdata BSTable object (storing residual closure phase)
+        #uvdata CATable object (storing residual closure phase)
         model = self._call_fftlib(imfits=imfits,mask=mask,
                                   istokes=istokes, ifreq=ifreq)
         Ndata = model[1]
