@@ -1085,6 +1085,10 @@ class UVFITS(object):
     def uvavg(self, solint=10, minpoint=2):
         '''
         This method will weighted-average full complex visibilities in time direction.
+        Visibilities will be weighted-average, using weight information of data.
+        uvw-coordinates on new time grid will be interpolated with cubic spline interpolation.
+        This may give slightly different uvw coordinates from other software, such as DIFMAP
+        computing weighted averages or AIPS UVFIX recalculating uvw coordinates.
 
         Args:
           solint (float; default=10):
@@ -1101,11 +1105,11 @@ class UVFITS(object):
         outfits = copy.deepcopy(self)
 
         # Sort visdata
-        print("(1/6) Sort Visibility Data")
+        print("(1/5) Sort Visibility Data")
         outfits.visdata.sort(by=["subarray","ant1","ant2","source","utc"])
 
         # Check number of Baselines
-        print("(2/6) Check Number of Baselines")
+        print("(2/5) Check Number of Baselines")
         # pick up combinations
         combset = []
         comblst = []
@@ -1123,15 +1127,18 @@ class UVFITS(object):
         stlst += 1
         Nidx = len(stlst)
 
-        print("(3/6) Create Timestamp")
+        print("(3/5) Create Timestamp")
         tsecin = outfits.get_utc().cxcsec
         tsecout = np.arange(tsecin.min(),tsecin.max()+solint,solint)
         Nt = len(tsecout)
 
         # Check number of Baselines
-        print("(4/6) Average UV data")
+        print("(4/5) Average UV data")
         out = fortlib.uvdata.average(
             uvdata=np.float32(outfits.visdata.data.T),
+            u=np.float64(outfits.visdata.coord.usec.values),
+            v=np.float64(outfits.visdata.coord.vsec.values),
+            w=np.float64(outfits.visdata.coord.wsec.values),
             tin=np.float64(tsecin),
             tout=np.float64(tsecout),
             start=np.int32(stlst),
@@ -1139,15 +1146,18 @@ class UVFITS(object):
             solint=solint,
             minpoint=minpoint,
         )
-        isdata = np.asarray(out[1],dtype=np.bool)
+        usec = out[1]
+        vsec = out[2]
+        wsec = out[3]
+        isdata = np.asarray(out[4],dtype=np.bool)
         outfits.visdata.data = np.ascontiguousarray(out[0].T)[np.where(isdata)]
         del out
 
-        print("(5/6) Forming UV data")
+        print("(5/5) Forming UV data")
         utc = [tsecout for i in xrange(Nidx)]
-        usec = [0.0 for i in xrange(Nidx*Nt)]
-        vsec = [0.0 for i in xrange(Nidx*Nt)]
-        wsec = [0.0 for i in xrange(Nidx*Nt)]
+        #usec = [0.0 for i in xrange(Nidx*Nt)]
+        #vsec = [0.0 for i in xrange(Nidx*Nt)]
+        #wsec = [0.0 for i in xrange(Nidx*Nt)]
         subarray = [[combset[idx][0] for i in xrange(Nt)] for idx in xrange(Nidx)]
         ant1 = [[combset[idx][1] for i in xrange(Nt)] for idx in xrange(Nidx)]
         ant2 = [[combset[idx][2] for i in xrange(Nt)] for idx in xrange(Nidx)]
@@ -1173,8 +1183,8 @@ class UVFITS(object):
         outfits.visdata.coord.reset_index(drop=True,inplace=True)
         outfits.visdata.sort()
 
-        print("(6/6) UVW recaluation")
-        outfits = outfits.uvw_recalc()
+        #print("(6/6) UVW recaluation")
+        #outfits = outfits.uvw_recalc()
         return outfits
 
     def avspc(self, dofreq=0, minpoint=2):
