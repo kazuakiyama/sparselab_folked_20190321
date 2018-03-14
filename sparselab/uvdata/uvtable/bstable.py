@@ -349,6 +349,7 @@ class BSTable(UVTable):
         unitlabel = self.get_unitlabel(uvunit)
         
         # normalized by error
+        plttable = copy.deepcopy(self)
         if normerror:
             pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
             plttable["phase"] /= pherr
@@ -356,11 +357,11 @@ class BSTable(UVTable):
 			
         # plotting data
         if errorbar:
-            pherr = np.rad2deg(self["sigma"] / self["amp"])
-            plt.errorbar(uvdist, self["phase"], pherr,
+            pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
+            plt.errorbar(uvdist, plttable["phase"], pherr,
                          ls=ls, marker=marker, **plotargs)
         else:
-            plt.plot(uvdist, self["phase"],
+            plt.plot(uvdist, plttable["phase"],
                      ls=ls, marker=marker, **plotargs)
         plt.xlabel(r"%s Baseline Length (%s)" % (head, unitlabel))
         plt.ylabel(r"Closure Phase ($^\circ$)")
