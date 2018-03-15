@@ -481,51 +481,6 @@ real(dp) function tsv_grade(xidx,yidx,I2d,Nx,Ny)
   !
 end function
 !
-! Dynamical Imaging (pixel-to-pixel)
-!
-real(dp) function rt_e(xidx,yidx,I2d,I2du,Nx,Ny)
-  implicit none
-  !
-  integer, intent(in)  :: Nx,Ny,xidx,yidx
-  real(dp),intent(in)  :: I2d(Nx,Ny),I2du(Nx,Ny)
-  !
-  ! variables
-  integer :: i,j
-  real(dp):: dIt
-  !
-  ! initialize rt term
-  i = xidx
-  j = yidx
-  !
-  dIt  = I2du(i,j) - I2d(i,j)
-  !
-  rt_e = dIt*dIt
-end function
-!
-! Gradient of Dynamical Imaging (pixel-to-pixel)
-!
-real(dp) function rt_grade(xidx,yidx,I2d,I2dl,I2du,Nx,Ny)
-  implicit none
-  !
-  integer, intent(in)  :: Nx,Ny
-  integer, intent(in)  :: xidx, yidx
-  real(dp),intent(in)  :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
-  !
-  ! variables
-  integer :: i,j
-  !
-  ! initialize rt term
-  rt_grade = 0d0
-  !
-  ! take indice
-  i = xidx
-  j = yidx
-  !
-  rt_grade = rt_grade - 2*(I2du(i,j) - I2d(i,j))
-  rt_grade = rt_grade + 2*(I2d(i,j) - I2dl(i,j))
-  !
-end function
-!
 ! Centoroid Regularization
 !
 subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
@@ -611,6 +566,151 @@ subroutine comreg(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix)
   !$OMP END PARALLEL DO
 end subroutine
 !
+!-------------------------------------------------------------------------------
+! Regularization Function for Dynamical Imaging
+!-------------------------------------------------------------------------------
+!
+! Rt-distance from pixel-to-pixel
+!
+real(dp) function rt_e(xidx,yidx,zidx,I2d,I2du,Nx,Ny,Nz)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny,Nz,xidx,yidx,zidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2du(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  real(dp):: dIt
+  !
+  ! initialize rt term
+  i = xidx
+  j = yidx
+  !
+  if (zidx < Nz) then
+    dIt  = I2du(i,j) - I2d(i,j)
+    rt_e = dIt*dIt
+  end if
+end function
+!
+! Gradient of Rt-distance from pixel-to-pixel
+!
+real(dp) function rt_grade(xidx,yidx,zidx,I2d,I2dl,I2du,Nx,Ny,Nz)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny,Nz
+  integer, intent(in)  :: xidx, yidx, zidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  !
+  ! initialize rt term
+  rt_grade = 0d0
+  !
+  ! take indice
+  i = xidx
+  j = yidx
+  !
+  if (zidx > 1) then
+    rt_grade = rt_grade + 2*(I2d(i,j) - I2dl(i,j))
+  end if
+  if (zidx < Nz) then
+    rt_grade = rt_grade - 2*(I2du(i,j) - I2d(i,j))
+  end if
+  !
+end function
+!
+! Rt-distance from Kullback-Leibler divergence
+!
+real(dp) function rkl_e(xidx,yidx,zidx,I2d,I2du,Nx,Ny,Nz)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny,Nz,xidx,yidx,zidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2du(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  !
+  ! initialize rt term
+  i = xidx
+  j = yidx
+  !
+  if (zidx < Nz .and. I2d(i,j) /= 0 .and. I2du(i,j) /= 0) then
+    rkl_e  = I2d(i,j) * log(I2d(i,j)/I2du(i,j))
+  end if
+  !
+end function
+!
+! Gradient of Rt-distance from Kullback-Leibler divergence
+!
+real(dp) function rkl_grade(xidx,yidx,zidx,I2d,I2dl,I2du,Nx,Ny,Nz)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny,Nz
+  integer, intent(in)  :: xidx, yidx, zidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  !
+  ! initialize rt term
+  rkl_grade = 0d0
+  !
+  ! take indice
+  i = xidx
+  j = yidx
+  !
+  if (zidx > 1 .and. I2d(i,j) /= 0 .and. I2dl(i,j) /= 0) then
+    rkl_grade = rkl_grade + (1 + log(I2d(i,j)/I2dl(i,j)))
+  end if
+  if (zidx < Nz .and. I2d(i,j) /= 0) then
+    rkl_grade = rkl_grade - (I2du(i,j)/I2d(i,j))
+  end if
+  !
+end function
+!
+! Ri-distance (around the averaged image)
+!
+real(dp) function ri_e(xidx,yidx,I2d,Iavg2d,Nx,Ny)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny,xidx,yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),Iavg2d(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  real(dp):: dIi
+  !
+  ! initialize rt term
+  i = xidx
+  j = yidx
+  !
+  dIi  = Iavg2d(i,j) - I2d(i,j)
+  ri_e = dIi*dIi
+  !
+end function
+!
+! Gradient of Ri-distance (around the averaged image)
+!
+real(dp) function ri_grade(xidx,yidx,I2d,I2dl,I2du,Nx,Ny)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny
+  integer, intent(in)  :: xidx, yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  !
+  ! initialize rt term
+  ri_grade = 0d0
+  !
+  ! take indice
+  i = xidx
+  j = yidx
+  !
+  !
+end function
 !
 !-------------------------------------------------------------------------------
 ! A convinient function to compute regularization functions

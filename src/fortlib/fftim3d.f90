@@ -11,7 +11,7 @@ module fftim3d
                    tsv_e, tsv_grade,&
                    mem_e, mem_grade,&
                    comreg, zeroeps,&
-                   rt_e, rt_grade
+                   rt_e, rt_grade, rkl_e, rkl_grade
   !use image3d, only: I1d_I3d_fwd,I1d_I3d_inv
   implicit none
 contains
@@ -333,6 +333,7 @@ subroutine calc_cost(&
 
   ! allocatable arrays
   real(dp), allocatable :: I2d(:,:),I2dl(:,:),I2du(:,:),Iin_reg(:)
+  real(dp), allocatable :: Iavg(:), Iavg2d(:,:)
   real(dp), allocatable :: gradchisq2d(:,:)
   real(dp), allocatable :: gradreg(:)
   real(dp), allocatable :: Vresre(:),Vresim(:)
@@ -489,6 +490,19 @@ subroutine calc_cost(&
     call dcopy(Nparm,Iin,1,Iin_reg,1)
   end if
 
+  ! get an averaged image
+  allocate(Iavg(Npix))
+  allocate(Iavg2d(Nx,Ny))
+  Iavg(:) = 0d0
+  Iavg2d(:,:) = 0d0
+  do iz=1, Nz
+    Iavg = Iavg + Iin((iz-1)*Npix+1:iz*Npix)
+  end do
+  do ipix=1,Npix
+    Iavg(ipix) = Iavg(ipix)/Nz
+  end do
+  call I1d_I2d_fwd(xidx,yidx,Iavg,Iavg2d,Npix,Nx,Ny)
+
   !$OMP PARALLEL DO DEFAULT(SHARED) &
   !$OMP   FIRSTPRIVATE(Npix, Nz, lambl1, lambmem, lambtv, lambtsv,&
   !$OMP                Iin_reg, xidx, yidx) &
@@ -501,9 +515,15 @@ subroutine calc_cost(&
       allocate(I2dl(Nx,Ny))
       allocate(I2du(Nx,Ny))
       I2d(:,:)=0d0
+      I2dl(:,:)=0d0
+      I2du(:,:)=0d0
       call I1d_I2d_fwd(xidx,yidx,Iin_reg((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
-      if (iz > 1 .and. iz < Nz) then
+      ! get a former frame
+      if (iz > 1) then
         call I1d_I2d_fwd(xidx,yidx,Iin_reg((iz-2)*Npix+1:(iz-1)*Npix),I2dl,Npix,Nx,Ny)
+      end if
+      ! get a latter frame
+      if (iz < Nz) then
         call I1d_I2d_fwd(xidx,yidx,Iin_reg(iz*Npix+1:(iz+1)*Npix),I2du,Npix,Nx,Ny)
       end if
     end if
@@ -535,14 +555,17 @@ subroutine calc_cost(&
         gradreg(iparm) = gradreg(iparm) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
       end if
 
-      ! Dynamical(Rt)
+      ! Dynamical Imaging
       if (lambrt > 0) then
-        if (iz > 1) then
-          reg = reg + lambrt * rt_e(xidx(ipix),yidx(ipix),I2d,I2du,Nx,Ny)
-        end if
-        if (iz > 1 .and. iz < Nz) then
-          gradreg(iparm) = gradreg(iparm) + lambrt * rt_grade(xidx(ipix),yidx(ipix),I2d,I2dl,I2du,Nx,Ny)
-        end if
+        ! Rt-distance from pixel-to-pixel
+        reg = reg + lambrt * rt_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
+        gradreg(iparm) = gradreg(iparm) + lambrt * rt_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
+        ! Rt-distance from Kullback-Leibler divergence
+        !reg = reg + lambrt * rkl_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
+        !gradreg(iparm) = gradreg(iparm) + lambrt * rkl_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
+        ! Ri around the averaged image
+        !reg = reg + lambrt * ri_e(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
+        !gradreg(iparm) = gradreg(iparm) + lambrt * ri_grade(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
       end if
     end do
 
@@ -553,6 +576,7 @@ subroutine calc_cost(&
   end do
   !$OMP END PARALLEL DO
   deallocate(Iin_reg)
+  deallocate(Iavg,Iavg2d)
 
   ! multiply variable conversion factor to gradients
   if (transtype == 1) then
