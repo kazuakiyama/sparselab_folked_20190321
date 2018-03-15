@@ -1120,7 +1120,7 @@ class UVFITS(object):
                 fdata=self.visdata.data[idx_utc]
                 Vobs_real_itime = fdata[:,0,0,iif,ich,0,0]
                 Vobs_imag_itime = fdata[:,0,0,iif,ich,0,1]
-                sigma_itime     = fdata[:,0,0,iif,ich,0,2]
+                sigma_itime     = 1/np.sqrt(fdata[:,0,0,iif,ich,0,2])
                 del fdata
 
                 # get the corresponding model visibilities
