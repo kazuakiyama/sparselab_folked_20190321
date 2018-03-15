@@ -843,8 +843,8 @@ def plots(outimage, imageprm={}, filename=None,
                       **plotargs)                
         plt.axhline(0, color="black", ls="--")
         residcp = table["phase"] / np.rad2deg(table["sigma"] / table["amp"])
-        ymin = np.min(residcp) - np.abs(np.min(residcp))*0.01
-        ymax = np.max(residcp) + np.abs(np.max(residcp))*0.01
+        ymin = np.min(residcp)*1.1
+        ymax = np.max(residcp)*1.1
         plt.ylim(ymin,ymax)
         plt.ylabel("Normalized Residuals")
         plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
