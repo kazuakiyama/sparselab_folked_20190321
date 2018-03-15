@@ -11,8 +11,8 @@ module fftim3d
                    tsv_e, tsv_grade,&
                    mem_e, mem_grade,&
                    comreg, zeroeps,&
-                   rt_e, rt_grade, rkl_e, rkl_grade!,&
-                   !rint_s, gradrint_s
+                   rt_e, rt_grade, rkl_e, rkl_grade,&
+                   rid2, rid2_grad
   !use image3d, only: I1d_I3d_fwd,I1d_I3d_inv
   implicit none
 contains
@@ -578,17 +578,20 @@ subroutine calc_cost(&
 
       ! Dynamical Imaging
       if (lambrt > 0) then
-        ! Rt-distance from pixel-to-pixel
-        reg = reg + lambrt * rt_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
-        gradreg(iparm) = gradreg(iparm) + lambrt * rt_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
-        reg_frm(iz) = reg_frm(iz) + lambrt * rt_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
-        gradreg_frm(ipix,iz) = gradreg_frm(ipix,iz) + lambrt * rt_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
-        ! Rt-distance from Kullback-Leibler divergence
+        !! Rt-distance from pixel-to-pixel
+        !reg = reg + lambrt * rt_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
+        !gradreg(iparm) = gradreg(iparm) + lambrt * rt_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
+        !reg_frm(iz) = reg_frm(iz) + lambrt * rt_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
+        !gradreg_frm(ipix,iz) = gradreg_frm(ipix,iz) + lambrt * rt_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
+        !! Rt-distance from Kullback-Leibler divergence
         !reg = reg + lambrt * rkl_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
         !gradreg(iparm) = gradreg(iparm) + lambrt * rkl_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
-        ! Ri around the averaged image
-        !reg = reg + lambrt * ri_e(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
-        !gradreg(iparm) = gradreg(iparm) + lambrt * ri_grade(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
+        !! Ri around the averaged image
+        reg = reg + lambrt * rid2(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
+        gradreg(iparm) = gradreg(iparm) + lambrt * rid2_grad(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
+        reg_frm(iz) = reg_frm(iz) + lambrt * rid2(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
+        gradreg_frm(ipix,iz) = gradreg_frm(ipix,iz) + lambrt * rid2_grad(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
+
       end if
     end do
 

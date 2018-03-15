@@ -669,9 +669,9 @@ real(dp) function rkl_grade(xidx,yidx,zidx,I2d,I2dl,I2du,Nx,Ny,Nz)
   !
 end function
 !
-! Ri-distance (around the averaged image)
+! Ri with D2 distance (around the averaged image)
 !
-real(dp) function ri_e(xidx,yidx,I2d,Iavg2d,Nx,Ny)
+real(dp) function rid2(xidx,yidx,I2d,Iavg2d,Nx,Ny)
   implicit none
   !
   integer, intent(in)  :: Nx,Ny,xidx,yidx
@@ -679,36 +679,34 @@ real(dp) function ri_e(xidx,yidx,I2d,Iavg2d,Nx,Ny)
   !
   ! variables
   integer :: i,j
-  real(dp):: dIi
   !
   ! initialize rt term
   i = xidx
   j = yidx
   !
-  dIi  = Iavg2d(i,j) - I2d(i,j)
-  ri_e = dIi*dIi
+  rid2  = (Iavg2d(i,j) - I2d(i,j))**2
   !
 end function
 !
-! Gradient of Ri-distance (around the averaged image)
+! Gradient of Ri with D2 distance (around the averaged image)
 !
-real(dp) function ri_grade(xidx,yidx,I2d,I2dl,I2du,Nx,Ny)
+real(dp) function rid2_grad(xidx,yidx,I2d,Iavg2d,Nx,Ny)
   implicit none
   !
-  integer, intent(in)  :: Nx,Ny
-  integer, intent(in)  :: xidx, yidx
-  real(dp),intent(in)  :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
+  integer, intent(in)  :: Nx,Ny,xidx, yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),Iavg2d(Nx,Ny)
   !
   ! variables
   integer :: i,j
   !
   ! initialize rt term
-  ri_grade = 0d0
+  rid2_grad = 0d0
   !
   ! take indice
   i = xidx
   j = yidx
   !
+  rid2_grad = 2 * (I2d(i,j) - Iavg2d(i,j))
   !
 end function
 !
