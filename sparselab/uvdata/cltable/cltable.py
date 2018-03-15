@@ -54,7 +54,7 @@ class CLTable(object):
             utc = sorted(set(utc)) # remove duplicated
             #print(utc)
 
-            utc = at.Time(utc, scale="utc")
+            #utc = at.Time(utc, scale="utc")
 
             # dictionaryの"utc"の名前にutcの値を格納
             self.gaintabs[subarrid]["utc"]=utc
