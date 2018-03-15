@@ -1973,8 +1973,8 @@ class ArrayData(object):
         self.antable_cols = self.antable_cols.split(",")
         self.antable = pd.DataFrame(columns=self.antable_cols)
         self.anorbparm = np.zeros([0,0]) # Nant, Orbital Parmeters
-        self.anpolcalA = np.zeros([0,0,0]) # Nant, Npcal, NO_IF
-        self.anpolcalB = np.zeros([0,0,0]) # Nant, Npcal, NO_IF
+        self.anpolcalA = np.zeros([0,0]) # Nant, Npcal*NO_IF
+        self.anpolcalB = np.zeros([0,0]) # Nant, Npcal*NO_IF
 
     def check(self):
         '''
@@ -1994,9 +1994,11 @@ class ArrayData(object):
         if dofreq == 0:
             self.header["NO_IF"]=1
             if self.header["NOPCAL"] != 0:
-                Nant, Npcal, NIF = self.anpolcalA.shape
-                self.anpolcalA = self.anpolcalA[:,:,0].reshape([Nant,Npcal,1])
-                self.anpolcalB = self.anpolcalB[:,:,0].reshape([Nant,Npcal,1])
+                Nant, Nif = self.anpolcalA.shape
+                Npcal = self.header["NOPCAL"]
+                Nif = Nif//Npcal
+                self.anpolcalA = self.anpolcalA.reshape([Nant,Npcal*Nif])
+                self.anpolcalB = self.anpolcalB.reshape([Nant,Npcal*Nif])
 
 
     def __repr__(self):
