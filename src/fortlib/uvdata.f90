@@ -1,13 +1,14 @@
 module uvdata
   !$use omp_lib
   use param, only: dp, sp, shug, seps
+  use interp, only: spline, splintvec
   implicit none
 contains
 !
 ! average
 !
-subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
-                   uvdataout,isdata,&
+subroutine average(uvdata,u,v,w,tin,tout,start,end,solint,minpoint, &
+                   uvdataout,uout,vout,wout,isdata,&
                    Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx)
   ! Number of Data
   integer, intent(in) :: Nstokes,Nch,Nif,Nra,Ndec,Ndata
@@ -18,11 +19,13 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
   integer, intent(in) :: minpoint   ! minimum points that data will be averaged
   ! Input Data
   real(sp), intent(in) :: uvdata(3,Nstokes,Nch,Nif,Nra,Ndec,Ndata)
+  real(dp), intent(in) :: u(Ndata), v(Ndata), w(Ndata) ! uvw coordinates
   real(dp), intent(in) :: tin(Ndata)! UTC time of the input data
   real(dp), intent(in) :: tout(Nt)  ! UTC time of the output data
   integer, intent(in) :: start(Nidx), end(Nidx) ! start/end index of each baseline & source
   ! Output Data
   real(sp), intent(out) :: uvdataout(3,Nstokes,Nch,Nif,Nra,Ndec,Nidx*Nt)
+  real(dp), intent(out) :: uout(Nidx*Nt),vout(Nidx*Nt),wout(Nidx*Nt)
   logical, intent(out) :: isdata(Nidx*Nt)
 
   integer :: i1,i2,i3,i4,i5,i6,i7,idx,it
@@ -30,28 +33,48 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
   integer, allocatable:: cnt(:,:,:,:,:)
   real(sp), allocatable:: vrsum(:,:,:,:,:),visum(:,:,:,:,:),wsum(:,:,:,:,:)
   real(sp), allocatable:: uvdatatmp(:,:,:,:,:,:,:)
-  real(dp), allocatable:: tintmp(:)
+  real(dp), allocatable:: tintmp(:),uvwtmp1(:),uvwtmp2(:)
 
   ! initialize arrays
   uvdataout(:,:,:,:,:,:,:) = 0.0
   isdata(:) = .False.
 
   !!$OMP PARALLEL DO DEFAULT(SHARED)&
-  !!$OMP   FIRSTPRIVATE(tout,solint,minpoint,start,end,&
+  !!$OMP   FIRSTPRIVATE(tout,solint,minpoint,start,end,u,v,w,&
   !!$OMP                Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx) &
   !!$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,idx,it,Ndata_idx,&
-  !!$OMP           uvdatatmp,tintmp,cnt,vrsum,visum,wsum) &
-  !!$OMP   REDUCTION(+:uvdataout)
+  !!$OMP           uvdatatmp,uvwtmp1,uvwtmp2,tintmp,cnt,vrsum,visum,wsum) &
+  !!$OMP   REDUCTION(+:uvdataout,uout,vout,wout)
   do idx=1, Nidx
     Ndata_idx = end(idx) - start(idx) + 1
 
-    ! allocate and initialize arrays
+    ! temporal time data for this particular data index
+    allocate(tintmp(Ndata_idx))
+    tintmp(1:Ndata_idx) = tin(start(idx):end(idx))
+
+    ! Interpolate uvw coordinates
+    !   allocate arrays
+    allocate(uvwtmp1(Ndata_idx),uvwtmp2(Ndata_idx))
+    !   U coodinates
+    uvwtmp1(1:Ndata_idx) = u(start(idx):end(idx))
+    call spline(tintmp, uvwtmp1, 1d30, 1d30, uvwtmp2, Ndata_idx)
+    call splintvec(tintmp,uvwtmp1,uvwtmp2,tout,uout((idx-1)*Nt+1:idx*Nt),Ndata_idx,Nt)
+    !   V coodinates
+    uvwtmp1(1:Ndata_idx) = v(start(idx):end(idx))
+    call spline(tintmp, uvwtmp1, 1d30, 1d30, uvwtmp2, Ndata_idx)
+    call splintvec(tintmp,uvwtmp1,uvwtmp2,tout,vout((idx-1)*Nt+1:idx*Nt),Ndata_idx,Nt)
+    !   W coodinates
+    uvwtmp1(1:Ndata_idx) = w(start(idx):end(idx))
+    call spline(tintmp, uvwtmp1, 1d30, 1d30, uvwtmp2, Ndata_idx)
+    call splintvec(tintmp,uvwtmp1,uvwtmp2,tout,wout((idx-1)*Nt+1:idx*Nt),Ndata_idx,Nt)
+    !   deallocate arrays
+    deallocate(uvwtmp1,uvwtmp2)
+
+    ! allocate and initialize arrays for averaging uvw data
     !   temporal input data for this particular data index
     allocate(uvdatatmp(3,Nstokes,Nch,Nif,Nra,Ndec,Ndata_idx))
     uvdatatmp(:,:,:,:,:,:,1:Ndata_idx) = uvdata(:,:,:,:,:,:,start(idx):end(idx))
-    !   temporal time data for this particular data index
-    allocate(tintmp(Ndata_idx))
-    tintmp(1:Ndata_idx) = tin(start(idx):end(idx))
+    !
     !   This is a counter that how many data points are included in a specific
     !   time segment
     allocate(cnt(Nstokes,Nch,Nif,Nra,Ndec))
@@ -59,7 +82,7 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
     allocate(vrsum(Nstokes,Nch,Nif,Nra,Ndec))
     allocate(visum(Nstokes,Nch,Nif,Nra,Ndec))
     allocate(wsum(Nstokes,Nch,Nif,Nra,Ndec))
-
+    !
     ! Take weighted sum for each time segments
     do it=1, Nt
       ! allocate and initialize arrays
@@ -67,7 +90,7 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
       vrsum=0d0
       visum=0d0
       wsum=0d0
-
+      !
       ! take weighted sum
       do i1=1,Ndata_idx
         ! if data is not in the time segment covered by tout(it), skip all precedure
@@ -112,19 +135,18 @@ subroutine average(uvdata,tin,tout,start,end,solint,minpoint, &
       elsewhere
         cnt = 0
       end where
-
+      !
       ! copy results to output array
       uvdataout(1,:,:,:,:,:,(idx-1)*Nt+it)=vrsum(:,:,:,:,:)
       uvdataout(2,:,:,:,:,:,(idx-1)*Nt+it)=visum(:,:,:,:,:)
       uvdataout(3,:,:,:,:,:,(idx-1)*Nt+it)=wsum(:,:,:,:,:)
-
+      !
       ! check if data exists
       if (sum(cnt) > 0) then
         isdata((idx-1)*Nt+it) = .True.
       end if
     end do ! Nt
-    deallocate(cnt,vrsum,visum,wsum)
-    deallocate(uvdatatmp,tintmp)
+    deallocate(uvdatatmp,tintmp,vrsum,visum,wsum,cnt)
   end do ! Nidx
   !!$OMP END PARALLEL DO
 end subroutine
