@@ -1085,18 +1085,25 @@ class UVFITS(object):
         return Vreal,Vimag
 
 
-##########
-# main
-    def selfcal(self,imfits):
+    def selfcal(self,imodel=imfits):
         '''
-
+        self calibration: 
+          This function is currently designed for selfcalibration of
+          single polarization (LL, RR, I) or dual polarization (RR+LL, XX+YY).
+          
+          For dual polarization, we assume that I = LL = RR = XX = YY,
+          which means no circlar polariztion for L/R data, and no linear polarization
+          for X/Y data.
         '''
         print("Initialize CL Table")
         cltable = CLTable(self)
-
+        
         print("Compute Model Visibilities")
-        Vmodel_real,Vmodel_imag = self.get_vismodel(imfits)
-
+        Vmodel_real,Vmodel_imag = self.get_vismodel(imodel)
+        
+        # get utc of data
+        utc = np.datetime_as_string(self.visdata.coord["utc"])
+        
         # Run selfcal for each subarray
         subarrids = self.subarrays.keys()
         for subarrid in subarrids:
@@ -1106,32 +1113,40 @@ class UVFITS(object):
             # get the number of data along each dimension
             Ntime,Nif,Nch,Nstokes,Nant,Ncomp = cltable.gaintabs[subarrid]["gain"].shape
 
-            # get utc and utc-set
-            utc = np.datetime_as_string(self.visdata.coord["utc"])
+            # get utc information
             utcset = cltable.gaintabs[subarrid]["utc"]
-
             for itime,iif,ich,istokes in itertools.product(xrange(Ntime),xrange(Nif),xrange(Nch),xrange(Nstokes)):
                 # data index of the current time
-                idx_utc = utc[:] == utcset[itime]
+                idx_utc = utc == utcset[itime]
                 idx_utc &= idx_subarr
                 idx_utc = np.where(idx_utc)
 
                 # get the current full complex visibilities
                 fdata=self.visdata.data[idx_utc]
-                Vobs_real_itime = fdata[:,0,0,iif,ich,0,0]
-                Vobs_imag_itime = fdata[:,0,0,iif,ich,0,1]
-                sigma_itime     = 1/np.sqrt(fdata[:,0,0,iif,ich,0,2])
+                Vobs_real_itime = fdata[:,0,0,iif,ich,istokes,0]
+                Vobs_imag_itime = fdata[:,0,0,iif,ich,istokes,1]
+                sigma_itime     = 1/np.sqrt(fdata[:,0,0,iif,ich,istokes,2])
                 del fdata
+                
+                # check if data are not flagged
+                idx_flag = np.isnan(sigma_itime)
+                idx_flag|= sigma_itime > 0
+                idx_flag|= np.isinf(sigma_itime)
+                idx_flag = np.where(idx_flag==False)
+                
+                # reselect data
+                Vobs_real_itime = Vobs_real_itime[idx_flag]
+                Vobs_imag_itime = Vobs_imag_itime[idx_flag]
+                sigma_itime     = sigma_itime[idx_flag]
 
                 # get the corresponding model visibilities
-                Vmodel_real_itime = Vmodel_real[idx_utc]
-                Vmodel_imag_itime = Vmodel_imag[idx_utc]
+                Vmodel_real_itime = Vmodel_real[idx_utc][idx_flag]
+                Vmodel_imag_itime = Vmodel_imag[idx_utc][idx_flag]
 
                 # antenna ids
-                ant1_itime   = self.visdata.coord.ant1.values[idx_utc]
-                ant2_itime   = self.visdata.coord.ant2.values[idx_utc]
+                ant1_itime   = self.visdata.coord.ant1.values[idx_utc][idx_flag]
+                ant2_itime   = self.visdata.coord.ant2.values[idx_utc][idx_flag]
                 Ndata_itime  = len(ant1_itime)
-
 
                 # non-redundant set of antenna ids
                 antset_itime = sorted(set(ant1_itime.tolist()+ant2_itime.tolist()))
@@ -1140,14 +1155,14 @@ class UVFITS(object):
                 # create dictionary of antenna ids
                 ant1id = [antset_itime.index(ant1_itime[i]) for i in xrange(Ndata_itime)]
                 ant2id = [antset_itime.index(ant2_itime[i]) for i in xrange(Ndata_itime)]
-
+                
                 # compute wij and Xij
                 w_itime = np.sqrt(Vmodel_real_itime**2+Vmodel_imag_itime**2)
                 w_itime/= sigma_itime
                 X_itime = (Vobs_real_itime+1j*Vobs_imag_itime)/(Vmodel_real_itime+1j*Vmodel_imag_itime)
                 del Vobs_real_itime, Vobs_imag_itime, sigma_itime
                 del Vmodel_real_itime, Vmodel_imag_itime
-
+                
                 # (Tentative) initilize gains
 #                gain0r = cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime-1,0]
 #                gain0i = cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime-1,1]
@@ -1157,40 +1172,40 @@ class UVFITS(object):
 
                 if Ndata_itime > Nant_itime:
                     result = leastsq(
-                        error_func, gain0, #Dfun=error_dfunc
+                        _selfcal_error_func, gain0, Dfun=_selfcal_error_dfunc,
                         args=(ant1id,ant2id,w_itime,X_itime,Nant_itime,Ndata_itime))
-
-                # make cltable
-                g = result[0]
-                for i in xrange(Nant_itime):
-                    cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime[i]-1,0]= g[i]
-                    cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime[i]-1,1]= g[i+Nant_itime]
+                    
+                    # make cltable
+                    g = result[0]
+                    for i in xrange(Nant_itime):
+                        cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime[i]-1,0]= g[i]
+                        cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime[i]-1,1]= g[i+Nant_itime]
         return cltable
 
 
-    # model visibilityの導入
-    def vis_calibration(self,cltable):
+    def apply_cltable(self,cltable):
 
         #def get_vis_correction(self,imfits,cltable):
         subarrids = self.subarrays.keys()
 
         # make uvfits for corrected visibility
-        uvfitscor = copy.deepcopy(self)
+        outfits = copy.deepcopy(self)
+
+        # get utc
+        utc = np.datetime_as_string(self.visdata.coord["utc"])
 
         # get full complex visibilities
-        fdata=uvfitscor.visdata.data
-        Vobs_real = fdata[:,:,:,:,:,:,0]
-        Vobs_imag = fdata[:,:,:,:,:,:,1]
-        Vobs_comp = Vobs_real + 1j*Vobs_imag
-        sigma     = fdata[:,:,:,:,:,:,2]
+        fdata=outfits.visdata.data
+        Ndata,Ndec,Nra,Nif,Nch,Nstokes,Ncomp = fdata.shape
+        Vobs_comp = fdata[:,:,:,:,:,:,0] + 1j*fdata[:,:,:,:,:,:,1]
+        weight    = fdata[:,:,:,:,:,:,2]
         del fdata,Vobs_real,Vobs_imag
 
         for subarrid in subarrids:
             # get the number of data along each dimension
-            Ntime,Nif,Nch,Nstokes,Nant,Ncomp = cltable.gaintabs[subarrid]["gain"].shape
+            Ntime,dammy,dammy,dammy,Nant,Ncomp = cltable.gaintabs[subarrid]["gain"].shape
 
             # get utc, utc-set, and utc-group
-            utc = np.datetime_as_string(self.visdata.coord["utc"])
             utcset = cltable.gaintabs[subarrid]["utc"]
             utcgroup = pd.DataFrame({"utc": utc}).groupby("utc")
 
@@ -1198,11 +1213,11 @@ class UVFITS(object):
             gain = cltable.gaintabs[subarrid]["gain"]
 
             # get antenna ids
-            ant1 = uvfitscor.visdata.coord.ant1.values
-            ant2 = uvfitscor.visdata.coord.ant2.values
+            ant1 = outfits.visdata.coord.ant1.values
+            ant2 = outfits.visdata.coord.ant2.values
             antset = sorted(set(ant1.tolist()+ant2.tolist()))
 
-            for itime, iant in itertools.product(xrange(Ntime),xrange(Nant)):
+            for itime, istokes, iant in itertools.product(xrange(Ntime),xrange(Nstokes),xrange(Nant)):
                 # data index of the current time and antenna
                 idx = set(tuple(utcgroup.groups[utcset[itime]]))
                 idx1 = np.where(ant1==antset[iant])
@@ -1215,21 +1230,27 @@ class UVFITS(object):
                 idx2 = list(idx2)
 
                 # gain of the current time and antenna
-                g = gain[itime,:,:,:,iant,0] + 1j*gain[itime,:,:,:,iant,1]
-                gc = np.conj(g)
-
+                if istokes <2: # dual polarization
+                    # compute gains
+                    gic = gain[itime,:,:,istokes,iant,0] - 1j*gain[itime,:,:,istokes,iant,1]
+                    gj = np.conj(gic)
+                elif istokes == 2: # this must be RL or XY
+                    gic = gain[itime,:,:,0,iant,0] - 1j*gain[itime,:,:,0,iant,1]
+                    gj = gain[itime,:,:,1,iant,0] + 1j*gain[itime,:,:,1,iant,1]
+                elif istokes == 3: # this must be LR or YX
+                    gic = gain[itime,:,:,1,iant,0] - 1j*gain[itime,:,:,1,iant,1]
+                    gj = gain[itime,:,:,0,iant,0] + 1j*gain[itime,:,:,0,iant,1]
+                
                 # calibrated visibility
-                Vobs_comp[idx1] /= g
-#                wcmp1 = 1./(sigma[idx1]*sigma[idx1])
-#                wcmp1 *= g*gc
-                Vobs_comp[idx2] /= gc
-#                wcmp2 = 1./(sigma[idx2]*sigma[idx2])
-#                wcmp2 *= g*gc
+                Vobs_comp[idx1,:,:,:,:,istokes] /= gic
+                Vobs_comp[idx2,:,:,:,:,istokes] /= gj
+                weight[idx1,:,:,:,:,istokes] *= np.abs(gic)**2
+                weight[idx2,:,:,:,:,istokes] *= np.abs(gj)**2
+        outfits.visdata.data[:,:,:,:,:,:,0] = np.real(Vobs_comp)
+        outfits.visdata.data[:,:,:,:,:,:,1] = np.imag(Vobs_comp)
+        outfits.visdata.data[:,:,:,:,:,:,2] = weight
 
-        uvfitscor.visdata.data[:,:,:,:,:,:,0] = np.real(Vobs_comp)
-        uvfitscor.visdata.data[:,:,:,:,:,:,1] = np.imag(Vobs_comp)
-
-        return uvfitscor
+        return outfits
 
 
     def uvavg(self, solint=10, minpoint=2):
@@ -1869,71 +1890,39 @@ class VisibilityData(object):
         self.coord.reset_index(drop=True, inplace=True)
         prt("VisData.sort: Data have been sorted by %s"%(", ".join(by)),indent)
 
-def error_func(gain,ant1,ant2,w,X,Nant,Ndata):
+
+def _selfcal_error_func(gain,ant1,ant2,w,X,Nant,Ndata):
     g1 = np.asarray([gain[ant1[i]]-1j*gain[Nant+ant1[i]] for i in xrange(Ndata)])
     g2 = np.asarray([gain[ant2[i]]+1j*gain[Nant+ant2[i]] for i in xrange(Ndata)])
     dV = w*(X-g1*g2)
     return np.hstack([np.real(dV),np.imag(dV)])
 
-def dfuncdg(gain,Nid_ant1,Nid_ant2,w_itime,Xreal_itime,Ximag_itime):
-    ddVrealdgreal=np.zeros((Nid_ant1*Nid_ant2))
-    ddVimagdgreal=np.zeros((Nid_ant1*Nid_ant2))
-    ddVrealdgimag=np.zeros((Nid_ant1*Nid_ant2))
-    ddVimagdgimag=np.zeros((Nid_ant1*Nid_ant2))
 
-    id_antk_prev=0
-    N=-1
-    for id_antk in xrange(0,Nid_ant1+1):
-        for id_ant1,id_ant2 in itertools.product(xrange(0,Nid_ant1),xrange(0,Nid_ant2)):
-            if id_antk==id_antk_prev+1:
-                id_antk_prev=id_antk_prev+1
-                N=-1
-
-            greal1 = gain[id_ant1]
-            gimag1 = gain[id_ant1+Nid_ant1+1]  #Nid_ant1+1=Nid_ant 全アレイの総数
-            greal2 = gain[1+id_ant2]
-            gimag2 = gain[1+id_ant2+Nid_ant2+1]
-
-            A111 = 0
-            A121 = 0
-            A211 = 0
-            A221 = 0
-            A112 = 0
-            A122 = 0
-            A212 = 0
-            A222 = 0
-            w=w_itime[id_ant1,id_ant2]
-            if id_ant1==id_antk:
-                A111 =  greal2
-                A121 =  gimag2
-                A211 =  gimag2
-                A221 = -greal2
-            if id_ant2==id_antk-1:
-                A112 =  greal1
-                A122 = -gimag1
-                A212 =  gimag1
-                A222 =  greal1
-            if id_ant2== 0:
-                N=N+1
-
-            ddVrealdgreal[id_ant2+N*Nid_ant1] = -w*(A111+A112)
-            ddVimagdgreal[id_ant2+N*Nid_ant1] = -w*(A121+A122)
-            ddVdgreal=np.concatenate([ddVrealdgreal,ddVimagdgreal],axis=0)
-
-            ddVrealdgimag[id_ant2+N*Nid_ant1] = w*(A211+A212)
-            ddVimagdgimag[id_ant2+N*Nid_ant1] = w*(A221+A222)
-            ddVdgimag=np.concatenate([ddVrealdgimag,ddVimagdgimag],axis=0)
-
-        if id_antk==0:
-            ddVdgreal_conv= np.array([ddVdgreal])
-            ddVdgimag_conv= np.array([ddVdgimag])
-        if id_antk>0:
-            ddVdgreal_conv=np.concatenate([ddVdgreal_conv,np.array([ddVdgreal])],axis=0)
-            ddVdgimag_conv=np.concatenate([ddVdgimag_conv,np.array([ddVdgimag])],axis=0)
-
-    ddVdgconv = np.concatenate([ddVdgreal_conv,ddVdgimag_conv],axis=0)
-
-    return ddVdgconv.T
+def _selfcal_error_dfunc(gain,ant1,ant2,w,X,Nant,Ndata):
+    ddV = np.zeros([Nant*2,Ndata*2])
+    for idata in xrange(Ndata):
+        # antenna id
+        i = ant1[idata]
+        j = ant2[idata]
+        
+        # gains
+        gr_i = gain[i] 
+        gi_i = gain[i+Nant]
+        gj_i = gain[j] 
+        gj_i = gain[j+Nant]
+        
+        ddV[i     ,idata]       = -w[idata]*gr_j # d(Vreal)/d(gr_i)
+        ddV[i     ,idata+Ndata] = -w[idata]*gi_j # d(Vimag)/d(gr_i)
+        
+        ddV[j     ,idata]       = -w[idata]*gr_i # d(Vreal)/d(gr_j)
+        ddV[j     ,idata+Ndata] = +w[idata]*gi_i # d(Vimag)/d(gr_j)
+        
+        ddV[i+Nant,idata]       = -w[idata]*gi_j # d(Vreal)/d(gi_i)
+        ddV[i+Nant,idata+Ndata] = +w[idata]*gr_j # d(Vimag)/d(gi_i)
+        
+        ddV[j+Nant,idata]       = -w[idata]*gi_i # d(Vreal)/d(gi_j)
+        ddV[j+Nant,idata+Ndata] = -w[idata]*gr_i # d(Vimag)/d(gi_j)
+    return ddV
 
 
 
