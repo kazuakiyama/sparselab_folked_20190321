@@ -11,7 +11,8 @@ module fftim3d
                    tsv_e, tsv_grade,&
                    mem_e, mem_grade,&
                    comreg, zeroeps,&
-                   rt_e, rt_grade, rkl_e, rkl_grade
+                   rt_e, rt_grade, rkl_e, rkl_grade!,&
+                   !rint_s, gradrint_s
   !use image3d, only: I1d_I3d_fwd,I1d_I3d_inv
   implicit none
 contains
@@ -329,7 +330,8 @@ subroutine calc_cost(&
   integer :: ipix, iz, iparm, istart, iend
 
   ! chisquares, gradients of each term of equations
-  real(dp) :: chisq, reg  ! chisquare and regularization
+  real(dp) :: chisq, reg                 ! chisquare and regularization
+  real(dp) :: rint_s                     ! regularization for interpolation
 
   ! allocatable arrays
   real(dp), allocatable :: I2d(:,:),I2dl(:,:),I2du(:,:),Iin_reg(:)
@@ -338,6 +340,7 @@ subroutine calc_cost(&
   real(dp), allocatable :: gradreg(:)
   real(dp), allocatable :: Vresre(:),Vresim(:)
   complex(dpc), allocatable :: Vcmp(:)
+  real(dp), allocatable :: reg_frm(:), gradreg_frm(:,:), gradrint_s(:)
 
   !------------------------------------
   ! Initialize outputs, and some parameters
@@ -469,11 +472,12 @@ subroutine calc_cost(&
   ! end if
 
   !------------------------------------
-  ! 2D Regularization Functions
+  ! 2D & 3D Regularization Functions
   !------------------------------------
   ! Initialize
   !   scalars
   reg = 0d0
+
   !   allocatable arrays
   allocate(gradreg(Nparm),Iin_reg(Nparm))
   gradreg(:) = 0d0
@@ -490,7 +494,8 @@ subroutine calc_cost(&
     call dcopy(Nparm,Iin,1,Iin_reg,1)
   end if
 
-  ! get an averaged image
+  ! 3D regularizers
+  !   get an 3D averaged image
   allocate(Iavg(Npix))
   allocate(Iavg2d(Nx,Ny))
   Iavg(:) = 0d0
@@ -503,10 +508,18 @@ subroutine calc_cost(&
   end do
   call I1d_I2d_fwd(xidx,yidx,Iavg,Iavg2d,Npix,Nx,Ny)
 
+  !   scalars
+  rint_s = 0d0
+
+  !   arrays
+  allocate(reg_frm(Nz),gradreg_frm(Npix,Nz))
+  reg_frm(:) = 0d0
+  gradreg_frm(:,:) = 0d0
+
   !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Npix, Nz, lambl1, lambmem, lambtv, lambtsv,&
+  !$OMP   FIRSTPRIVATE(Npix, Nz, lambl1, lambmem, lambtv, lambtsv, lambrt&
   !$OMP                Iin_reg, xidx, yidx) &
-  !$OMP   PRIVATE(iz, ipix, iparm, I2d, I2dl, I2du) &
+  !$OMP   PRIVATE(iz, ipix, iparm, I2d, I2dl, I2du, reg_frm, gradreg_frm) &
   !$OMP   REDUCTION(+: reg, gradreg)
   do iz=1, Nz
     ! allocate 2d image if lambtv/tsv > 0
@@ -517,6 +530,7 @@ subroutine calc_cost(&
       I2d(:,:)=0d0
       I2dl(:,:)=0d0
       I2du(:,:)=0d0
+
       call I1d_I2d_fwd(xidx,yidx,Iin_reg((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
       ! get a former frame
       if (iz > 1) then
@@ -535,24 +549,32 @@ subroutine calc_cost(&
       if (lambl1 > 0) then
         reg = reg + lambl1 * l1_e(Iin_reg(iparm))
         gradreg(iparm) = gradreg(iparm) + lambl1 * l1_grade(Iin_reg(iparm))
+        reg_frm(iz) = reg_frm(iz) + lambl1 * l1_e(Iin_reg(iparm))
+        gradreg_frm(ipix,iz) = gradreg_frm(ipix,iz) + lambl1 * l1_grade(Iin_reg(iparm))
       end if
 
       ! MEM
       if (lambmem > 0) then
         reg = reg + lambmem * mem_e(Iin_reg(iparm))
         gradreg(iparm) = gradreg(iparm) + lambmem * mem_grade(Iin_reg(iparm))
+        reg_frm(iz) = reg_frm(iz) + lambmem * mem_e(Iin_reg(iparm))
+        gradreg_frm(ipix,iz) = gradreg_frm(ipix,iz) + lambmem * mem_grade(Iin_reg(iparm))
       end if
 
       ! TV
       if (lambtv > 0) then
         reg = reg + lambtv * tv_e(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
         gradreg(iparm) = gradreg(iparm) + lambtv * tv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
+        reg_frm(iz) = reg_frm(iz) + lambtv * tv_e(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
+        gradreg_frm(ipix,iz) = gradreg_frm(ipix,iz) + lambtv * tv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
       end if
 
       ! TSV
       if (lambtsv > 0) then
         reg = reg + lambtsv * tsv_e(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
         gradreg(iparm) = gradreg(iparm) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
+        reg_frm(iz) = reg_frm(iz) + lambtsv * tsv_e(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
+        gradreg_frm(ipix,iz) = gradreg_frm(ipix,iz) + lambtsv * tsv_grade(xidx(ipix),yidx(ipix),I2d,Nx,Ny)
       end if
 
       ! Dynamical Imaging
@@ -560,6 +582,8 @@ subroutine calc_cost(&
         ! Rt-distance from pixel-to-pixel
         reg = reg + lambrt * rt_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
         gradreg(iparm) = gradreg(iparm) + lambrt * rt_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
+        reg_frm(iz) = reg_frm(iz) + lambrt * rt_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
+        gradreg_frm(ipix,iz) = gradreg_frm(ipix,iz) + lambrt * rt_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
         ! Rt-distance from Kullback-Leibler divergence
         !reg = reg + lambrt * rkl_e(xidx(ipix),yidx(ipix),iz,I2d,I2du,Nx,Ny,Nz)
         !gradreg(iparm) = gradreg(iparm) + lambrt * rkl_grade(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
@@ -577,6 +601,38 @@ subroutine calc_cost(&
   !$OMP END PARALLEL DO
   deallocate(Iin_reg)
   deallocate(Iavg,Iavg2d)
+
+  !-------------------------------------------------------------------------------
+  ! Constraints for interpolation between frames
+  !-------------------------------------------------------------------------------
+  !
+  if (lambrt > 0) then
+    allocate(gradrint_s(Nparm))
+    gradrint_s(:) = 0d0
+
+    ! continuity of image entropy
+    do iz=1, Nz
+      if (iz > 1) then
+        rint_s = rint_s + (reg_frm(iz) - reg_frm(iz-1))**2
+      end if
+      do ipix=1, Npix
+        iparm = (iz-1)*Npix + ipix
+        if (iz > 1) then
+          gradrint_s(iparm) = gradrint_s(iparm) + 2*(reg_frm(iz) - reg_frm(iz-1))
+        end if
+        if (iz < Nz) then
+          gradrint_s(iparm) = gradrint_s(iparm) + (reg_frm(iz) - reg_frm(iz+1))*gradreg_frm(ipix,iz)
+        end if
+      end do
+    end do
+    reg = reg + rint_s
+    gradreg = gradreg + gradrint_s
+    !
+    deallocate(reg_frm,gradreg_frm)
+    deallocate(gradrint_s)
+    ! continuity of total flux
+  end if
+  !
 
   ! multiply variable conversion factor to gradients
   if (transtype == 1) then

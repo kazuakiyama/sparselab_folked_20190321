@@ -712,6 +712,7 @@ real(dp) function ri_grade(xidx,yidx,I2d,I2dl,I2du,Nx,Ny)
   !
 end function
 !
+!
 !-------------------------------------------------------------------------------
 ! A convinient function to compute regularization functions
 ! for python interfaces
