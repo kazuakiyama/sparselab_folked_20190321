@@ -1085,7 +1085,7 @@ class UVFITS(object):
         return Vreal,Vimag
 
 
-    def selfcal(self,imodel=imfits):
+    def selfcal(self,imodel):
         '''
         self calibration: 
           This function is currently designed for selfcalibration of
@@ -1130,7 +1130,7 @@ class UVFITS(object):
                 
                 # check if data are not flagged
                 idx_flag = np.isnan(sigma_itime)
-                idx_flag|= sigma_itime > 0
+                idx_flag|= sigma_itime < 0
                 idx_flag|= np.isinf(sigma_itime)
                 idx_flag = np.where(idx_flag==False)
                 
@@ -1199,7 +1199,7 @@ class UVFITS(object):
         Ndata,Ndec,Nra,Nif,Nch,Nstokes,Ncomp = fdata.shape
         Vobs_comp = fdata[:,:,:,:,:,:,0] + 1j*fdata[:,:,:,:,:,:,1]
         weight    = fdata[:,:,:,:,:,:,2]
-        del fdata,Vobs_real,Vobs_imag
+        del fdata
 
         for subarrid in subarrids:
             # get the number of data along each dimension
@@ -1899,7 +1899,7 @@ def _selfcal_error_func(gain,ant1,ant2,w,X,Nant,Ndata):
 
 
 def _selfcal_error_dfunc(gain,ant1,ant2,w,X,Nant,Ndata):
-    ddV = np.zeros([Nant*2,Ndata*2])
+    ddV = np.zeros([Ndata*2,Nant*2])
     for idata in xrange(Ndata):
         # antenna id
         i = ant1[idata]
@@ -1908,20 +1908,19 @@ def _selfcal_error_dfunc(gain,ant1,ant2,w,X,Nant,Ndata):
         # gains
         gr_i = gain[i] 
         gi_i = gain[i+Nant]
-        gj_i = gain[j] 
-        gj_i = gain[j+Nant]
+        gr_j = gain[j] 
+        gi_j = gain[j+Nant]
         
-        ddV[i     ,idata]       = -w[idata]*gr_j # d(Vreal)/d(gr_i)
-        ddV[i     ,idata+Ndata] = -w[idata]*gi_j # d(Vimag)/d(gr_i)
+        ddV[idata,       i]      = -w[idata]*gr_j # d(Vreal)/d(gr_i)
+        ddV[idata,       j]      = -w[idata]*gr_i # d(Vreal)/d(gr_j)
+        ddV[idata,       i+Nant] = -w[idata]*gi_j # d(Vreal)/d(gi_i)
+        ddV[idata,       j+Nant] = -w[idata]*gi_i # d(Vreal)/d(gi_j)
         
-        ddV[j     ,idata]       = -w[idata]*gr_i # d(Vreal)/d(gr_j)
-        ddV[j     ,idata+Ndata] = +w[idata]*gi_i # d(Vimag)/d(gr_j)
+        ddV[idata+Ndata, i]      = -w[idata]*gi_j # d(Vimag)/d(gr_i)
+        ddV[idata+Ndata, j]      = +w[idata]*gi_i # d(Vimag)/d(gr_j)
+        ddV[idata+Ndata, i+Nant] = +w[idata]*gr_j # d(Vimag)/d(gi_i)
+        ddV[idata+Ndata, j+Nant] = -w[idata]*gr_i # d(Vimag)/d(gi_j)
         
-        ddV[i+Nant,idata]       = -w[idata]*gi_j # d(Vreal)/d(gi_i)
-        ddV[i+Nant,idata+Ndata] = +w[idata]*gr_j # d(Vimag)/d(gi_i)
-        
-        ddV[j+Nant,idata]       = -w[idata]*gi_i # d(Vreal)/d(gi_j)
-        ddV[j+Nant,idata+Ndata] = -w[idata]*gr_i # d(Vimag)/d(gi_j)
     return ddV
 
 
