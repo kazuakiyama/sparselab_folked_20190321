@@ -5,12 +5,12 @@
 PYTHONLIBDIR=../../sparselab
 
 CC=@CC@
-CFLAGS=-fPIC -O2
+CFLAGS=-fPIC -O2 @CFLAGS@
 OS := $(shell uname)
 ifeq ($(OS),Darwin)
-	CLIBS=@LDFLAGS@ @lapacklib@ @blaslib@ -lm -lpthread
+	CLIBS=@CFLAGS@ @LDFLAGS@ @lapacklib@ @blaslib@ -lm -lpthread
 else
-	CLIBS=@LDFLAGS@ @lapacklib@ @blaslib@ -lrt -lm -lpthread
+	CLIBS=@CFLAGS@ @LDFLAGS@ @lapacklib@ @blaslib@ -lrt -lm -lpthread
 endif
 
 CLIBS_FFTW = @fftw3lib@

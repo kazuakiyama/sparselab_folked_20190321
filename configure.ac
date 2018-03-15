@@ -10,12 +10,15 @@ AC_CONFIG_SRCDIR([src/mfista/blas.h])
 # Checks for programs.
 #-------------------------------------------------------------------------------
 # C Compiler
+: ${CFLAGS=""}
 AC_PROG_CC
 
 # Fortran Compiler
+: ${FCFLAGS=""}
 AC_PROG_FC
 
 # CPP Compiler
+: ${CXXFLAGS=""}
 AC_PROG_CXX
 
 # f2py in numpy

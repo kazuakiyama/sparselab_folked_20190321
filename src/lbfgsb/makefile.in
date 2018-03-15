@@ -34,7 +34,7 @@ FCFLAGS_OMP=-fopenmp
 FCFLAGS_BLAS=@blaslib@
 
 # set command options
-FCFLAGS=-fPIC @LDFLAGS@ $(FCFLAGS_DBG) $(FCFLAGS_OPT) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
+FCFLAGS=-fPIC @FCFLAGS@ @LDFLAGS@ $(FCFLAGS_DBG) $(FCFLAGS_OPT) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
 
 
 #-------------------------------------------------------------------------------
