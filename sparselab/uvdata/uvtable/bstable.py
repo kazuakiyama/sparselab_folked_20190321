@@ -83,11 +83,9 @@ class BSTable(UVTable):
         #uvdata BSTable object (storing residual closure phase)
         model = self._call_fftlib(imfits=imfits,mask=mask,
                                   istokes=istokes, ifreq=ifreq)
-        Ndata = model[1]
         residp = model[0][3]
         residp = np.rad2deg(residp)
         residtable = self.copy()
-        residtable["amp"] = np.zeros(Ndata)
         residtable["phase"] = residp 
         return residtable
 

@@ -835,17 +835,20 @@ def plots(outimage, imageprm={}, filename=None,
 
         ax = axs[1]
         plt.sca(ax)
-#        resid.radplot(uvunit=uvunit,
-#                      uvdtype="ave",
-#                      log=False,
-#                      normerror=True,
-#                      errorbar=False,
-#                      color="black",
-#                      **plotargs)                
+        resid.radplot(uvunit=uvunit,
+                      uvdtype="ave",
+                      normerror=True,
+                      errorbar=False,
+                      color="black",
+                      **plotargs)                
         plt.axhline(0, color="black", ls="--")
+        residcp = table["phase"] / np.rad2deg(table["sigma"] / table["amp"])
+        ymin = np.min(residcp) - np.abs(np.min(residcp))*0.01
+        ymax = np.max(residcp) + np.abs(np.max(residcp))*0.01
+        plt.ylim(ymin,ymax)
         plt.ylabel("Normalized Residuals")
         plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
-
+        del residcp,ymin,ymax
         divider = make_axes_locatable(ax)  # Histgram
         cax = divider.append_axes("right", size="10%", pad=0.05)
 #        ymin, ymax = ax.get_ylim()
