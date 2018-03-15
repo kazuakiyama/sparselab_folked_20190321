@@ -32,8 +32,8 @@ from .. import fortlib, util
 # IMAGEFITS (Manupulating FITS FILES)
 #-------------------------------------------------------------------------
 class MOVIE(object):
-    def __init__(self, tstart='2000-01-01T00:00:00',
-                 tint=60, tintunit="sec", Nf=1, init2dim=None,
+    def __init__(self, Nf=0, #tstart='2000-01-01T00:00:00', init2dim=None,
+                 tint=60, tintunit="sec",
                  dtable=None, **tabs):
         '''
         Args:
@@ -53,7 +53,7 @@ class MOVIE(object):
             imdata.MOVIE object
         '''
         # formatting the input tstart
-        self.tstart = at.Time(tstart)
+        #self.tstart = at.Time(tstart)
         # formatting the input tint
         if tintunit == "sec":
             self.tint = at.TimeDelta(tint, format='sec')
@@ -68,28 +68,11 @@ class MOVIE(object):
         # dataframe tables
         self.dtable = dtable
         # initial 2D image
-        self.init2dim = init2dim
+        #self.init2dim = init2dim
 
-    def timetable(self):
-        tmtable = pd.DataFrame()
-        tmtable["frame"] = np.zeros(self.Nf, dtype='int32')
-        tmtable["utc"] = np.zeros(self.Nf)
-        tmtable["gsthour"] = np.zeros(self.Nf)
-        tmtable["tint(sec)"] = np.zeros(self.Nf)
-        for i in np.arange(self.Nf):
-            tmtable.loc[i, "frame"] = int(i)
-            #centime = self.tstart + (self.tint/2) + self.tint*i
-            centime = self.tstart + self.tint*i
-            utctime = centime.datetime
-            gsthour = centime.sidereal_time("apparent", "greenwich").hour
-            tmtable.loc[i, "utc"] = utctime
-            tmtable.loc[i, "gsthour"] = gsthour
-            tmtable.loc[i, "tint(sec)"] = self.tint
-        return tmtable
-
-    def fridxconcat(self):
+    def tabconcat(self):
         '''
-        frame indexed concatenated table
+        concatenate table
         '''
         if (self.dtable is None) or (self.dtable is [None]):
             print("DataFrame table is not given.")
@@ -105,6 +88,46 @@ class MOVIE(object):
                 frmtable = pd.concat((frmtable, tab), ignore_index=True)
             else:
                 frmtable = tab
+        return frmtable
+
+    def tinfo(self):
+        frmtable = self.tabconcat()
+        tstart = min(frmtable["utc"])
+        tend = max(frmtable["utc"])
+        tdif = (at.Time(tend) - at.Time(tstart))
+        Nf = int(tdif.sec/self.tint.value) + 1
+        return tstart, tend, Nf
+
+    def timetable(self):
+        frmtable = self.tabconcat()
+        tstart, tend = self.tinfo()[:2]
+        if self.Nf == 0:
+            Nfr = self.tinfo()[-1]
+        else:
+            Nfr = self.Nf
+
+        tmtable = pd.DataFrame()
+        tmtable["frame"] = np.zeros(Nfr, dtype='int32')
+        tmtable["utc"] = np.zeros(Nfr)
+        tmtable["gsthour"] = np.zeros(Nfr)
+        tmtable["tint(sec)"] = np.zeros(Nfr)
+        for i in np.arange(Nfr):
+            tmtable.loc[i, "frame"] = int(i)
+            #centime = self.tstart + (self.tint/2) + self.tint*i
+            centime = at.Time(tstart) + self.tint*i
+            utctime = centime.datetime
+            gsthour = centime.sidereal_time("apparent", "greenwich").hour
+            tmtable.loc[i, "utc"] = utctime
+            tmtable.loc[i, "gsthour"] = gsthour
+            tmtable.loc[i, "tint(sec)"] = self.tint
+        return tmtable
+
+    def fridx(self):
+        '''
+        add the frame index to the concatenated table
+        '''
+        frmtable = self.tabconcat()
+
         # time of input table which DataFrame
         attime = np.asarray(frmtable["utc"], np.str)
         attime = at.Time(attime)
@@ -126,16 +149,18 @@ class MOVIE(object):
         frmtable = frmtable.sort_values(by=["frmidx", "utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
         return frmtable
 
-    def initimlist(self):
-        mul2dim = list([self.init2dim])*self.Nf
-        return mul2dim
-
     def tplot(self):
         utcbnd = self.timetable()["utc"]
         for t in utcbnd:
             plt.axvline(x=t, c='b', ls='-')
-        concatab = self.fridxconcat()
+        concatab = self.fridx()
         tmtable = np.asarray(concatab["utc"], np.str)
         tmtable = at.Time(tmtable).datetime
         frmidx = concatab["frmidx"]
         plt.plot(tmtable, frmidx, 'k.')
+
+
+    def initimlist(self):
+        pass
+        #mul2dim = list([self.init2dim])*Nf
+        #return mul2dim

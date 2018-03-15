@@ -483,11 +483,11 @@ end function
 !
 ! Dynamical Imaging (pixel-to-pixel)
 !
-real(dp) function rt_e(xidx,yidx,I2d,I2d2,Nx,Ny)
+real(dp) function rt_e(xidx,yidx,I2d,I2du,Nx,Ny)
   implicit none
   !
   integer, intent(in)  :: Nx,Ny,xidx,yidx
-  real(dp),intent(in)  :: I2d(Nx,Ny),I2d2(Nx,Ny)
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2du(Nx,Ny)
   !
   ! variables
   integer :: i,j
@@ -497,53 +497,32 @@ real(dp) function rt_e(xidx,yidx,I2d,I2d2,Nx,Ny)
   i = xidx
   j = yidx
   !
-  dIt  = I2d2(i,j) - I2d(i,j)
+  dIt  = I2du(i,j) - I2d(i,j)
   !
   rt_e = dIt*dIt
 end function
 !
 ! Gradient of Dynamical Imaging (pixel-to-pixel)
 !
-real(dp) function rt_grade(xidx,yidx,I2d,I2d2,Nx,Ny)
+real(dp) function rt_grade(xidx,yidx,I2d,I2dl,I2du,Nx,Ny)
   implicit none
   !
   integer, intent(in)  :: Nx,Ny
   integer, intent(in)  :: xidx, yidx
-  real(dp),intent(in)  :: I2d(Nx,Ny),I2d2(Nx,Ny)
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
   !
   ! variables
-  integer :: i0,j0,i1,j1,i2,j2
+  integer :: i,j
   !
   ! initialize rt term
   rt_grade = 0d0
   !
   ! take indice
-  i1 = xidx
-  j1 = yidx
-  i0 = i1 - 1
-  j0 = j1 - 1
-  i2 = i1 + 1
-  j2 = j1 + 1
+  i = xidx
+  j = yidx
   !
-  ! dIx = I(i+1,j) - I(i,j)
-  if (i2 <= Nx) then
-    rt_grade = rt_grade - 2*(I2d2(i2,j1) - I2d(i1,j1))
-  end if
-  !
-  ! dIy = I(i,j+1) - I(i,j)
-  if (j2 <= Ny) then
-    rt_grade = rt_grade - 2*(I2d2(i1,j2) - I2d(i1,j1))
-  end if
-  !
-  ! dIx = I(i,j) - I(i-1,j)
-  if (i0 > 0) then
-    rt_grade = rt_grade + 2*(I2d2(i1,j1) - I2d(i0,j1))
-  end if
-  !
-  ! dIy = I(i,j) - I(i,j-1)
-  if (j0 > 0) then
-    rt_grade = rt_grade + 2*(I2d2(i1,j1) - I2d(i1,j0))
-  end if
+  rt_grade = rt_grade - 2*(I2du(i,j) - I2d(i,j))
+  rt_grade = rt_grade + 2*(I2d(i,j) - I2dl(i,j))
   !
 end function
 !

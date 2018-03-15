@@ -332,7 +332,7 @@ subroutine calc_cost(&
   real(dp) :: chisq, reg  ! chisquare and regularization
 
   ! allocatable arrays
-  real(dp), allocatable :: I2d(:,:),I2d2(:,:),Iin_reg(:)
+  real(dp), allocatable :: I2d(:,:),I2dl(:,:),I2du(:,:),Iin_reg(:)
   real(dp), allocatable :: gradchisq2d(:,:)
   real(dp), allocatable :: gradreg(:)
   real(dp), allocatable :: Vresre(:),Vresim(:)
@@ -492,17 +492,19 @@ subroutine calc_cost(&
   !$OMP PARALLEL DO DEFAULT(SHARED) &
   !$OMP   FIRSTPRIVATE(Npix, Nz, lambl1, lambmem, lambtv, lambtsv,&
   !$OMP                Iin_reg, xidx, yidx) &
-  !$OMP   PRIVATE(iz, ipix, iparm, I2d, I2d2) &
+  !$OMP   PRIVATE(iz, ipix, iparm, I2d, I2dl, I2du) &
   !$OMP   REDUCTION(+: reg, gradreg)
   do iz=1, Nz
     ! allocate 2d image if lambtv/tsv > 0
     if (lambtv > 0 .or. lambtsv > 0) then
       allocate(I2d(Nx,Ny))
-      allocate(I2d2(Nx,Ny))
+      allocate(I2dl(Nx,Ny))
+      allocate(I2du(Nx,Ny))
       I2d(:,:)=0d0
       call I1d_I2d_fwd(xidx,yidx,Iin_reg((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
-      if (iz < Nz) then
-        call I1d_I2d_fwd(xidx,yidx,Iin_reg(iz*Npix+1:(iz+1)*Npix),I2d2,Npix,Nx,Ny)
+      if (iz > 1 .and. iz < Nz) then
+        call I1d_I2d_fwd(xidx,yidx,Iin_reg((iz-2)*Npix+1:(iz-1)*Npix),I2dl,Npix,Nx,Ny)
+        call I1d_I2d_fwd(xidx,yidx,Iin_reg(iz*Npix+1:(iz+1)*Npix),I2du,Npix,Nx,Ny)
       end if
     end if
 
@@ -534,15 +536,19 @@ subroutine calc_cost(&
       end if
 
       ! Dynamical(Rt)
-      if (lambrt > 0 .and. iz < Nz) then
-        reg = reg + lambrt * rt_e(xidx(ipix),yidx(ipix),I2d,I2d2,Nx,Ny)
-        gradreg(iparm) = gradreg(iparm) + lambrt * rt_grade(xidx(ipix),yidx(ipix),I2d,I2d2,Nx,Ny)
+      if (lambrt > 0) then
+        if (iz > 1) then
+          reg = reg + lambrt * rt_e(xidx(ipix),yidx(ipix),I2d,I2du,Nx,Ny)
+        end if
+        if (iz > 1 .and. iz < Nz) then
+          gradreg(iparm) = gradreg(iparm) + lambrt * rt_grade(xidx(ipix),yidx(ipix),I2d,I2dl,I2du,Nx,Ny)
+        end if
       end if
     end do
 
     ! deallocate I2d
     if (lambtv > 0 .or. lambtsv > 0) then
-      deallocate(I2d,I2d2)
+      deallocate(I2d,I2dl,I2du)
     end if
   end do
   !$OMP END PARALLEL DO
