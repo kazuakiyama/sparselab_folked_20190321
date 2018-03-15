@@ -510,7 +510,6 @@ subroutine calc_cost(&
 
   !   scalars
   rint_s = 0d0
-
   !   arrays
   allocate(reg_frm(Nz),gradreg_frm(Npix,Nz))
   reg_frm(:) = 0d0
@@ -627,10 +626,11 @@ subroutine calc_cost(&
     end do
     reg = reg + rint_s
     gradreg = gradreg + gradrint_s
-    !
     deallocate(reg_frm,gradreg_frm)
     deallocate(gradrint_s)
+    !
     ! continuity of total flux
+    !
   end if
   !
 
