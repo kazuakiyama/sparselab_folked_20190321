@@ -1093,7 +1093,7 @@ class UVFITS(object):
         '''
         print("Initialize CL Table")
         cltable = CLTable(self)
-        
+
         print("Compute Model Visibilities")
         Vmodel_real,Vmodel_imag = self.get_vismodel(imfits)
 
@@ -1102,20 +1102,20 @@ class UVFITS(object):
         for subarrid in subarrids:
             # data index of the current subarray
             idx_subarr = self.visdata.coord["subarray"] == subarrid
-            
+
             # get the number of data along each dimension
             Ntime,Nif,Nch,Nstokes,Nant,Ncomp = cltable.gaintabs[subarrid]["gain"].shape
 
             # get utc and utc-set
             utc = np.datetime_as_string(self.visdata.coord["utc"])
             utcset = cltable.gaintabs[subarrid]["utc"]
-            
+
             for itime,iif,ich,istokes in itertools.product(xrange(Ntime),xrange(Nif),xrange(Nch),xrange(Nstokes)):
                 # data index of the current time
                 idx_utc = utc[:] == utcset[itime]
                 idx_utc &= idx_subarr
                 idx_utc = np.where(idx_utc)
-                
+
                 # get the current full complex visibilities
                 fdata=self.visdata.data[idx_utc]
                 Vobs_real_itime = fdata[:,0,0,iif,ich,0,0]
@@ -1136,11 +1136,11 @@ class UVFITS(object):
                 # non-redundant set of antenna ids
                 antset_itime = sorted(set(ant1_itime.tolist()+ant2_itime.tolist()))
                 Nant_itime = len(antset_itime)
-                
+
                 # create dictionary of antenna ids
                 ant1id = [antset_itime.index(ant1_itime[i]) for i in xrange(Ndata_itime)]
                 ant2id = [antset_itime.index(ant2_itime[i]) for i in xrange(Ndata_itime)]
-                
+
                 # compute wij and Xij
                 w_itime = np.sqrt(Vmodel_real_itime**2+Vmodel_imag_itime**2)
                 w_itime/= sigma_itime
@@ -1159,7 +1159,7 @@ class UVFITS(object):
                     result = leastsq(
                         error_func, gain0, #Dfun=error_dfunc
                         args=(ant1id,ant2id,w_itime,X_itime,Nant_itime,Ndata_itime))
-                
+
                 # make cltable
                 g = result[0]
                 for i in xrange(Nant_itime):
@@ -1175,16 +1175,16 @@ class UVFITS(object):
         subarrids = self.subarrays.keys()
 
         # make uvfits for corrected visibility
-        uvfitscor = copy.deepcopy(self)   
-        
+        uvfitscor = copy.deepcopy(self)
+
         # get full complex visibilities
         fdata=uvfitscor.visdata.data
         Vobs_real = fdata[:,:,:,:,:,:,0]
         Vobs_imag = fdata[:,:,:,:,:,:,1]
         Vobs_comp = Vobs_real + 1j*Vobs_imag
         sigma     = fdata[:,:,:,:,:,:,2]
-        del fdata,Vobs_real,Vobs_imag    
-               
+        del fdata,Vobs_real,Vobs_imag
+
         for subarrid in subarrids:
             # get the number of data along each dimension
             Ntime,Nif,Nch,Nstokes,Nant,Ncomp = cltable.gaintabs[subarrid]["gain"].shape
@@ -1193,15 +1193,15 @@ class UVFITS(object):
             utc = np.datetime_as_string(self.visdata.coord["utc"])
             utcset = cltable.gaintabs[subarrid]["utc"]
             utcgroup = pd.DataFrame({"utc": utc}).groupby("utc")
-            
+
             # get gain
-            gain = cltable.gaintabs[subarrid]["gain"]            
-            
+            gain = cltable.gaintabs[subarrid]["gain"]
+
             # get antenna ids
             ant1 = uvfitscor.visdata.coord.ant1.values
             ant2 = uvfitscor.visdata.coord.ant2.values
             antset = sorted(set(ant1.tolist()+ant2.tolist()))
-            
+
             for itime, iant in itertools.product(xrange(Ntime),xrange(Nant)):
                 # data index of the current time and antenna
                 idx = set(tuple(utcgroup.groups[utcset[itime]]))
@@ -1213,11 +1213,11 @@ class UVFITS(object):
                 idx2 = set(idx2[0])
                 idx2 &= idx
                 idx2 = list(idx2)
-                
+
                 # gain of the current time and antenna
                 g = gain[itime,:,:,:,iant,0] + 1j*gain[itime,:,:,:,iant,1]
                 gc = np.conj(g)
-                
+
                 # calibrated visibility
                 Vobs_comp[idx1] /= g
 #                wcmp1 = 1./(sigma[idx1]*sigma[idx1])
@@ -1225,31 +1225,130 @@ class UVFITS(object):
                 Vobs_comp[idx2] /= gc
 #                wcmp2 = 1./(sigma[idx2]*sigma[idx2])
 #                wcmp2 *= g*gc
-                
+
         uvfitscor.visdata.data[:,:,:,:,:,:,0] = np.real(Vobs_comp)
         uvfitscor.visdata.data[:,:,:,:,:,:,1] = np.imag(Vobs_comp)
 
         return uvfitscor
 
 
+    def uvavg(self, solint=10, minpoint=2):
+        '''
+        This method will weighted-average full complex visibilities in time direction.
+        Visibilities will be weighted-average, using weight information of data.
+        uvw-coordinates on new time grid will be interpolated with cubic spline interpolation.
+        This may give slightly different uvw coordinates from other software, such as DIFMAP
+        computing weighted averages or AIPS UVFIX recalculating uvw coordinates.
+        Args:
+          solint (float; default=10):
+            Time averaging interval (in sec)
+            minpoint (int; default =2.):
+              Number of points required to re-evaluate weights.
+              If data do not have enough number of points at each time/frequency
+              segments specified with dofreq, weight will be set to 0
+              meaning that the corresponding point will be flagged out.
+        Returns: uvfits.UVFITS object
+        '''
+        outfits = copy.deepcopy(self)
+
+        # Sort visdata
+        print("(1/5) Sort Visibility Data")
+        outfits.visdata.sort(by=["subarray","ant1","ant2","source","utc"])
+
+        # Check number of Baselines
+        print("(2/5) Check Number of Baselines")
+        # pick up combinations
+        combset = []
+        comblst = []
+        sappend = combset.append
+        lappend = comblst.append
+        for idx in outfits.visdata.coord.index:
+            tmp = outfits.visdata.coord.loc[idx,["subarray","ant1","ant2","source","freqsel"]].tolist()
+            lappend(tmp)
+            if tmp not in combset:
+                sappend(tmp)
+        del sappend,lappend,tmp
+        stlst = np.asarray([comblst.index(comb) for comb in combset], dtype=np.int32)
+        edlst = np.asarray([comblst.count(comb) for comb in combset], dtype=np.int32)
+        edlst += stlst
+        stlst += 1
+        Nidx = len(stlst)
+
+        print("(3/5) Create Timestamp")
+        tsecin = outfits.get_utc().cxcsec
+        tsecout = np.arange(tsecin.min(),tsecin.max()+solint,solint)
+        Nt = len(tsecout)
+
+        # Check number of Baselines
+        print("(4/5) Average UV data")
+        out = fortlib.uvdata.average(
+            uvdata=np.float32(outfits.visdata.data.T),
+            u=np.float64(outfits.visdata.coord.usec.values),
+            v=np.float64(outfits.visdata.coord.vsec.values),
+            w=np.float64(outfits.visdata.coord.wsec.values),
+            tin=np.float64(tsecin),
+            tout=np.float64(tsecout),
+            start=np.int32(stlst),
+            end=np.int32(edlst),
+            solint=solint,
+            minpoint=minpoint,
+        )
+        usec = out[1]
+        vsec = out[2]
+        wsec = out[3]
+        isdata = np.asarray(out[4],dtype=np.bool)
+        outfits.visdata.data = np.ascontiguousarray(out[0].T)[np.where(isdata)]
+        del out
+
+        print("(5/5) Forming UV data")
+        utc = [tsecout for i in xrange(Nidx)]
+        #usec = [0.0 for i in xrange(Nidx*Nt)]
+        #vsec = [0.0 for i in xrange(Nidx*Nt)]
+        #wsec = [0.0 for i in xrange(Nidx*Nt)]
+        subarray = [[combset[idx][0] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        ant1 = [[combset[idx][1] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        ant2 = [[combset[idx][2] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        source = [[combset[idx][3] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        inttim = [solint for i in xrange(Nidx*Nt)]
+        freqsel = [[combset[idx][4] for i in xrange(Nt)] for idx in xrange(Nidx)]
+        utc = at.Time(np.concatenate(utc), format="cxcsec", scale="utc").datetime
+
+        outfits.visdata.coord = pd.DataFrame()
+        outfits.visdata.coord["utc"] = utc
+        outfits.visdata.coord["usec"] = np.float64(usec)
+        outfits.visdata.coord["vsec"] = np.float64(vsec)
+        outfits.visdata.coord["wsec"] = np.float64(wsec)
+        outfits.visdata.coord["subarray"] = np.int64(np.concatenate(subarray))
+        outfits.visdata.coord["ant1"] = np.int64(np.concatenate(ant1))
+        outfits.visdata.coord["ant2"] = np.int64(np.concatenate(ant2))
+        outfits.visdata.coord["source"] = np.int64(np.concatenate(source))
+        outfits.visdata.coord["inttim"] = np.float64(inttim)
+        outfits.visdata.coord["freqsel"] = np.int64(np.concatenate(freqsel))
+        del utc,usec,vsec,wsec,subarray,ant1,ant2,source,inttim,freqsel
+        del combset,comblst,stlst,edlst,Nt,Nidx
+        outfits.visdata.coord = outfits.visdata.coord.loc[isdata,:]
+        outfits.visdata.coord.reset_index(drop=True,inplace=True)
+        outfits.visdata.sort()
+
+        #print("(6/6) UVW recaluation")
+        #outfits = outfits.uvw_recalc()
+        return outfits
 
     def avspc(self, dofreq=0, minpoint=2):
         '''
-        This method will recalculate sigmas and weights of data from scatter
-        in full complex visibilities over specified frequency and time segments.
-
+        This method will weighted-average full complex visibilities in frequency directions.
         Args:
           dofreq (int; default = 0):
             Parameter for multi-frequency data.
               dofreq = 0: average over IFs and channels
               dofreq = 1: average over channels at each IF
-
-          solint (float; default = 120.):
-            solution interval in sec
-
+          minpoint (int; default =2.):
+            Number of points required to re-evaluate weights.
+            If data do not have enough number of points at each time/frequency
+            segments specified with dofreq, weight will be set to 0
+            meaning that the corresponding point will be flagged out.
         Returns: uvfits.UVFITS object
         '''
-        # Area Settigns
         outfits = copy.deepcopy(self)
 
         # Update visibilities
@@ -1285,6 +1384,7 @@ class UVFITS(object):
         # update antenna Tables
         for arrid in outfits.subarrays.keys():
             outfits.subarrays[arrid].avspc(dofreq=dofreq)
+
         return outfits
 
     def uvw_recalc(self):
