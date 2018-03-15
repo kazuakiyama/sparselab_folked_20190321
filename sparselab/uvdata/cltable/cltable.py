@@ -43,40 +43,117 @@ class CLTable(object):
         '''
         self.gaintabs = {} #空dictionaryの作成
 
-        # サブアレイの考慮
+        # make gain table for each subarray
         subarrids = uvfits.subarrays.keys()
         for subarrid in subarrids:
-
-            self.gaintabs[subarrid] = {} #空dictionaryの作成
+            # make empty dictionary
+            self.gaintabs[subarrid] = {}
 
             # get UTC
             utc = np.datetime_as_string(uvfits.visdata.coord["utc"])
-            utc = sorted(set(utc)) # remove duplicated
-            #print(utc)
+            utc = sorted(set(utc)) 
 
-            #utc = at.Time(utc, scale="utc")
-
-            # dictionaryの"utc"の名前にutcの値を格納
             self.gaintabs[subarrid]["utc"]=utc
-            #print(self.utc)
 
-            #def gain(self,uvfits):
-            # gainの配列の初期化
+            # get the number of data along each dimension
             Ndata, Ndec, Nra, Nif, Nch, Nstokes, Ncomp=uvfits.visdata.data.shape
             Ntime = len(utc)
-            #print(Ntime)
-            #print(utc)
-            # test Ntime
-            #Ntime =200
-
-            # Nantの計算 (uvfits.pyを参考にする)
+            
+            # get the number of antennas
             arraydata = uvfits.subarrays[subarrid]
             Nant = arraydata.antable["name"].shape[0]
-            #print("Ntime,Nif,Nch,Nstokes,Nant,3(=greal,gimag,sigma)=")
-            #print(Ntime,Nif,Nch,Nstokes,Nant,3)
-            #self.gain = np.zeros([Ntime,Nif,Nch,Nstokes,Nant,3])
 
+            # gain for first two stokes parameters (RR,LL)
+            if Nstokes == 1:
+                pass
+            else:
+                Nstokes = 2
+
+            # make gain matrix
             gain = np.zeros([Ntime,Nif,Nch,Nstokes,Nant,3])
-            gain[:,:,:,:,:,0]=1
-            # dictionaryの"gain"にgainを格納
+            
+            # initialize gain
+            gain[:,:,:,:,:,0]=1.0
             self.gaintabs[subarrid]["gain"]=gain
+
+    def clear_phase(self):
+        '''
+        This method makes a new CLTable with gain phase = 0.
+        '''
+        out = copy.deepcopy(self)
+        
+        # make gain table for each subarray
+        subarrids = self.gaintabs.keys()
+        for subarrid in subarrids:
+            # get gain amplitude
+            greal = self.gaintabs[subarrid]["gain"][:,:,:,:,:,0]
+            gimag = self.gaintabs[subarrid]["gain"][:,:,:,:,:,1]
+            gainamp = np.sqrt(greal*greal + gimag*gimag)
+            
+            # make zero-phase gain
+            out.gaintabs[subarrid]["gain"][:,:,:,:,:,0] = gainamp
+            out.gaintabs[subarrid]["gain"][:,:,:,:,:,1] = 0.0
+            
+        return out
+
+    def clear_amp(self):
+        '''
+        This method makes a new CLTable with gain amplitude = 1.
+        '''        
+        out = copy.deepcopy(self)
+
+        # make gain table for each subarray
+        subarrids = self.gaintabs.keys()
+        for subarrid in subarrids:
+            # get gain amplitude
+            greal = self.gaintabs[subarrid]["gain"][:,:,:,:,:,0]
+            gimag = self.gaintabs[subarrid]["gain"][:,:,:,:,:,1]
+            gainamp = np.sqrt(greal*greal + gimag*gimag)
+            
+            # make normalized gain
+            out.gaintabs[subarrid]["gain"][:,:,:,:,:,0] = greal/gainamp
+            out.gaintabs[subarrid]["gain"][:,:,:,:,:,1] = gimag/gainamp
+            
+        return out
+    
+    def get_gaintable(self):
+        '''
+        This method make a gain table with pandas.DataFrame.
+        '''
+        out = pd.DataFrame()
+
+        # make gain table for each subarray
+        subarrids = self.gaintabs.keys()
+        for subarrid in subarrids:
+
+            # get the number of data along each dimension        
+            Ntime,Nif,Nch,Nstokes,Nant,Ncomp = self.gaintabs[subarrid]["gain"].shape
+            for iif,ich,istokes in itertools.product(xrange(Nif),xrange(Nch),xrange(Nstokes)):
+
+                # get complex gain
+                greal = self.gaintabs[subarrid]["gain"][:,iif,ich,istokes,:,0]
+                gimag = self.gaintabs[subarrid]["gain"][:,iif,ich,istokes,:,1]
+                gain = greal + 1j*gimag
+                gain = pd.DataFrame(gain)
+                gain.columns = xrange(1,Nant+1,1)
+                
+                # get the number of time stamps
+                Ndata = len(self.gaintabs[subarrid]["utc"])
+                
+                # make gain table
+                table = pd.DataFrame()
+                table["utc"] = self.gaintabs[subarrid]["utc"]
+                table["if"] = np.ones(Ndata,dtype=np.int)*(iif+1)
+                table["ch"] = np.ones(Ndata,dtype=np.int)*(ich+1)
+                table["stokes"] = np.ones(Ndata,dtype=np.int)*(istokes+1)
+                table["subarray"] = np.ones(Ndata,dtype=np.int)*(subarrid)
+                table = pd.concat([table,gain],axis=1)
+                out = out.append(table)
+            
+        out = out.reset_index(drop=True)
+        return out
+
+
+        
+         
+    
