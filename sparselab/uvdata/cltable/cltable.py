@@ -73,7 +73,8 @@ class CLTable(object):
             gain = np.zeros([Ntime,Nif,Nch,Nstokes,Nant,3])
             
             # initialize gain
-            gain[:,:,:,:,:,0]=1.0
+            gain[:,:,:,:,:,0]=1.0    # real part of gain
+            gain[:,:,:,:,:,2]=1.0    # flagging (<0 for flagged data)
             self.gaintabs[subarrid]["gain"]=gain
 
     def clear_phase(self):
@@ -153,7 +154,24 @@ class CLTable(object):
         out = out.reset_index(drop=True)
         return out
 
-
+    def rescale(self):
+        '''
+        This method re-scales gain amplitude with mean value.
+        '''
+        out = copy.deepcopy(self)
         
-         
-    
+        # make gain table for each subarray
+        subarrids = self.gaintabs.keys()
+        for subarrid in subarrids:
+            # get mean amplitude
+            greal = self.gaintabs[subarrid]["gain"][:,:,:,:,:,0]
+            gimag = self.gaintabs[subarrid]["gain"][:,:,:,:,:,1]
+            meanamp = np.average(np.sqrt(greal*greal + gimag*gimag))
+            print(meanamp)
+            
+            # make rescaled gain
+            out.gaintabs[subarrid]["gain"][:,:,:,:,:,0] = greal/meanamp
+            out.gaintabs[subarrid]["gain"][:,:,:,:,:,1] = gimag/meanamp
+            
+        return out        
+        
