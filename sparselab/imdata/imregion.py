@@ -750,8 +750,8 @@ def region_ellipse(X, Y, x0, y0, radius1, radius2, angle):
     sina = np.sin(np.deg2rad(angle))
     dX = X - x0
     dY = Y - y0
-    X1 = dX * cosa + dY * sina
-    Y1 = -dX * sina + dY * cosa
+    X1 = dX * cosa - dY * sina
+    Y1 = dX * sina + dY * cosa
     return X1 * X1 / radius1 / radius1 + Y1 * Y1 / radius2 / radius2 <= 1
 
 
