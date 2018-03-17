@@ -18,6 +18,9 @@ module param
   integer, parameter :: lgt = kind(.true.)
 
   !frequently used mathematical constants (with precision to spare):
+  real(sp), parameter :: shug = huge(1.0)
+  real(sp), parameter :: seps = epsilon(1.0)
+  real(sp), parameter :: stin = tiny(1.0)
   real(dp), parameter :: dhug = huge(1d0)
   real(dp), parameter :: deps = epsilon(1d0)
   real(dp), parameter :: dtin = tiny(1d0)

@@ -22,15 +22,18 @@ import scipy.special as ss
 from scipy import optimize
 from scipy import linalg
 import theano.tensor as T
+
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 
 # internal
 from .uvtable   import UVTable, UVSeries
 from .gvistable import GVisTable, GVisSeries
 from .catable   import CATable, CASeries
 from .bstable   import BSTable, BSSeries
-from ... import imdata
-
+from .tools import get_uvlist
+from ... import imdata, fortlib
 
 # ------------------------------------------------------------------------------
 # Classes
@@ -198,6 +201,191 @@ class VisTable(UVTable):
         outtable = outtable.loc[outtable["amp"]/outtable["sigma"]>threshold, :].reset_index(drop=True)
         return outtable
 
+
+    def eval_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
+        #uvdata.VisTable object (storing model full complex visibility
+        model = self._call_fftlib(imfits=imfits,mask=mask,amptable=amptable,
+                                  istokes=istokes, ifreq=ifreq)
+
+        if not amptable:
+            modelr = model[0][2]
+            modeli = model[0][3]
+            fcv = modelr + 1j*modeli
+            amp = np.abs(fcv)
+            phase = np.angle(fcv,deg=True)
+            fcvmodel = self.copy()
+            fcvmodel["amp"] = amp
+            fcvmodel["phase"] = phase
+            return fcvmodel
+        else:
+            Ndata = model[1]
+            model = model[0][2]
+            amptable = self.copy()
+            amptable["amp"] = model
+            amptable["phase"] = np.zeros(Ndata)
+            return amptable
+    
+    def residual_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
+        #uvdata VisTable object (storing residual full complex visibility)
+        model = self._call_fftlib(imfits=imfits,mask=mask,amptable=amptable,
+                                  istokes=istokes, ifreq=ifreq)
+        
+        if not amptable:
+            residr = model[0][4]
+            residi = model[0][5]
+            resid = residr + 1j*residi
+            resida = np.abs(resid)
+            residp = np.angle(resid,deg=True)
+            residtable = self.copy()
+            residtable["amp"] = resida
+            residtable["phase"] = residp            
+            
+        else:
+            Ndata = model[1]
+            resida = model[0][3]
+            residtable = self.copy()
+            residtable["amp"] = resida
+            residtable["phase"] = np.zeros(Ndata) 
+            
+        return residtable
+
+    def chisq_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
+        # calcurate chisqared and reduced chisqred.
+        model = self._call_fftlib(imfits=imfits,mask=mask,amptable=amptable,
+                                  istokes=istokes, ifreq=ifreq)
+        chisq = model[0][0]
+        Ndata = model[1]
+        
+        if not amptable:
+            rchisq = chisq/(Ndata*2)
+        else:
+            rchisq = chisq/Ndata
+
+        return chisq,rchisq
+        
+    def _call_fftlib(self, imfits, mask, amptable, istokes=0, ifreq=0):
+        # get initial images
+        istokes = istokes
+        ifreq = ifreq
+        
+        # size of images
+        Iin = np.float64(imfits.data[istokes, ifreq])
+        Nx = imfits.header["nx"]
+        Ny = imfits.header["ny"]
+        Nyx = Nx * Ny
+        
+        # pixel coordinates
+        x, y = imfits.get_xygrid(twodim=True, angunit="rad")
+        xidx = np.arange(Nx) + 1
+        yidx = np.arange(Ny) + 1
+        xidx, yidx = np.meshgrid(xidx, yidx)
+        Nxref = imfits.header["nxref"]
+        Nyref = imfits.header["nyref"]
+        dx_rad = np.deg2rad(imfits.header["dx"])
+        dy_rad = np.deg2rad(imfits.header["dy"])
+        
+        # apply the imaging area
+        if mask is None:
+            print("Imaging Window: Not Specified. We calcurate the image on all the pixels.")
+            Iin = Iin.reshape(Nyx)
+            x = x.reshape(Nyx)
+            y = y.reshape(Nyx)
+            xidx = xidx.reshape(Nyx)
+            yidx = yidx.reshape(Nyx)
+        else:
+            print("Imaging Window: Specified. Images will be calcurated on specified pixels.")
+            idx = np.where(mask)
+            Iin = Iin[idx]
+            x = x[idx]
+            y = y[idx]
+            xidx = xidx[idx]
+            yidx = yidx[idx]
+        
+        # Full Complex Visibility
+        if not amptable:
+            Ndata = 0
+            fcvtable = self.copy()
+            phase = np.deg2rad(np.array(fcvtable["phase"], dtype=np.float64))
+            amp = np.array(fcvtable["amp"], dtype=np.float64)
+            vfcvr = np.float64(amp*np.cos(phase))
+            vfcvi = np.float64(amp*np.sin(phase))
+            varfcv = np.square(np.array(fcvtable["sigma"], dtype=np.float64))
+            Ndata += len(varfcv)
+            del phase, amp
+            
+            # get uv coordinates and uv indice
+            u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
+                    fcvtable=fcvtable, amptable=None, bstable=None, catable=None
+                    )
+            
+            # normalize u, v coordinates
+            u *= 2*np.pi*dx_rad
+            v *= 2*np.pi*dy_rad
+       
+            # run model_fcv
+            model = fortlib.fftlib.model_fcv(
+                    # Images
+                    iin=np.float64(Iin),
+                    xidx=np.int32(xidx),
+                    yidx=np.int32(yidx),
+                    nxref=np.float64(Nxref),
+                    nyref=np.float64(Nyref),
+                    nx=np.int32(Nx),
+                    ny=np.int32(Ny),
+                    # UV coordinates,
+                    u=u,
+                    v=v,
+                    # Full Complex Visibilities
+                    uvidxfcv=np.int32(uvidxfcv),
+                    vfcvr=np.float64(vfcvr),
+                    vfcvi=np.float64(vfcvi),
+                    varfcv=np.float64(varfcv)
+                    )
+            
+            return model,Ndata
+        
+        else:
+            Ndata = 0
+            amptable = self.copy()
+            dammyreal = np.zeros(1, dtype=np.float64)
+            vfcvr = dammyreal
+            vfcvi = dammyreal
+            varfcv = dammyreal
+            vamp = np.array(amptable["amp"], dtype=np.float64)
+            varamp = np.square(np.array(amptable["sigma"], dtype=np.float64))
+            Ndata += len(vamp)
+
+            # get uv coordinates and uv indice
+            u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
+                    fcvtable=None, amptable=amptable, bstable=None, catable=None
+                    )
+            
+            # normalize u, v coordinates
+            u *= 2*np.pi*dx_rad
+            v *= 2*np.pi*dy_rad
+                
+            # run model_fcv
+            model = fortlib.fftlib.model_amp(
+                    # Images
+                    iin=np.float64(Iin),
+                    xidx=np.int32(xidx),
+                    yidx=np.int32(yidx),
+                    nxref=np.float64(Nxref),
+                    nyref=np.float64(Nyref),
+                    nx=np.int32(Nx),
+                    ny=np.int32(Ny),
+                    # UV coordinates,
+                    u=u,
+                    v=v,
+                    # Full Complex Visibilities
+                    uvidxamp=np.int32(uvidxamp),
+                    vamp=np.float64(vamp),
+                    varamp=np.float64(varamp)
+                    )
+            
+            return model,Ndata
+
+
     def eval_geomodel(self, geomodel, evalargs={}):
         '''
         Evaluate model values and output them to a new table
@@ -280,6 +468,12 @@ class VisTable(UVTable):
         '''
         # Number of Stations
         Ndata = len(self["ch"])
+        
+        # make dictionary of stations
+        st1table = self.drop_duplicates(subset='st1')
+        st2table = self.drop_duplicates(subset='st2')
+        stdict = dict(zip(st1table["st1"], st1table["st1name"]))
+        stdict.update(dict(zip(st2table["st2"], st2table["st2name"])))
 
         # Check redundant
         if redundant is not None:
@@ -390,8 +584,8 @@ class VisTable(UVTable):
 
         print("(4/5) Forming Closure Phases")
         keys = "utc,gsthour,freq,stokesid,ifid,chid,ch,"
-        #keys+= "st1name,st2name,st3name,"
         keys+= "st1,st2,st3,"
+        keys+= "st1name,st2name,st3name,"
         keys+= "u12,v12,w12,u23,v23,w23,u31,v31,w31,"
         keys+= "amp,phase,sigma"
         keys = keys.split(",")
@@ -438,6 +632,9 @@ class VisTable(UVTable):
                 outtab["st1"].append(cstset[iset][0])
                 outtab["st2"].append(cstset[iset][1])
                 outtab["st3"].append(cstset[iset][2])
+                outtab["st1name"].append(stdict[cstset[iset][0]])
+                outtab["st2name"].append(stdict[cstset[iset][1]])
+                outtab["st3name"].append(stdict[cstset[iset][2]])
                 outtab["u12"].append(bl1tab.loc[0,"u"])
                 outtab["v12"].append(bl1tab.loc[0,"v"])
                 outtab["w12"].append(bl1tab.loc[0,"w"])
@@ -489,6 +686,12 @@ class VisTable(UVTable):
         from scipy.special import expi
         # Number of Stations
         Ndata = len(self["ch"])
+        
+        # make dictionary of stations
+        st1table = self.drop_duplicates(subset='st1')
+        st2table = self.drop_duplicates(subset='st2')
+        stdict = dict(zip(st1table["st1"], st1table["st1name"]))
+        stdict.update(dict(zip(st2table["st2"], st2table["st2name"])))
 
         # Check redundant
         if redundant is not None:
@@ -646,8 +849,8 @@ class VisTable(UVTable):
 
         print("(4/5) Forming Closure Amplitudes")
         keys = "utc,gsthour,freq,stokesid,ifid,chid,ch,"
-        #keys+= "st1name,st2name,st3name,st4name,"
         keys+= "st1,st2,st3,st4,"
+        keys+= "st1name,st2name,st3name,st4name,"
         keys+= "u1,v1,w1,u2,v2,w2,u3,v3,w3,u4,v4,w4,"
         keys+= "amp,sigma,logamp,logsigma"
         keys = keys.split(",")
@@ -714,6 +917,10 @@ class VisTable(UVTable):
                 outtab["st2"].append(cstset[iset][1])
                 outtab["st3"].append(cstset[iset][2])
                 outtab["st4"].append(cstset[iset][3])
+                outtab["st1name"].append(stdict[cstset[iset][0]])
+                outtab["st2name"].append(stdict[cstset[iset][1]])
+                outtab["st3name"].append(stdict[cstset[iset][2]])
+                outtab["st4name"].append(stdict[cstset[iset][3]])
                 outtab["u1"].append(bl1tab.loc[0,"u"])
                 outtab["v1"].append(bl1tab.loc[0,"v"])
                 outtab["w1"].append(bl1tab.loc[0,"w"])
@@ -751,7 +958,7 @@ class VisTable(UVTable):
         return outtab
 
 
-    def gridding(self, fitsdata, fgfov=1, mu=1, mv=1, c=1):
+    def gridding(self, fitsdata, fgfov=1, mu=6, mv=6, c=10):
         '''
         Args:
           vistable (pandas.Dataframe object):
@@ -918,8 +1125,8 @@ class VisTable(UVTable):
         ax.set_xlim(-np.sort(-xlim))
         ax.set_ylim(np.sort(ylim))
 
-    def radplot_amp(self, uvunit=None, errorbar=True, model=None, modeltype="amp",
-                    ls="none", marker=".", **plotargs):
+    def radplot(self, uvunit=None, datatype="amp", normerror=False, errorbar=True,
+                ls="none", marker=".", **plotargs):
         '''
         Plot visibility amplitudes as a function of baseline lengths
         on the current axes. This method uses matplotlib.pyplot.plot() or
@@ -938,16 +1145,6 @@ class VisTable(UVTable):
             If you plot model closure phases (i.e. model is not None),
             it will plot without errobars regardless of this parameter.
 
-          model (dict-like such as pd.DataFrame, pd.Series, default is None):
-            Model data sets. Model amplitudes must be given by model["fcvampmod"]
-            for full complex visibilities (modeltype="fcv") or model["ampmod"]
-            for visibility amplitudes (modeltype="amp").
-            Otherwise, it will plot amplitudes in the table (i.e. self["amp"]).
-
-          modeltype (string, default = "amp"):
-            The type of models. If you would plot model amplitudes, set modeltype="amp".
-            Else if you would plot model full complex visibilities, set modeltype="fcv".
-
           **plotargs:
             You can set parameters of matplotlib.pyplot.plot() or
             matplotlib.pyplot.errorbars().
@@ -956,36 +1153,49 @@ class VisTable(UVTable):
         # Set Unit
         if uvunit is None:
             uvunit = self.uvunit
-
-        # Conversion Factor
-        conv = self.uvunitconv(unit1="lambda", unit2=uvunit)
-
-        # Label
-        unitlabel = self.get_unitlabel(uvunit)
-
-        # plotting data
-        if model is not None:
-            if modeltype.lower().find("amp") == 0:
-                plt.plot(self["uvdist"] * conv, model["ampmod"],
-                         ls=ls, marker=marker, **plotargs)
-            elif modeltype.lower().find("fcv") == 0:
-                plt.plot(self["uvdist"] * conv, model["fcvampmod"],
-                         ls=ls, marker=marker, **plotargs)
-        elif errorbar:
-            plt.errorbar(self["uvdist"] * conv, self["amp"], self["sigma"],
-                         ls=ls, marker=marker, **plotargs)
-        else:
-            plt.plot(self["uvdist"] * conv, self["amp"],
-                     ls=ls, marker=marker, **plotargs)
-        plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
-        plt.ylabel(r"Visibility Amplitude (Jy)")
-        plt.xlim(0,)
-        plt.ylim(0,)
-
-    def radplot_phase(self, uvunit=None, errorbar=True, model=None,
-                      ls="none", marker=".", **plotargs):
+        
+        # Copy data
+        vistable = copy.deepcopy(self)
+        
+        # add real and imaginary part of full-comp. visibilities
+        if datatype=="real" or datatype=="imag" or datatype=="real&imag":
+            amp = np.float64(vistable["amp"])
+            phase = np.radians(np.float64(vistable["phase"]))
+            #
+            vistable["real"] = amp * np.cos(phase)
+            vistable["imag"] = amp * np.sin(phase)
+        
+        # Normalized by error
+        if normerror:
+            if datatype=="amp" or datatype=="amp&phase":
+                vistable["amp"] /= vistable["sigma"]
+            if datatype=="phase" or datatype=="amp&phase":
+                pherr = np.rad2deg(vistable["sigma"] / vistable["amp"])
+                vistable["phase"] /= pherr
+            if datatype=="real" or datatype=="real&imag":
+                vistable["real"] /= vistable["sigma"]
+            if datatype=="imag" or datatype=="real&imag":
+                vistable["imag"] /= vistable["sigma"]
+            errorbar = False
+        
+        #Plotting data
+        if datatype=="amp":
+            _radplot_amp(vistable, uvunit, errorbar, ls, marker, **plotargs)
+        if datatype=="phase":
+            _radplot_phase(vistable, uvunit, errorbar, ls, marker, **plotargs)
+        if datatype=="amp&phase":
+            _radplot_ampph(vistable, uvunit, errorbar, ls, marker, **plotargs)
+        if datatype=="real":
+            _radplot_real(vistable, uvunit, errorbar, ls, marker, **plotargs)
+        if datatype=="imag":
+            _radplot_imag(vistable, uvunit, errorbar, ls, marker, **plotargs)
+        if datatype=="real&imag":
+            _radplot_fcv(vistable, uvunit, errorbar, ls, marker, **plotargs)
+        
+    def vplot(self, station=None, datatype="amp&phase", timescale="utc", normerror=False,
+              errorbar=True, ls="none", marker=".", **plotargs):
         '''
-        Plot visibility phases as a function of baseline lengths
+        Plot visibility amplitudes as a function of baseline lengths
         on the current axes. This method uses matplotlib.pyplot.plot() or
         matplotlib.pyplot.errorbar().
 
@@ -1002,40 +1212,93 @@ class VisTable(UVTable):
             If you plot model closure phases (i.e. model is not None),
             it will plot without errobars regardless of this parameter.
 
-          model (dict-like such as pd.DataFrame, pd.Series, default is None):
-            Model data sets. Model phases must be given by model["fcvphamod"].
-            Otherwise, it will plot amplitudes in the table (i.e. self["phase"]).
-
           **plotargs:
             You can set parameters of matplotlib.pyplot.plot() or
             matplotlib.pyplot.errorbars().
             Defaults are {'ls': "none", 'marker': "."}.
         '''
-        # Set Unit
-        if uvunit is None:
-            uvunit = self.uvunit
-
-        # Conversion Factor
-        conv = self.uvunitconv(unit1="lambda", unit2=uvunit)
-
-        # Label
-        unitlabel = self.get_unitlabel(uvunit)
-
-        # plotting data
-        if model is not None:
-            plt.plot(self["uvdist"] * conv, model["fcvphamod"],
-                     ls=ls, marker=marker, **plotargs)
-        elif errorbar:
-            pherr = np.rad2deg(self["sigma"] / self["amp"])
-            plt.errorbar(self["uvdist"] * conv, self["phase"], pherr,
-                         ls=ls, marker=marker, **plotargs)
+        # make dictionary of stations
+        st1table = self.drop_duplicates(subset='st1')
+        st2table = self.drop_duplicates(subset='st2')
+        stdict = dict(zip(st1table["st1"], st1table["st1name"]))
+        stdict.update(dict(zip(st2table["st2"], st2table["st2name"])))
+        
+        if station is None:
+            st1 = 1
+            st1name = stdict[1]
         else:
-            plt.plot(self["uvdist"] * conv, self["phase"],
-                     ls=ls, marker=marker, **plotargs)
-        plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
-        plt.ylabel(r"Visibility Phase ($^\circ$)")
-        plt.xlim(0,)
-        plt.ylim(-180, 180)
+            st1 = int(station)
+            st1name = stdict[st1]
+        
+        # edit timescale
+        if timescale=="gsthour" or timescale=="gst":
+            timescale = "gsthour"
+            #
+            ttable = self.drop_duplicates(subset=timescale)
+            time = np.array(ttable[timescale])
+            tmin = time[0]
+            tmax = time[-1]
+            #
+            if tmin > tmax:
+                self.loc[self.gsthour<=tmax, "gsthour"] += 24.
+        
+        # setting limits of min and max
+        ttable = self.drop_duplicates(subset=timescale)
+        if timescale=="utc":
+            ttable[timescale] = pd.to_datetime(ttable[timescale])
+        if timescale=="gsthour":
+            ttable[timescale] = pd.to_datetime(ttable[timescale], unit="h")
+        #
+        time = np.array(ttable[timescale])
+        tmin = time[0]
+        tmax = time[-1]
+        
+        # setting indices
+        tmptable = self.set_index(timescale)
+        
+        # search data of baseline
+        plttable = tmptable.query("st1 == @st1")
+        
+        # add real and imaginary part of full-comp. visibilities
+        if datatype=="real" or datatype=="imag" or datatype=="real&imag":
+            amp = np.float64(plttable["amp"])
+            phase = np.radians(np.float64(plttable["phase"]))
+            #
+            plttable["real"] = amp * np.cos(phase)
+            plttable["imag"] = amp * np.sin(phase)
+        
+        # normalized by error
+        if normerror:
+            if datatype=="amp" or datatype=="amp&phase":
+                plttable["amp"] /= plttable["sigma"]
+            if datatype=="phase" or datatype=="amp&phase":
+                pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
+                plttable["phase"] /= pherr
+            if datatype=="real" or datatype=="real&imag":
+                plttable["real"] /= plttable["sigma"]
+            if datatype=="imag" or datatype=="real&imag":
+                plttable["imag"] /= plttable["sigma"]
+            errorbar = False
+        
+        # plotting data
+        if datatype=="amp":
+            _vplot_amp(plttable, st1name, stdict, timescale, tmin, tmax, 
+                       errorbar, ls, marker, **plotargs)
+        if datatype=="phase":
+            _vplot_phase(plttable, st1name, stdict, timescale, tmin, tmax, 
+                         errorbar, ls, marker, **plotargs)
+        if datatype=="amp&phase":
+            _vplot_ampph(plttable, st1name, stdict, timescale, tmin, tmax, 
+                         errorbar, ls, marker, **plotargs)
+        if datatype=="real":
+            _vplot_real(plttable, st1name, stdict, timescale, tmin, tmax, 
+                        errorbar, ls, marker, **plotargs)
+        if datatype=="imag":
+            _vplot_imag(plttable, st1name, stdict, timescale, tmin, tmax, 
+                        errorbar, ls, marker, **plotargs)
+        if datatype=="real&imag":
+            _vplot_fcv(plttable, st1name, stdict, timescale, tmin, tmax, 
+                       errorbar, ls, marker, **plotargs)
 
 
 class VisSeries(UVSeries):
@@ -1305,3 +1568,677 @@ def fit_chisq(parms, X, Y, dbeam):
         return (dbeam - cbeam).reshape(dbeam.size)
     else:
         print("not equal the size of two beam array")
+
+
+def _radplot_amp(vistable, uvunit, errorbar, ls ,marker, **plotargs):
+    # Conversion Factor
+    conv = vistable.uvunitconv(unit1="lambda", unit2=uvunit)
+
+    # Label
+    unitlabel = vistable.get_unitlabel(uvunit)
+    
+    # Plotting data
+    if errorbar:
+        plt.errorbar(vistable["uvdist"] * conv, vistable["amp"], vistable["sigma"],
+                     ls=ls, marker=marker, **plotargs)
+    else:
+        plt.plot(vistable["uvdist"] * conv, vistable["amp"],
+                     ls=ls, marker=marker, **plotargs)
+    # Label (Plot)
+    plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+    plt.ylabel(r"Visibility Amplitude (Jy)")
+    plt.xlim(0.,)
+    plt.ylim(0.,)
+    
+
+def _radplot_phase(vistable, uvunit, errorbar, ls ,marker, **plotargs):
+    # Conversion Factor
+    conv = vistable.uvunitconv(unit1="lambda", unit2=uvunit)
+
+    # Label
+    unitlabel = vistable.get_unitlabel(uvunit)
+    
+    # Plotting data
+    if errorbar:
+        pherr = vistable["sigma"] / vistable["sigma"]
+        plt.errorbar(vistable["uvdist"] * conv, vistable["phase"], pherr,
+                     ls=ls, marker=marker, **plotargs)
+    else:
+        plt.plot(vistable["uvdist"] * conv, vistable["phase"],
+                     ls=ls, marker=marker, **plotargs)
+    # Label (Plot)
+    plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+    plt.ylabel(r"Visibility Phase ($^\circ$)")
+    plt.xlim(0.,)
+    plt.ylim(-180., 180.)
+
+
+def _radplot_ampph(vistable, uvunit, errorbar, ls ,marker, **plotargs):
+    # Conversion Factor
+    conv = vistable.uvunitconv(unit1="lambda", unit2=uvunit)
+
+    # Label
+    unitlabel = vistable.get_unitlabel(uvunit)
+    
+    # Plotting data
+    if errorbar:
+        plt.errorbar(vistable["uvdist"] * conv, vistable["amp"], vistable["sigma"],
+                     ls=ls, marker=marker, **plotargs)
+    else:
+        plt.plot(vistable["uvdist"] * conv, vistable["amp"],
+                     ls=ls, marker=marker, **plotargs)
+    # Label (Plot)
+    plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+    plt.ylabel(r"Visibility Amplitude (Jy)")
+    plt.xlim(0.,)
+    plt.ylim(0.,)
+    
+
+def _radplot_real(vistable, uvunit, errorbar, ls ,marker, **plotargs):
+    # Conversion Factor
+    conv = vistable.uvunitconv(unit1="lambda", unit2=uvunit)
+
+    # Label
+    unitlabel = vistable.get_unitlabel(uvunit)
+    
+    data  = np.float64(vistable["real"])
+    ymin = np.min(data)
+    ymax = np.max(data)
+    
+    # Plotting data
+    if errorbar:
+        plt.errorbar(vistable["uvdist"] * conv, vistable["real"], vistable["sigma"],
+                     ls=ls, marker=marker, **plotargs)
+    else:
+        plt.plot(vistable["uvdist"] * conv, vistable["real"],
+                     ls=ls, marker=marker, **plotargs)
+    plt.xlim(0.,)
+    ymin = np.min(vistable["real"])
+    if ymin>=0.:
+        plt.ylim(0.,)
+    
+    # Label (Plot)
+    plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+    plt.ylabel(r"Real Part of Visibilities (Jy)")
+    
+
+def _radplot_imag(vistable, uvunit, errorbar, ls ,marker, **plotargs):
+    # Conversion Factor
+    conv = vistable.uvunitconv(unit1="lambda", unit2=uvunit)
+
+    # Label
+    unitlabel = vistable.get_unitlabel(uvunit)
+    
+    data  = np.float64(vistable["imag"])
+    ymin = np.min(data)
+    ymax = np.max(data)
+    
+    # Plotting data
+    if errorbar:
+        plt.errorbar(vistable["uvdist"] * conv, vistable["imag"], vistable["sigma"],
+                     ls=ls, marker=marker, **plotargs)
+    else:
+        plt.plot(vistable["uvdist"] * conv, vistable["imag"],
+                     ls=ls, marker=marker, **plotargs)
+    #
+    plt.xlim(0.,)
+    ymin = np.min(vistable["imag"])
+    if ymin>=0.:
+        plt.ylim(0.,)
+    # Label (Plot)
+    plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+    plt.ylabel(r"Real Part of Visibilities (Jy)")
+
+
+def _radplot_fcv(vistable, uvunit, errorbar, ls ,marker, **plotargs):
+    # Conversion Factor
+    conv = vistable.uvunitconv(unit1="lambda", unit2=uvunit)
+
+    # Label
+    unitlabel = vistable.get_unitlabel(uvunit)
+    
+    data  = np.float64(vistable["real"])
+    ymin = np.min(data)
+    ymax = np.max(data)
+    
+    # Plotting data
+    if errorbar:
+        plt.errorbar(vistable["uvdist"] * conv, vistable["real"], vistable["sigma"],
+                     ls=ls, marker=marker, **plotargs)
+    else:
+        plt.plot(vistable["uvdist"] * conv, vistable["real"],
+                     ls=ls, marker=marker, **plotargs)
+    #
+    plt.xlim(0.,)
+    ymin = np.min(vistable["real"])
+    if ymin>=0.:
+        plt.ylim(0.,)
+    # Label (Plot)
+    plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+    plt.ylabel(r"Real Part of Visibilities (Jy)")
+
+
+def _vplot_amp(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
+               ls, marker, **plotargs):
+    '''
+    Plot visibility amplitudes as a function of baseline lengths
+    on the current axes. This method uses matplotlib.pyplot.plot() or
+    matplotlib.pyplot.errorbar().
+
+    Args:
+      uvunit (str, default = None):
+    The unit of the baseline length. if uvunit is None, it will use
+        self.uvunit.
+
+      errorbar (boolean, default = True):
+        If errorbar is True, it will plot data with errorbars using
+        matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
+        errorbars using matplotlib.pyplot.plot().
+
+        If you plot model closure phases (i.e. model is not None),
+        it will plot without errobars regardless of this parameter.
+
+      **plotargs:
+        You can set parameters of matplotlib.pyplot.plot() or
+        matplotlib.pyplot.errorbars().
+        Defaults are {'ls': "none", 'marker': "."}.
+    '''
+    # get antenna
+    st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
+    Nant = len(st2)
+    
+    # convert timescale to pd.to_datetime
+    if timescale=="utc":
+        vistable.index = pd.to_datetime(vistable.index)
+    if timescale=="gsthour":
+        vistable.index = pd.to_datetime(vistable.index, unit="h")
+    
+    # plotting data
+    fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
+    fig.subplots_adjust(hspace=0)
+    for iant in range(Nant):
+        ax = axs[iant]
+        plt.sca(ax)
+        
+        plttable = vistable.query("st2 == @st2[@iant]")
+        if errorbar:
+            plt.errorbar(plttable.index, plttable["amp"], plttable["sigma"],
+                         ls=ls, marker=marker, **plotargs)
+        else:
+            plt.plot(plttable.index, plttable["amp"],
+                     ls=ls, marker=marker, **plotargs)
+        #
+        plt.text(0.97, 0.9, st1name.strip()+"-"+stdict[st2[iant]].strip(), horizontalalignment='right',
+                 verticalalignment='top', transform=ax.transAxes, fontsize=8,
+                 color="black")
+        plt.xlim(tmin, tmax)
+        plt.ylim(0.,)
+        #
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(9)
+    
+    # major ticks
+    ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
+    #
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(10)
+    # minor ticks
+    ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
+    #
+    if timescale=="utc":        
+        plt.xlabel(r"Universal Time (UTC)")
+    elif timescale=="gsthour":
+        plt.xlabel(r"Greenwich Sidereal Time (GST)")
+    
+        
+def _vplot_phase(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
+                 ls, marker, **plotargs):
+    '''
+    Plot visibility amplitudes as a function of baseline lengths
+    on the current axes. This method uses matplotlib.pyplot.plot() or
+    matplotlib.pyplot.errorbar().
+
+    Args:
+      uvunit (str, default = None):
+        The unit of the baseline length. if uvunit is None, it will use
+        self.uvunit.
+
+      errorbar (boolean, default = True):
+        If errorbar is True, it will plot data with errorbars using
+        matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
+        errorbars using matplotlib.pyplot.plot().
+
+        If you plot model closure phases (i.e. model is not None),
+        it will plot without errobars regardless of this parameter.
+
+      **plotargs:
+        You can set parameters of matplotlib.pyplot.plot() or
+        matplotlib.pyplot.errorbars().
+        Defaults are {'ls': "none", 'marker': "."}.
+    '''    
+    # get antenna
+    st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
+    Nant = len(st2)
+    
+    # convert timescale to pd.to_datetime
+    if timescale=="utc":
+        vistable.index = pd.to_datetime(vistable.index)
+    if timescale=="gsthour":
+        vistable.index = pd.to_datetime(vistable.index, unit="h")
+    
+    # plotting data
+    fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
+    fig.subplots_adjust(hspace=0)
+    for iant in range(Nant):
+        ax = axs[iant]
+        plt.sca(ax)
+    
+        plttable = vistable.query("st2 == @st2[@iant]")
+        if errorbar:
+            pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
+            plt.errorbar(plttable.index, plttable["phase"], pherr, ls=ls, marker=marker,
+                         **plotargs)
+        else:
+            plt.plot(plttable.index, plttable["phase"], ls=ls, marker=marker, **plotargs)
+        #
+        plt.text(0.97, 0.9, st1name.strip()+"-"+stdict[st2[iant]].strip(), horizontalalignment='right',
+                 verticalalignment='top', transform=ax.transAxes, fontsize=8,
+                 color="black")
+        plt.xlim(tmin, tmax)
+        # major ticks
+        ax.yaxis.set_major_locator(ticker.FixedLocator([-90, 0, 90]))
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(9)
+        plt.ylim(-180., 180.)
+    
+    # major ticks
+    ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
+    #
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(10)
+    # minor ticks
+    ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
+    #
+    if timescale=="utc":        
+        plt.xlabel(r"Universal Time (UTC)")
+    elif timescale=="gsthour":
+        plt.xlabel(r"Greenwich Sidereal Time (GST)")
+
+
+def _vplot_ampph(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
+                 ls, marker, **plotargs):
+    '''
+    Plot visibility amplitudes as a function of baseline lengths
+    on the current axes. This method uses matplotlib.pyplot.plot() or
+    matplotlib.pyplot.errorbar().
+
+    Args:
+      uvunit (str, default = None):
+        The unit of the baseline length. if uvunit is None, it will use
+        self.uvunit.
+
+      errorbar (boolean, default = True):
+        If errorbar is True, it will plot data with errorbars using
+        matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
+        errorbars using matplotlib.pyplot.plot().
+
+        If you plot model closure phases (i.e. model is not None),
+        it will plot without errobars regardless of this parameter.
+
+      **plotargs:
+        You can set parameters of matplotlib.pyplot.plot() or
+        matplotlib.pyplot.errorbars().
+        Defaults are {'ls': "none", 'marker': "."}.
+    '''
+    # get antenna
+    st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
+    Nant = len(st2)
+    
+    # convert timescale to pd.to_datetime
+    if timescale=="utc":
+        vistable.index = pd.to_datetime(vistable.index)
+    if timescale=="gsthour":
+        vistable.index = pd.to_datetime(vistable.index, unit="h")
+    
+    # plotting data
+    fig, axs = plt.subplots(nrows=Nant * 2, ncols=1, sharex=True, sharey=False)
+    fig.subplots_adjust(hspace=0)
+    for iant in range(Nant):
+        # amp
+        ax = axs[iant*2]
+        plt.sca(ax)
+        
+        plttable = vistable.query("st2 == @st2[@iant]")
+        if errorbar:
+            plt.errorbar(plttable.index, plttable["amp"], plttable["sigma"],
+                         ls=ls, marker=marker, **plotargs)
+        else:
+            plt.plot(plttable.index, plttable["amp"],
+                     ls=ls, marker=marker, **plotargs)
+        #
+        plt.text(0.97, 0.9, st1name.strip()+"-"+stdict[st2[iant]].strip(), horizontalalignment='right',
+                 verticalalignment='top', transform=ax.transAxes, fontsize=8,
+                 color="black")
+        plt.xlim(tmin, tmax)
+        plt.ylim(0.,)
+        #
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(9)
+        
+        # phase
+        ax = axs[iant*2+1]
+        plt.sca(ax)
+        
+        if errorbar:
+            pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
+            plt.errorbar(plttable.index, plttable["phase"], pherr, ls=ls, marker=marker,
+                         **plotargs)
+        else:
+            plt.plot(plttable.index, plttable["phase"], ls=ls, marker=marker, **plotargs)
+        #
+        plt.text(0.97, 0.9, "phase", horizontalalignment='right',
+                 verticalalignment='top', transform=ax.transAxes, fontsize=8,
+                 color="black")
+        plt.xlim(tmin, tmax)
+        # major ticks
+        ax.yaxis.set_major_locator(ticker.FixedLocator([-90, 0, 90]))
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(9) 
+        plt.ylim(-180., 180.)      
+    
+    # major ticks
+    ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
+    #
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(10)
+    # minor ticks
+    ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
+    #
+    if timescale=="utc":        
+        plt.xlabel(r"Universal Time (UTC)")
+    elif timescale=="gsthour":
+        plt.xlabel(r"Greenwich Sidereal Time (GST)")
+
+
+def _vplot_real(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
+                ls, marker, **plotargs):
+    '''
+    Plot visibility amplitudes as a function of baseline lengths
+    on the current axes. This method uses matplotlib.pyplot.plot() or
+    matplotlib.pyplot.errorbar().
+
+    Args:
+      uvunit (str, default = None):
+        The unit of the baseline length. if uvunit is None, it will use
+        self.uvunit.
+
+      errorbar (boolean, default = True):
+        If errorbar is True, it will plot data with errorbars using
+        matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
+        errorbars using matplotlib.pyplot.plot().
+
+        If you plot model closure phases (i.e. model is not None),
+        it will plot without errobars regardless of this parameter.
+
+      **plotargs:
+        You can set parameters of matplotlib.pyplot.plot() or
+        matplotlib.pyplot.errorbars().
+        Defaults are {'ls': "none", 'marker': "."}.
+    '''        
+    # add real part of full-comp. visibilities
+    amp = np.float64(vistable["amp"])
+    phase = np.radians(np.float64(vistable["phase"]))
+    #
+    vistable["real"] = amp * np.cos(phase)
+    
+    # get antenna
+    st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
+    Nant = len(st2)
+    
+    # convert timescale to pd.to_datetime
+    if timescale=="utc":
+        vistable.index = pd.to_datetime(vistable.index)
+    if timescale=="gsthour":
+        vistable.index = pd.to_datetime(vistable.index, unit="h")
+    
+    # plotting data
+    fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
+    fig.subplots_adjust(hspace=0)
+    for iant in range(Nant):
+        ax = axs[iant]
+        plt.sca(ax)
+        
+        plttable = vistable.query("st2 == @st2[@iant]")
+        #
+        if errorbar:
+            plt.errorbar(plttable.index, plttable["real"], plttable["sigma"], ls=ls,
+                         marker=marker, **plotargs)
+        else:
+            plt.plot(plttable.index, plttable["real"], ls=ls, marker=marker, **plotargs)
+        #
+        plt.text(0.97, 0.9, st1name.strip()+"-"+stdict[st2[iant]].strip(), horizontalalignment='right',
+                 verticalalignment='top', transform=ax.transAxes, fontsize=8,
+                 color="black")
+        plt.xlim(tmin, tmax)
+        #
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(9) 
+        ymin = np.min(plttable["real"])
+        ymax = np.max(plttable["real"])
+        if ymin>=0.:
+            plt.ylim(0.,)
+        if ymax<=0.:
+            plt.ylim(ymax=0.)
+    
+    # major ticks
+    ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
+    #
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(10)
+    # minor ticks
+    ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
+    #
+    if timescale=="utc":        
+        plt.xlabel(r"Universal Time (UTC)")
+    elif timescale=="gsthour":
+        plt.xlabel(r"Greenwich Sidereal Time (GST)")
+
+        
+def _vplot_imag(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
+                ls, marker, **plotargs):
+    '''
+    Plot visibility amplitudes as a function of baseline lengths
+    on the current axes. This method uses matplotlib.pyplot.plot() or
+    matplotlib.pyplot.errorbar().
+
+    Args:
+      uvunit (str, default = None):
+        The unit of the baseline length. if uvunit is None, it will use
+        self.uvunit.
+
+      errorbar (boolean, default = True):
+        If errorbar is True, it will plot data with errorbars using
+        matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
+        errorbars using matplotlib.pyplot.plot().
+
+        If you plot model closure phases (i.e. model is not None),
+        it will plot without errobars regardless of this parameter.
+
+      **plotargs:
+        You can set parameters of matplotlib.pyplot.plot() or
+        matplotlib.pyplot.errorbars().
+        Defaults are {'ls': "none", 'marker': "."}.
+    '''    
+    # add real part of full-comp. visibilities
+    amp = np.float64(vistable["amp"])
+    phase = np.radians(np.float64(vistable["phase"]))
+    #
+    vistable["imag"] = amp * np.sin(phase)
+    
+    # get antenna
+    st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
+    Nant = len(st2)
+    
+    # convert timescale to pd.to_datetime
+    if timescale=="utc":
+        vistable.index = pd.to_datetime(vistable.index)
+    if timescale=="gsthour":
+        vistable.index = pd.to_datetime(vistable.index, unit="h")
+    
+    # plotting data
+    fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
+    fig.subplots_adjust(hspace=0)
+    for iant in range(Nant):
+        ax = axs[iant]
+        plt.sca(ax)
+        
+        plttable = vistable.query("st2 == @st2[@iant]")
+        #
+        if errorbar:
+            plt.errorbar(plttable.index, plttable["imag"], plttable["sigma"], ls=ls, 
+                         marker=marker, **plotargs)
+        else:
+            plt.plot(plttable.index, plttable["imag"], ls=ls, marker=marker, **plotargs)
+        #
+        plt.text(0.97, 0.9, st1name.strip()+"-"+stdict[st2[iant]].strip(), horizontalalignment='right',
+                 verticalalignment='top', transform=ax.transAxes, fontsize=8,
+                 color="black")
+        plt.xlim(tmin, tmax)
+        #
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(9) 
+        ymin = np.min(plttable["imag"])
+        ymax = np.max(plttable["imag"])
+        if ymin>=0.:
+            plt.ylim(0.,)
+        if ymax<=0.:
+            plt.ylim(ymax=0.)
+    
+    # major ticks
+    ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
+    #
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(10)
+    # minor ticks
+    ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
+    #
+    if timescale=="utc":        
+        plt.xlabel(r"Universal Time (UTC)")
+    elif timescale=="gsthour":
+        plt.xlabel(r"Greenwich Sidereal Time (GST)")
+
+
+def _vplot_fcv(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
+               ls, marker, **plotargs):
+    '''
+    Plot visibility amplitudes as a function of baseline lengths
+    on the current axes. This method uses matplotlib.pyplot.plot() or
+    matplotlib.pyplot.errorbar().
+
+    Args:
+      uvunit (str, default = None):
+        The unit of the baseline length. if uvunit is None, it will use
+        self.uvunit.
+
+      errorbar (boolean, default = True):
+        If errorbar is True, it will plot data with errorbars using
+        matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
+        errorbars using matplotlib.pyplot.plot().
+
+        If you plot model closure phases (i.e. model is not None),
+        it will plot without errobars regardless of this parameter.
+
+      **plotargs:
+        You can set parameters of matplotlib.pyplot.plot() or
+        matplotlib.pyplot.errorbars().
+        Defaults are {'ls': "none", 'marker': "."}.
+    '''    
+    # add real part of full-comp. visibilities
+    amp = np.float64(vistable["amp"])
+    phase = np.radians(np.float64(vistable["phase"]))
+    #
+    vistable["real"] = amp * np.cos(phase)
+    vistable["imag"] = amp * np.sin(phase)
+    
+    # get antenna
+    st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
+    Nant = len(st2)
+    
+    # convert timescale to pd.to_datetime
+    if timescale=="utc":
+        vistable.index = pd.to_datetime(vistable.index)
+    if timescale=="gsthour":
+        vistable.index = pd.to_datetime(vistable.index, unit="h")
+    
+    # plotting data
+    fig, axs = plt.subplots(nrows=Nant*2, ncols=1, sharex=True, sharey=False)
+    fig.subplots_adjust(hspace=0)
+    for iant in range(Nant):
+        # real part
+        ax = axs[iant*2]
+        plt.sca(ax)
+        
+        plttable = vistable.query("st2 == @st2[@iant]")
+        #
+        if errorbar:
+            plt.errorbar(plttable.index, plttable["real"], plttable["sigma"], ls=ls,
+                         marker=marker, **plotargs)
+        else:
+            plt.plot(plttable.index, plttable["real"], ls=ls, marker=marker, **plotargs)
+        #
+        plt.text(0.97, 0.9, st1name.strip()+"-"+stdict[st2[iant]].strip(), horizontalalignment='right',
+                 verticalalignment='top', transform=ax.transAxes, fontsize=8,
+                 color="black")
+        plt.xlim(tmin, tmax)
+        #
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(9) 
+        ymin = np.min(plttable["real"])
+        ymax = np.max(plttable["real"])
+        if ymin>=0.:
+            plt.ylim(0.,)
+        if ymax<=0.:
+            plt.ylim(ymax=0.)
+        
+        # imaginary part
+        ax = axs[iant*2+1]
+        plt.sca(ax)
+        
+        if errorbar:
+            plt.errorbar(plttable.index, plttable["imag"], plttable["sigma"], ls=ls, 
+                         marker=marker, **plotargs)
+        else:
+            plt.plot(plttable.index, plttable["imag"], ls=ls, marker=marker, **plotargs)
+        #
+        plt.text(0.97, 0.9, "imag part", horizontalalignment='right',
+                 verticalalignment='top', transform=ax.transAxes, fontsize=8,
+                 color="black")
+        plt.xlim(tmin, tmax)
+        #
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(9) 
+        ymin = np.min(plttable["imag"])
+        ymax = np.max(plttable["imag"])
+        if ymin>=0.:
+            plt.ylim(0.,)
+        if ymax<=0.:
+            plt.ylim(ymax=0.)
+    
+    # major ticks
+    ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
+    #
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(10)
+    # minor ticks
+    ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
+    #
+    if timescale=="utc":        
+        plt.xlabel(r"Universal Time (UTC)")
+    elif timescale=="gsthour":
+        plt.xlabel(r"Greenwich Sidereal Time (GST)")

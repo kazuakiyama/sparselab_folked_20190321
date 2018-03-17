@@ -10,7 +10,7 @@ subroutine calc_uvw(gst,alpha,delta,dx,dy,dz,u,v,w,Ndata)
     implicit none
 
     ! Arguments
-    integer, intent(in)  :: Ndata            ! number of semented time
+    integer, intent(in)   :: Ndata          ! number of semented time
     real(dp), intent(in)  :: gst(Ndata)    ! Greenwich Sidereal Time (hour)
     real(dp), intent(in)  :: alpha(Ndata)  ! RA (rad)
     real(dp), intent(in)  :: delta(Ndata)  ! Dec (rad)
@@ -22,7 +22,7 @@ subroutine calc_uvw(gst,alpha,delta,dx,dy,dz,u,v,w,Ndata)
     real(dp), intent(out) :: w(Ndata)      ! output UVW coordinates (W)
 
     ! local variables
-    integer :: i
+    integer  :: i
     real(dp) :: cosgh        ! cos of greenwich hour angle
     real(dp) :: singh        ! sin of greenwich hour angle
     real(dp) :: cosd         ! cos of declination

@@ -234,7 +234,7 @@ def imaging(
         lambl1_sim = lambl1 / (fluxscale * Nyx)
         lambtv_sim = lambtv / (4 * fluxscale * Nyx)
         lambtsv_sim = lambtsv / (4 *fluxscale**2 * Nyx)
-        lambmem_sim = lambmem / (fluxscale*np.log(fluxscale) * Nyx)
+        lambmem_sim = lambmem / np.abs(fluxscale*np.log(fluxscale) * Nyx)
     else:
         lambl1_sim = lambl1
         lambtv_sim = lambtv
@@ -310,6 +310,894 @@ def imaging(
         outimage.data[istokes, ifreq, yidx[i] - 1, xidx[i] - 1] = Iout[i]
     outimage.update_fits()
     return outimage
+
+def statistics(
+        initimage, imagewin=None,
+        vistable=None, amptable=None, bstable=None, catable=None,
+        lambl1=1., lambtv=-1, lambtsv=1, logreg=False, normlambda=True,
+        totalflux=None, fluxconst=False,
+        istokes=0, ifreq=0, fulloutput=True, **args):
+    '''
+
+    '''
+    # Check Arguments
+    if ((vistable is None) and (amptable is None) and
+            (bstable is None) and (catable is None)):
+        print("Error: No data are input.")
+        return -1
+
+    # Total Flux constraint: Sanity Check
+    dofluxconst = False
+    if ((vistable is None) and (amptable is None) and (totalflux is None)):
+        print("Error: No absolute amplitude information in the input data.")
+        print("       You need to set the total flux constraint by totalflux.")
+        return -1
+    elif ((totalflux is None) and (fluxconst is True)):
+        print("Error: No total flux is specified, although you set fluxconst=True.")
+        print("       You need to set the total flux constraint by totalflux.")
+        return -1
+    elif ((vistable is None) and (amptable is None) and
+          (totalflux is not None) and (fluxconst is False)):
+        print("Warning: No absolute amplitude information in the input data.")
+        print("         The total flux will be constrained, although you do not set fluxconst=True.")
+        dofluxconst = True
+    elif fluxconst is True:
+        dofluxconst = True
+
+    # Full Complex Visibility
+    Ndata = 0
+    if vistable is None:
+        isfcv = False
+        chisqfcv = 0.
+        rchisqfcv = 0.
+    else:
+        isfcv = True
+        chisqfcv, rchisqfcv = vistable.chisq_image(imfits=initimage, 
+                                                   mask=imagewin,
+                                                   amptable=False,
+                                                   istokes=istokes,
+                                                   ifreq=ifreq)
+        Ndata += len(vistable)*2
+
+    # Visibility Amplitude
+    if amptable is None:
+        isamp = False
+        chisqamp = 0.
+        rchisqamp = 0.
+    else:
+        isamp = True
+        chisqamp, rchisqamp = amptable.chisq_image(imfits=initimage, 
+                                                   mask=imagewin,
+                                                   amptable=True,
+                                                   istokes=istokes,
+                                                   ifreq=ifreq)        
+        Ndata += len(amptable)
+
+    # Closure Phase
+    if bstable is None:
+        iscp = False
+        chisqcp = 0.
+        rchisqcp = 0.
+    else:
+        iscp = True
+        chisqcp, rchisqcp = bstable.chisq_image(imfits=initimage, 
+                                                mask=imagewin,
+                                                istokes=istokes,
+                                                ifreq=ifreq)        
+        Ndata += len(bstable)
+
+    # Closure Amplitude
+    if catable is None:
+        isca = False
+        chisqca = 0.
+        rchisqca = 0.
+    else:
+        isca = True
+        chisqca, rchisqca = catable.chisq_image(imfits=initimage, 
+                                                mask=imagewin,
+                                                istokes=istokes,
+                                                ifreq=ifreq)        
+        Ndata += len(catable)
+
+    # Normalize Lambda
+    Nx = np.int32(initimage.header["nx"])
+    Ny = np.int32(initimage.header["ny"])
+    Nyx = Nx * Ny
+    if imagewin is None:
+        pixnum = Nyx
+    else:
+        pixnum = sum(imagewin.reshape(Nyx))
+    if normlambda:
+        # Guess Total Flux
+        if totalflux is None:
+            fluxscale = []
+            if vistable is not None:
+                fluxscale.append(vistable["amp"].max())
+            if amptable is not None:
+                fluxscale.append(amptable["amp"].max())
+            fluxscale = np.max(fluxscale)
+            print("Flux Scaling Factor for lambda: The expected total flux is not given.")
+            print("The scaling factor will be %g" % (fluxscale))
+        else:
+            fluxscale = np.float64(totalflux)
+            print("Flux Scaling Factor for lambda: The scaling factor will be %g" % (fluxscale))
+        if logreg:
+            lambl1_sim = lambl1 / (len(xidx)*np.log(1+fluxscale/len(xidx)))
+            lambtv_sim = lambtv / (len(xidx)*np.log(1+fluxscale/len(xidx)))
+            lambtsv_sim = lambtsv / (len(xidx)*np.log(1+fluxscale/len(xidx)))**2
+        else:
+            lambl1_sim = lambl1 / fluxscale
+            lambtv_sim = lambtv / fluxscale
+            lambtsv_sim = lambtsv / fluxscale**2
+    else:
+        lambl1_sim = lambl1
+        lambtv_sim = lambtv
+        lambtsv_sim = lambtsv
+
+    # cost calculation
+    l1 = initimage.imagecost(func="l1",out="cost",istokes=istokes,
+                             ifreq=ifreq)
+    tv = initimage.imagecost(func="tv",out="cost",istokes=istokes,
+                             ifreq=ifreq)
+    tsv = initimage.imagecost(func="tsv",out="cost",istokes=istokes,
+                             ifreq=ifreq)
+    if lambl1 > 0:
+        l1cost = l1 * lambl1_sim
+    else:
+        lambl1 = 0.
+        lambl1_sim = 0.
+        l1cost = 0.
+
+    if lambtv > 0:
+        tvcost = tv * lambtv_sim
+    else:
+        lambtv = 0.
+        lambtv_sim = 0.
+        tvcost = 0.
+
+    if lambtsv > 0:
+        tsvcost = tsv * lambtsv_sim
+    else:
+        lambtsv = 0.
+        lambtsv_sim = 0.
+        tsvcost = 0.
+    
+    # Cost and Chisquares
+    stats = collections.OrderedDict()
+    stats["cost"] = l1cost + tvcost + tsvcost
+    stats["chisq"] = chisqfcv + chisqamp + chisqcp + chisqca
+    stats["rchisq"] = stats["chisq"] / Ndata
+    stats["isfcv"] = isfcv
+    stats["isamp"] = isamp
+    stats["iscp"] = iscp
+    stats["isca"] = isca
+    stats["chisqfcv"] = chisqfcv
+    stats["chisqamp"] = chisqamp
+    stats["chisqcp"] = chisqcp
+    stats["chisqca"] = chisqca
+    stats["rchisqfcv"] = rchisqfcv
+    stats["rchisqamp"] = rchisqamp
+    stats["rchisqcp"] = rchisqcp
+    stats["rchisqca"] = rchisqca
+    
+    # Regularization functions
+    stats["lambl1"] = lambl1
+    stats["lambl1_sim"] = lambl1_sim
+    stats["l1"] = l1
+    stats["l1cost"] = l1cost
+    stats["lambtv"] = lambtv
+    stats["lambtv_sim"] = lambtv_sim
+    stats["tv"] = tv
+    stats["tvcost"] = tvcost
+    stats["lambtsv"] = lambtsv
+    stats["lambtsv_sim"] = lambtsv_sim
+    stats["tsv"] = tsv
+    stats["tsvcost"] = tsvcost
+
+    return stats
+
+def iterative_imaging(initimage, imageprm, Niter=10,
+                      dothres=True, threstype="hard", threshold=0.3,
+                      doshift=True, shifttype="peak",
+                      dowinmod=False, imageregion=None,
+                      doconv=True, convprm={},
+                      save_totalflux=False):
+    oldimage = imaging(initimage, **imageprm)
+    oldcost = statistics(oldimage, fulloutput=False, **imageprm)["cost"]
+    for i in np.arange(Niter - 1):
+        newimage = copy.deepcopy(oldimage)
+
+        if dothres:
+            if threstype == "soft":
+                newimage = newimage.soft_threshold(threshold=threshold,
+                                                   save_totalflux=save_totalflux)
+            else:
+                newimage = newimage.hard_threshold(threshold=threshold,
+                                                   save_totalflux=save_totalflux)
+        if doshift:
+            if shifttype == "com":
+                newimage = newimage.comshift(save_totalflux=save_totalflux)
+            else:
+                newimage = newimage.peakshift(save_totalflux=save_totalflux)
+
+        # Edit Images
+        if dowinmod and imageregion is not None:
+            newimage = imageregion.editimage(newimage, 
+                                             save_totalflux=save_totalflux)
+
+        if doconv:
+            newimage = newimage.gauss_convolve(
+                save_totalflux=save_totalflux, **convprm)
+
+        # Imaging Again
+        newimage = imaging(newimage, **imageprm)
+        newcost = statistics(
+            newimage, fulloutput=False, **imageprm)["cost"]
+
+        if oldcost < newcost:
+            print("No improvement in cost fucntions. Don't update image.")
+        else:
+            oldcost = newcost
+            oldimage = newimage
+    return oldimage
+
+def plots(outimage, imageprm={}, filename=None,
+                     angunit="mas", uvunit="ml", plotargs={'ms': 1., }):
+    isinteractive = plt.isinteractive()
+    backend = matplotlib.rcParams["backend"]
+
+    if isinteractive:
+        plt.ioff()
+        matplotlib.use('Agg')
+
+    nullfmt = NullFormatter()
+
+    # Label
+    if uvunit.lower().find("l") == 0:
+        unitlabel = r"$\lambda$"
+    elif uvunit.lower().find("kl") == 0:
+        unitlabel = r"$10^3 \lambda$"
+    elif uvunit.lower().find("ml") == 0:
+        unitlabel = r"$10^6 \lambda$"
+    elif uvunit.lower().find("gl") == 0:
+        unitlabel = r"$10^9 \lambda$"
+    elif uvunit.lower().find("m") == 0:
+        unitlabel = "m"
+    elif uvunit.lower().find("km") == 0:
+        unitlabel = "km"
+    else:
+        print("Error: uvunit=%s is not supported" % (unit2))
+        return -1
+
+    # Get statistics
+    stats = statistics(outimage, **imageprm)
+
+    # Open File
+    if filename is not None:
+        pdf = PdfPages(filename)
+
+    # Save Image
+    if filename is not None:
+        util.matplotlibrc(nrows=1, ncols=1, width=600, height=600)
+    else:
+        matplotlib.rcdefaults()
+
+    plt.figure()
+    outimage.imshow(angunit=angunit)
+    if filename is not None:
+        pdf.savefig()
+        plt.close()
+
+    # fcv
+    if stats["isfcv"] == True:
+        table = imageprm["vistable"]
+   
+        # Get model data
+        model = table.eval_image(imfits=outimage,
+                                 mask=None,
+                                 amptable=False,
+                                 istokes=0,
+                                 ifreq=0)
+        resid = table.residual_image(imfits=outimage, 
+                                     mask=None, 
+                                     amptable=False, 
+                                     istokes=0, 
+                                     ifreq=0)
+
+        if filename is not None:
+            util.matplotlibrc(nrows=3, ncols=1, width=600, height=200)
+        else:
+            matplotlib.rcdefaults()
+
+        fig, axs = plt.subplots(nrows=3, ncols=1, sharex=True)
+        plt.subplots_adjust(hspace=0)
+
+        ax = axs[0]
+        plt.sca(ax)
+        table.radplot(uvunit=uvunit,
+                      datatype="amp",
+                      color="black",
+                      **plotargs)
+        model.radplot(uvunit=uvunit,
+                      datatype="amp",
+                      color="red",
+                      errorbar=False,
+                      **plotargs)
+        plt.xlabel("")
+
+        ax = axs[1]
+        plt.sca(ax)
+        table.radplot(uvunit=uvunit,
+                      datatype="phase",
+                      color="black",
+                      **plotargs)
+        model.radplot(uvunit=uvunit,
+                      datatype="phase",
+                      color="red",
+                      errorbar=False,
+                      **plotargs)
+        plt.xlabel("")
+
+        ax = axs[2]
+        plt.sca(ax)
+        resid.radplot(uvunit=uvunit,
+                      datatype="real",
+                      normerror=True,
+                      errorbar=False,
+                      color="blue",
+                      **plotargs)
+        resid.radplot(uvunit=uvunit,
+                      datatype="imag",
+                      normerror=True,
+                      errorbar=False,
+                      color="red",
+                      **plotargs)
+        plt.axhline(0, color="black", ls="--")
+        plt.ylabel("Normalized Residuals")
+        plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+        plt.legend(ncol=2)
+
+        divider = make_axes_locatable(ax)  # Histgram
+        cax = divider.append_axes("right", size="10%", pad=0.05)
+        normresidr = resid["amp"]*np.cos(np.deg2rad(resid["phase"])) / resid["sigma"]
+        normresidi = resid["amp"]*np.sin(np.deg2rad(resid["phase"])) / resid["sigma"]
+        normresid = np.concatenate([normresidr, normresidi])
+        N = len(normresid)
+        ymin, ymax = ax.get_ylim()
+        y = np.linspace(ymin, ymax, 1000)
+        x = 1 / np.sqrt(2 * np.pi) * np.exp(-y * y / 2.)
+        cax.hist(normresid, bins=np.int(np.sqrt(N)),
+                 normed=True, orientation='horizontal')
+        cax.plot(x, y, color="red")
+        cax.set_ylim(ax.get_ylim())
+        cax.axhline(0, color="black", ls="--")
+        cax.yaxis.set_major_formatter(nullfmt)
+        cax.xaxis.set_major_formatter(nullfmt)
+        if filename is not None:
+            pdf.savefig()
+            plt.close()
+
+    if stats["isamp"] == True:
+        table = imageprm["amptable"]
+        
+        # Get model data
+        model = table.eval_image(imfits=outimage,
+                                 mask=None,
+                                 amptable=True,
+                                 istokes=0,
+                                 ifreq=0)
+        resid = table.residual_image(imfits=outimage, 
+                                     mask=None, 
+                                     amptable=True, 
+                                     istokes=0, 
+                                     ifreq=0)
+
+        if filename is not None:
+            util.matplotlibrc(nrows=2, ncols=1, width=600, height=300)
+        else:
+            matplotlib.rcdefaults()
+
+        fig, axs = plt.subplots(nrows=2, ncols=1, sharex=True)
+        plt.subplots_adjust(hspace=0)
+
+        ax = axs[0]
+        plt.sca(ax)
+        table.radplot(uvunit=uvunit,
+                      datatype="amp",
+                      color="black",
+                      **plotargs)
+        model.radplot(uvunit=uvunit,
+                      datatype="amp",
+                      color="red",
+                      errorbar=False,
+                      **plotargs)
+        plt.xlabel("")
+
+        ax = axs[1]
+        plt.sca(ax)
+        resid.radplot(uvunit=uvunit,
+                      datatype="amp",
+                      normerror=True,
+                      errorbar=False,
+                      color="black",
+                      **plotargs)
+        plt.axhline(0, color="black", ls="--")
+        ymin = np.min(resid["amp"]/resid["sigma"])*1.1
+        plt.ylim(ymin,)
+        plt.ylabel("Normalized Residuals")
+        plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+
+        divider = make_axes_locatable(ax)  # Histgram
+        cax = divider.append_axes("right", size="10%", pad=0.05)
+        normresid = resid["amp"] / resid["sigma"]
+        N = len(normresid)
+        ymin, ymax = ax.get_ylim()
+        y = np.linspace(ymin, ymax, 1000)
+        x = 1 / np.sqrt(2 * np.pi) * np.exp(-y * y / 2.)
+        cax.hist(normresid, bins=np.int(np.sqrt(N)),
+                 normed=True, orientation='horizontal')
+        cax.plot(x, y, color="red")
+        cax.set_ylim(ax.get_ylim())
+        cax.axhline(0, color="black", ls="--")
+        cax.yaxis.set_major_formatter(nullfmt)
+        cax.xaxis.set_major_formatter(nullfmt)
+        if filename is not None:
+            pdf.savefig()
+            plt.close()
+
+    # Closure Amplitude
+    if stats["isca"] == True:
+        table = imageprm["catable"]
+        
+        # Get model data
+        model = table.eval_image(imfits=outimage,
+                                 mask=None,
+                                 istokes=0,
+                                 ifreq=0)
+        resid = table.residual_image(imfits=outimage, 
+                                     mask=None,
+                                     istokes=0, 
+                                     ifreq=0)
+    
+        if filename is not None:
+            util.matplotlibrc(nrows=2, ncols=1, width=600, height=300)
+        else:
+            matplotlib.rcdefaults()
+
+        fig, axs = plt.subplots(nrows=2, ncols=1, sharex=True)
+        plt.subplots_adjust(hspace=0)
+
+        ax = axs[0]
+        plt.sca(ax)
+        
+        
+        table.radplot(uvunit=uvunit, uvdtype="ave", color="black", log=True, 
+                      **plotargs)
+        model.radplot(uvunit=uvunit, uvdtype="ave", color="red", log=True,
+                      errorbar=False, **plotargs)
+        plt.xlabel("")
+
+        ax = axs[1]
+        plt.sca(ax)
+        resid.radplot(uvunit=uvunit,
+                      uvdtype="ave",
+                      log=True,
+                      normerror=True,
+                      errorbar=False,
+                      color="black",
+                      **plotargs)        
+        plt.axhline(0, color="black", ls="--")
+        plt.ylabel("Normalized Residuals")
+        plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+
+        divider = make_axes_locatable(ax)  # Histgram
+        cax = divider.append_axes("right", size="10%", pad=0.05)
+        normresid = resid["logamp"] / resid["logsigma"]
+        N = len(normresid)
+        ymin, ymax = ax.get_ylim()
+        xmin = np.min(normresid)
+        xmax = np.max(normresid)
+        y = np.linspace(ymin, ymax, 1000)
+        x = 1 / np.sqrt(2 * np.pi) * np.exp(-y * y / 2.)
+        cax.hist(normresid, bins=np.int(np.sqrt(N)),
+                 normed=True, orientation='horizontal')
+        cax.plot(x, y, color="red")
+        cax.set_ylim(ax.get_ylim())
+        cax.axhline(0, color="black", ls="--")
+        cax.yaxis.set_major_formatter(nullfmt)
+        cax.xaxis.set_major_formatter(nullfmt)
+        if filename is not None:
+            pdf.savefig()
+            plt.close()
+
+    # Closure Phase
+    if stats["iscp"] == True:
+        table = imageprm["bstable"]
+
+        # Get model data
+        model = table.eval_image(imfits=outimage,
+                                 mask=None,
+                                 istokes=0,
+                                 ifreq=0)
+        resid = table.residual_image(imfits=outimage, 
+                                     mask=None,
+                                     istokes=0, 
+                                     ifreq=0)        
+        
+        if filename is not None:
+            util.matplotlibrc(nrows=2, ncols=1, width=600, height=300)
+        else:
+            matplotlib.rcdefaults()
+
+        fig, axs = plt.subplots(nrows=2, ncols=1, sharex=True)
+        plt.subplots_adjust(hspace=0)
+
+        ax = axs[0]
+        plt.sca(ax)
+        table.radplot(uvunit=uvunit, uvdtype="ave", color="black", 
+                      **plotargs)
+        model.radplot(uvunit=uvunit, uvdtype="ave", color="red",
+                      errorbar=False, **plotargs)        
+        plt.xlabel("")
+
+        ax = axs[1]
+        plt.sca(ax)
+        resid.radplot(uvunit=uvunit,
+                      uvdtype="ave",
+                      normerror=True,
+                      errorbar=False,
+                      color="black",
+                      **plotargs)                
+        plt.axhline(0, color="black", ls="--")
+        normresid = resid["phase"] / (np.rad2deg(resid["sigma"] / resid["amp"]))
+        N = len(normresid)
+        ymin = np.min(normresid)*1.1
+        ymax = np.max(normresid)*1.1
+        plt.ylim(ymin,ymax)
+        plt.ylabel("Normalized Residuals")
+        plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
+        del ymin,ymax
+        divider = make_axes_locatable(ax)  # Histgram
+        cax = divider.append_axes("right", size="10%", pad=0.05)
+        ymin, ymax = ax.get_ylim()
+        y = np.linspace(ymin, ymax, 1000)
+        x = 1 / np.sqrt(2 * np.pi) * np.exp(-y * y / 2.)
+        cax.hist(normresid, bins=np.int(np.sqrt(N)),
+                 normed=True, orientation='horizontal')
+        cax.plot(x, y, color="red")
+        cax.set_ylim(ax.get_ylim())
+        cax.axhline(0, color="black", ls="--")
+        cax.yaxis.set_major_formatter(nullfmt)
+        cax.xaxis.set_major_formatter(nullfmt)
+        if filename is not None:
+            pdf.savefig()
+            plt.close()
+
+    # Close File
+    if filename is not None:
+        pdf.close()
+    else:
+        plt.show()
+
+    if isinteractive:
+        plt.ion()
+        matplotlib.use(backend)
+
+
+def pipeline(
+        initimage,
+        imagefunc=iterative_imaging,
+        imageprm={},
+        imagefargs={},
+        lambl1s=[-1.],
+        lambtvs=[-1.],
+        lambtsvs=[-1.],
+        lambmems=[-1.],
+        workdir="./",
+        skip=False,
+        sumtablefile="summary.csv",
+        docv=False,
+        seed=1,
+        nfold=10,
+        cvsumtablefile="summary.cv.csv",
+        angunit="uas",
+        uvunit="gl"):
+    '''
+    A pipeline imaging function using imaging and related fucntions.
+
+    Args:
+        initimage (imdata.IMFITS object):
+            initial image
+        imagefunc (function; default=uvdata.iterative_imaging):
+            Function of imageing. It should be defined as
+                def imagefunc(initimage, imageprm, **imagefargs)
+        imageprm (dict-like; default={}):
+            parameter sets for each imaging
+        imagefargs (dict-like; default={}):
+            parameter sets for imagefunc
+        workdir (string; default = "./"):
+            The directory where images and summary files will be output.
+        sumtablefile (string; default = "summary.csv"):
+            The name of the output csv file that summerizes results.
+        docv (boolean; default = False):
+            Do cross validation
+        seed (integer; default = 1):
+            Random seed to make CV data sets.
+        nfold (integer; default = 10):
+            Number of folds in CV.
+        cvsumtablefile (string; default = "cvsummary.csv"):
+            The name of the output csv file that summerizes results of CV.
+        angunit (string; default = None):
+            Angular units for plotting results.
+        uvunit (string; default = None):
+            Units of baseline lengths for plotting results.
+
+    Returns:
+        sumtable:
+            pd.DataFrame table summerising statistical quantities of each
+            parameter set.
+        cvsumtable (if docv=True):
+            pd.DataFrame table summerising results of cross validation.
+    '''
+    if not os.path.isdir(workdir):
+        os.makedirs(workdir)
+
+    cvworkdir = os.path.join(workdir,"cv")
+    if docv:
+        if not os.path.isdir(cvworkdir):
+            os.makedirs(cvworkdir)
+
+    # Lambda Parameters
+    lambl1s = -np.sort(-np.asarray(lambl1s))
+    lambtvs = -np.sort(-np.asarray(lambtvs))
+    lambtsvs = -np.sort(-np.asarray(lambtsvs))
+    lambmems = -np.sort(-np.asarray(lambmems))
+    nl1 = len(lambl1s)
+    ntv = len(lambtvs)
+    ntsv = len(lambtsvs)
+    nmem = len(lambmems)
+
+    # Summary Data
+    sumtable = pd.DataFrame()
+    if docv:
+        cvsumtable = pd.DataFrame()
+        isvistable = False
+        isamptable = False
+        isbstable = False
+        iscatable = False
+        if "vistable" in imageprm.keys():
+            if imageprm["vistable"] is not None:
+                isvistable = True
+                vistables = imageprm["vistable"].gencvtables(nfold=nfold, seed=seed)
+        if "amptable" in imageprm.keys():
+            if imageprm["amptable"] is not None:
+                isamptable = True
+                amptables = imageprm["amptable"].gencvtables(nfold=nfold, seed=seed)
+        if "bstable" in imageprm.keys():
+            if imageprm["bstable"] is not None:
+                isbstable = True
+                bstables = imageprm["bstable"].gencvtables(nfold=nfold, seed=seed)
+        if "catable" in imageprm.keys():
+            if imageprm["catable"] is not None:
+                iscatable = True
+                catables = imageprm["catable"].gencvtables(nfold=nfold, seed=seed)
+
+    # Start Imaging
+    for itsv, itv, il1, imem in itertools.product(
+            np.arange(ntsv),
+            np.arange(ntv),
+            np.arange(nl1),
+            np.arange(nmem)):
+        
+        # output
+        imageprm["lambl1"] = lambl1s[il1]
+        imageprm["lambtv"] = lambtvs[itv]
+        imageprm["lambtsv"] = lambtsvs[itsv]
+        imageprm["lambmem"] = lambmems[imem]
+        
+        header = "tsv%02d.tv%02d.l1%02d.mem%02d" % (itsv, itv, il1, imem)
+        if imageprm["lambtsv"] <= 0.0:
+            place = header.find("tsv")
+            header = header[:place] + header[place+6:]
+        if imageprm["lambtv"] <= 0.0:
+            place = header.find("tv")
+            header = header[:place] + header[place+5:]
+        if imageprm["lambl1"] <= 0.0:
+            place = header.find("l1")
+            header = header[:place] + header[place+5:]
+        if imageprm["lambmem"] <= 0.0:
+            place = header.find("mem")
+            header = header[:place] + header[place+6:]
+        header = header.strip(".")
+        if header is "":
+            header = "noregularizar"
+
+        # Imaging and Plotting Results
+        filename = header + ".fits"
+        filename = os.path.join(workdir, filename)
+        if (skip is False) or (os.path.isfile(filename) is False):
+            newimage = imagefunc(initimage, imageprm=imageprm, **imagefargs)
+            newimage.save_fits(filename)
+        else:
+            newimage = imdata.IMFITS(filename)
+
+        filename = header + ".summary.pdf"
+        filename = os.path.join(workdir, filename)
+        plots(newimage, imageprm, filename=filename,
+                         angunit=angunit, uvunit=uvunit)
+
+        newstats = statistics(newimage, **imageprm)
+
+        # Make Summary
+        tmpsum = collections.OrderedDict()
+        tmpsum["itsv"] = itsv
+        tmpsum["itv"] = itv
+        tmpsum["il1"] = il1
+        tmpsum["imem"] = imem
+        for key in newstats.keys():
+            tmpsum[key] = newstats[key]
+
+        # Cross Validation
+        if docv:
+            # Initialize Summary Table
+            #    add keys
+            tmpcvsum = pd.DataFrame()
+            tmpcvsum["icv"] = np.arange(nfold)
+            tmpcvsum["itsv"] = np.zeros(nfold, dtype=np.int32)
+            tmpcvsum["itv"] = np.zeros(nfold, dtype=np.int32)
+            tmpcvsum["il1"] = np.zeros(nfold, dtype=np.int32)
+            tmpcvsum["imem"] = np.zeros(nfold, dtype=np.int32)
+            tmpcvsum["lambtsv"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["lambtv"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["lambl1"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["lambmem"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["tchisq"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["trchisq"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["tchisqfcv"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["tchisqamp"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["tchisqcp"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["tchisqca"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["trchisqfcv"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["trchisqamp"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["trchisqcp"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["trchisqca"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vchisq"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vrchisq"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vchisqfcv"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vchisqamp"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vchisqcp"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vchisqca"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vrchisqfcv"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vrchisqamp"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vrchisqcp"] = np.zeros(nfold, dtype=np.float64)
+            tmpcvsum["vrchisqca"] = np.zeros(nfold, dtype=np.float64)
+
+            #    initialize some columns
+            tmpcvsum.loc[:, "itsv"] = itsv
+            tmpcvsum.loc[:, "itv"] = itv
+            tmpcvsum.loc[:, "il1"] = il1
+            tmpcvsum.loc[:, "imem"] = imem
+            tmpcvsum.loc[:, "lambtsv"] = lambtsvs[itsv]
+            tmpcvsum.loc[:, "lambtv"] = lambtvs[itv]
+            tmpcvsum.loc[:, "lambl1"] = lambl1s[il1]
+            tmpcvsum.loc[:, "lambmem"] = lambl1s[imem]
+
+            #   Imaging parameters
+            cvimageprm = copy.deepcopy(imageprm)
+
+            #  N-fold CV
+            for icv in np.arange(nfold):
+                # Header of output files
+                cvheader = header+".cv%02d" % (icv)
+
+                # Generate Data sets for imaging
+                if isvistable:
+                    cvimageprm["vistable"] = vistables["t%d" % (icv)]
+                if isamptable:
+                    cvimageprm["amptable"] = amptables["t%d" % (icv)]
+                if isbstable:
+                    cvimageprm["bstable"] = bstables["t%d" % (icv)]
+                if iscatable:
+                    cvimageprm["catable"] = catables["t%d" % (icv)]
+
+                # Image Training Data
+                filename = cvheader + ".t.fits"
+                filename = os.path.join(cvworkdir, filename)
+                if (skip is False) or (os.path.isfile(filename) is False):
+                    cvnewimage = imagefunc(newimage, imageprm=cvimageprm,
+                                           **imagefargs)
+                    cvnewimage.save_fits(filename)
+                else:
+                    cvnewimage = imdata.IMFITS(filename)
+
+                # Make Plots
+                filename = cvheader + ".t.summary.pdf"
+                filename = os.path.join(cvworkdir, filename)
+                plots(cvnewimage, cvimageprm, filename=filename,
+                                 angunit=angunit, uvunit=uvunit)
+
+                # Check Training data
+                trainstats = statistics(cvnewimage, fulloutput=False,
+                                              **cvimageprm)
+
+                # Check validating data
+                #   Switch to Validating data
+                if isvistable:
+                    cvimageprm["vistable"] = vistables["v%d" % (icv)]
+                if isamptable:
+                    cvimageprm["amptable"] = amptables["v%d" % (icv)]
+                if isbstable:
+                    cvimageprm["bstable"] = bstables["v%d" % (icv)]
+                if iscatable:
+                    cvimageprm["catable"] = catables["v%d" % (icv)]
+
+                # Make Plots
+                filename = cvheader + ".v.summary.pdf"
+                filename = os.path.join(cvworkdir, filename)
+                plots(cvnewimage, cvimageprm, filename=filename,
+                                 angunit=angunit, uvunit=uvunit)
+
+                #   Check Statistics
+                validstats = statistics(cvnewimage, **cvimageprm)
+
+                #   Save Results
+                tmpcvsum.loc[icv, "tchisq"] = trainstats["chisq"]
+                tmpcvsum.loc[icv, "trchisq"] = trainstats["rchisq"]
+                tmpcvsum.loc[icv, "tchisqfcv"] = trainstats["chisqfcv"]
+                tmpcvsum.loc[icv, "tchisqamp"] = trainstats["chisqamp"]
+                tmpcvsum.loc[icv, "tchisqcp"] = trainstats["chisqcp"]
+                tmpcvsum.loc[icv, "tchisqca"] = trainstats["chisqca"]
+                tmpcvsum.loc[icv, "trchisqfcv"] = trainstats["rchisqfcv"]
+                tmpcvsum.loc[icv, "trchisqamp"] = trainstats["rchisqamp"]
+                tmpcvsum.loc[icv, "trchisqcp"] = trainstats["rchisqcp"]
+                tmpcvsum.loc[icv, "trchisqca"] = trainstats["rchisqca"]
+
+                tmpcvsum.loc[icv, "vchisq"] = validstats["chisq"]
+                tmpcvsum.loc[icv, "vrchisq"] = validstats["rchisq"]
+                tmpcvsum.loc[icv, "vchisqfcv"] = validstats["chisqfcv"]
+                tmpcvsum.loc[icv, "vchisqamp"] = validstats["chisqamp"]
+                tmpcvsum.loc[icv, "vchisqcp"] = validstats["chisqcp"]
+                tmpcvsum.loc[icv, "vchisqca"] = validstats["chisqca"]
+                tmpcvsum.loc[icv, "vrchisqfcv"] = validstats["rchisqfcv"]
+                tmpcvsum.loc[icv, "vrchisqamp"] = validstats["rchisqamp"]
+                tmpcvsum.loc[icv, "vrchisqcp"] = validstats["rchisqcp"]
+                tmpcvsum.loc[icv, "vrchisqca"] = validstats["rchisqca"]
+            # add current cv summary to the log file.
+            cvsumtable = pd.concat([cvsumtable,tmpcvsum], ignore_index=True)
+            cvsumtable.to_csv(os.path.join(workdir, cvsumtablefile))
+
+            # Average Varidation Errors and memorized them
+            tmpsum["tchisq"] = np.mean(tmpcvsum["tchisq"])
+            tmpsum["trchisq"] = np.mean(tmpcvsum["trchisq"])
+            tmpsum["tchisqfcv"] = np.mean(tmpcvsum["tchisqfcv"])
+            tmpsum["tchisqamp"] = np.mean(tmpcvsum["tchisqamp"])
+            tmpsum["tchisqcp"] = np.mean(tmpcvsum["tchisqcp"])
+            tmpsum["tchisqca"] = np.mean(tmpcvsum["tchisqca"])
+            tmpsum["trchisqfcv"] = np.mean(tmpcvsum["trchisqfcv"])
+            tmpsum["trchisqamp"] = np.mean(tmpcvsum["trchisqamp"])
+            tmpsum["trchisqcp"] = np.mean(tmpcvsum["trchisqcp"])
+            tmpsum["trchisqca"] = np.mean(tmpcvsum["trchisqca"])
+            tmpsum["vchisq"] = np.mean(tmpcvsum["vchisq"])
+            tmpsum["vrchisq"] = np.mean(tmpcvsum["vrchisq"])
+            tmpsum["vchisqfcv"] = np.mean(tmpcvsum["vchisqfcv"])
+            tmpsum["vchisqamp"] = np.mean(tmpcvsum["vchisqamp"])
+            tmpsum["vchisqcp"] = np.mean(tmpcvsum["vchisqcp"])
+            tmpsum["vchisqca"] = np.mean(tmpcvsum["vchisqca"])
+            tmpsum["vrchisqfcv"] = np.mean(tmpcvsum["vrchisqfcv"])
+            tmpsum["vrchisqamp"] = np.mean(tmpcvsum["vrchisqamp"])
+            tmpsum["vrchisqcp"] = np.mean(tmpcvsum["vrchisqcp"])
+            tmpsum["vrchisqca"] = np.mean(tmpcvsum["vrchisqca"])
+
+        # Output Summary Table
+        tmptable = pd.DataFrame([tmpsum.values()], columns=tmpsum.keys())
+        sumtable = pd.concat([sumtable, tmptable], ignore_index=True)
+        sumtable.to_csv(os.path.join(workdir, sumtablefile))
+
+    if docv:
+        return sumtable, cvsumtable
+    else:
+        return sumtable
+
 
 
 # ------------------------------------------------------------------------------
