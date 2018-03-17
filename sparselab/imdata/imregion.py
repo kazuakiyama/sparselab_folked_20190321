@@ -106,6 +106,25 @@ class ImRegTable(pd.DataFrame):
         '''
         super(ImRegTable, self).to_csv(filename, index=False, index_label=False, **args)
 
+    # read csv file as ImRegTable
+    def read_region(self, filename):
+        '''
+        Read a csv file as ImRegTable using pd.DataFrame.read_csv().
+
+        Args:
+            filename (string or filehandle): output filename
+        '''
+        # empty region table
+        table = ImRegTable()
+        table.initialize()
+        
+        # read csv file
+        region = pd.read_csv(filename)
+        
+        # append pd.DataFrame table to empty region table
+        table = table.append(region)
+        
+        return table
 
     ## DS9
     # Start DS9
