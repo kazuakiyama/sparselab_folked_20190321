@@ -5,123 +5,157 @@ module image3d
   implicit none
 contains
 !
+!-------------------------------------------------------------------------------
+! Regularization Function for Dynamical Imaging
+!-------------------------------------------------------------------------------
 !
 !-------------------------------------------------------------------------------
-! Copy 1D image vector from/to 3D image vector
+! Distances
 !-------------------------------------------------------------------------------
-! I1d --> I3d
-subroutine I1d_I3d_fwd(xidx,yidx,I1d,I3d,N1d,Nx,Ny,Nz)
+!
+! Dp (p=2) distance
+!
+real(dp) function d2(xidx,yidx,I2d,I2du,Nx,Ny)
   implicit none
   !
-  integer, intent(in) :: N1d,Nx,Ny,Nz
-  integer, intent(in) :: xidx(N1d), yidx(N1d)
-  real(dp),intent(in) :: I1d(N1d)
-  real(dp),intent(inout) :: I3d(Nx,Ny,Nz)
+  integer, intent(in)  :: Nx,Ny,xidx,yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2du(Nx,Ny)
   !
-  integer :: i, iz, Nxy
+  ! variables
+  integer :: i,j
   !
-  Nxy = Nx*Ny
+  ! initialize rt term
+  i = xidx
+  j = yidx
   !
-  !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(Nxy,Nz,I1d,xidx,yidx) &
-  !$OMP   PRIVATE(i,iz)
-  do iz=1,Nz
-    do i=1,Nxy !N1d
-      I3d(xidx(i),yidx(i),iz)=I1d(i + Nxy*(iz - 1))
-    end do
-  end do
-  !$OMP END PARALLEL DO
-end subroutine
+  d2  = (I2du(i,j) - I2d(i,j))**2
+end function
 !
-! I1d <-- I3d
-subroutine I1d_I3d_inv(xidx,yidx,I1d,I3d,N1d,Nx,Ny,Nz)
+! Kullback-Leibler divergence
+!
+real(dp) function dkl(xidx,yidx,I2d,I2du,Nx,Ny)
   implicit none
   !
-  integer, intent(in) :: N1d,Nx,Ny,Nz
-  integer, intent(in) :: xidx(N1d), yidx(N1d)
-  real(dp),intent(inout) :: I1d(N1d)
-  real(dp),intent(in) :: I3d(Nx,Ny,Nz)
+  integer, intent(in)  :: Nx,Ny,xidx,yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2du(Nx,Ny)
   !
-  integer :: i,iz
+  ! variables
+  integer :: i,j
   !
-  !$OMP PARALLEL DO DEFAULT(SHARED) &
-  !$OMP   FIRSTPRIVATE(N1d,Nz,I3d,xidx,yidx) &
-  !$OMP   PRIVATE(i,iz)
-  do iz=1,Nz
-    do i=1,N1d
-      I1d(i)=I3d(xidx(i),yidx(i),iz)
-    end do
-  end do
-  !$OMP END PARALLEL DO
-end subroutine
-
-
-!-------------------------------------------------------------------------------
-! Regularization Function
-!-------------------------------------------------------------------------------
-!
-! Centoroid Regularization
-!
-! subroutine comreg3d(xidx,yidx,Nxref,Nyref,alpha,I1d,cost,gradcost,Npix,Nz)
-!   implicit none
-!   !
-!   integer, intent(in) :: Npix,Nz
-!   integer, intent(in) :: xidx(Npix), yidx(Npix)
-!   real(dp),intent(in) :: alpha
-!   real(dp),intent(in) :: Nxref, Nyref
-!   real(dp),intent(in) :: I1d(Npix*Nz)
-!   real(dp),intent(inout) :: cost
-!   real(dp),intent(inout) :: gradcost(1:Npix)
-!   !
-!   real(dp) :: Isum(Npix)
-!   !
-!   real(dp) :: dix, diy, Ip
-!   real(dp) :: sumx, sumy, sumI
-!   real(dp) :: gradsumx, gradsumy, gradsumI
-!   !
-!   integer :: ipix
-!
-! end subroutine
-!
+  ! initialize rt term
+  i = xidx
+  j = yidx
+  !
+  if (I2d(i,j) /= 0 .and. I2du(i,j) /= 0) then
+    dkl  = I2d(i,j) * log(I2d(i,j)/I2du(i,j))
+  else if (I2d(i,j) == 0 .or. I2du(i,j) == 0) then
+    dkl  = 0
+  end if
+  !
+end function
 !
 !-------------------------------------------------------------------------------
-! A convinient function to compute regularization functions
-! for python interfaces
+! Gradients
 !-------------------------------------------------------------------------------
 !
+! Gradient of Rt from D2 distance
 !
-!-------------------------------------------------------------------------------
-! A convinient function to compute regularization functions
-! for python interfaces
-!-------------------------------------------------------------------------------
-subroutine ixyz2ixiyiz(ixyz,ix,iy,iz,Nx,Ny)
+real(dp) function rt_d2grad(xidx,yidx,zidx,I2d,I2dl,I2du,Nx,Ny,Nz)
   implicit none
-
-  ! arguments
-  integer, intent(in):: ixyz,Nx,Ny
-  integer, intent(out):: ix,iy,iz
   !
-  integer :: ixy
-
-  ! calc ix, iy
-  ixy = mod(ixyz-1,Nx*Ny)+1
-  call ixy2ixiy(ixy,ix,iy,Nx)
-
-  ! calc iz
-  iz = (ixyz-1)/(Nx*Ny)+1
-end subroutine
-
-
-subroutine ixiyiz2ixyz(ix,iy,iz,ixyz,Nx,Ny)
+  integer, intent(in)  :: Nx,Ny,Nz
+  integer, intent(in)  :: xidx, yidx, zidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  !
+  ! initialize rt term
+  rt_d2grad = 0d0
+  !
+  ! take indice
+  i = xidx
+  j = yidx
+  !
+  if (zidx > 1) then
+    rt_d2grad = rt_d2grad + 2*(I2d(i,j) - I2dl(i,j))
+  end if
+  if (zidx < Nz) then
+    rt_d2grad = rt_d2grad - 2*(I2du(i,j) - I2d(i,j))
+  end if
+  !
+end function
+!
+! Gradient of Rt from Kullback-Leibler divergence
+!
+real(dp) function rt_dklgrad(xidx,yidx,zidx,I2d,I2dl,I2du,Nx,Ny,Nz)
   implicit none
-
-  ! arguments
-  integer, intent(in):: ix,iy,iz,Nx,Ny
-  integer, intent(out):: ixyz
   !
-  integer :: ixy
-
-  call ixiy2ixy(ix,iy,ixy,Nx)
-  ixyz = ixy + (iz-1) * Nx * Ny
-end subroutine
+  integer, intent(in)  :: Nx,Ny,Nz
+  integer, intent(in)  :: xidx, yidx, zidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  !
+  ! initialize rt term
+  rt_dklgrad = 0d0
+  !
+  ! take indice
+  i = xidx
+  j = yidx
+  !
+  if (zidx > 1 .and. I2d(i,j) /= 0 .and. I2dl(i,j) /= 0) then
+    rt_dklgrad = rt_dklgrad + (1 + log(I2d(i,j)/I2dl(i,j)))
+  end if
+  if (zidx < Nz .and. I2d(i,j) /= 0) then
+    rt_dklgrad = rt_dklgrad - (I2du(i,j)/I2d(i,j))
+  end if
+  !
+end function
+!
+! Gradient of Ri from D2 distance
+!
+real(dp) function ri_d2grad(xidx,yidx,I2d,Iavg2d,Nx,Ny)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny,xidx, yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),Iavg2d(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  !
+  ! initialize rt term
+  ri_d2grad = 0d0
+  !
+  ! take indice
+  i = xidx
+  j = yidx
+  !
+  ri_d2grad = 2 * (I2d(i,j) - Iavg2d(i,j))
+  !
+end function
+!
+! Gradient of Ri from Kullback-Leibler divergence
+!
+real(dp) function ri_dklgrad(xidx,yidx,I2d,Iavg2d,Itmp2d,Nx,Ny,Nz)
+  implicit none
+  !
+  integer, intent(in)  :: Nx,Ny,Nz,xidx,yidx
+  real(dp),intent(in)  :: I2d(Nx,Ny),Iavg2d(Nx,Ny),Itmp2d(Nx,Ny)
+  !
+  ! variables
+  integer :: i,j
+  !
+  ! initialize rt term
+  ri_dklgrad = 0d0
+  !
+  ! take indice
+  i = xidx
+  j = yidx
+  !
+  ri_dklgrad = 1 - (Iavg2d(i,j)/I2d(i,j)) + Itmp2d(i,j)/Nz
+  !
+end function
+!
 end module

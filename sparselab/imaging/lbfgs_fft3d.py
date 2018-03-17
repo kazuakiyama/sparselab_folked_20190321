@@ -17,6 +17,7 @@ import itertools
 # numerical packages
 import numpy as np
 import pandas as pd
+from scipy import interpolate
 
 # matplotlib
 import matplotlib
@@ -43,10 +44,11 @@ lbfgsbprms = {
 #-------------------------------------------------------------------------
 def imaging3d(
         initimage,
-        Nf=1,
+        Nf=1, Nfps=1,
         imagewin=None,
         vistable=None,amptable=None, bstable=None, catable=None,
-        lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,lambrt=-1.,
+        lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,
+        lambrt=-1.,lambri=-1.,lambrs=-1,
         normlambda=True,
         niter=1000,
         nonneg=True,
@@ -253,6 +255,8 @@ def imaging3d(
 
     # Dynamical Imaging regularization
     lambrt_sim = lambrt # No normalization for Rt regularization
+    lambri_sim = lambri # No normalization for Ri regularization
+    lambrs_sim = lambrs # No normalization for Rs regularization
 
     # get uv coordinates and uv indice
     if Nf == 1:
@@ -296,6 +300,8 @@ def imaging3d(
         lambmem=np.float64(lambmem_sim),
         lambcom=np.float64(lambcom_sim),
         lambrt=np.float64(lambrt_sim),
+        lambri=np.float64(lambri_sim),
+        lambrs=np.float64(lambrs_sim),
         # Imaging Parameter
         niter=np.int32(niter),
         nonneg=nonneg,
@@ -327,7 +333,7 @@ def imaging3d(
         m=np.int32(lbfgsbprms["m"]), factr=np.float64(lbfgsbprms["factr"]),
         pgtol=np.float64(lbfgsbprms["pgtol"])
     )
-    '''
+
     outimage = copy.deepcopy(initimage)
     outimage.data[istokes, ifreq] = 0.
     for i in np.arange(len(xidx)):
@@ -345,15 +351,59 @@ def imaging3d(
             outimage.data[istokes, ifreq, yidx[i]-1, xidx[i]-1] = Iout[ipix+i]
         outimage.update_fits()
         outimlist.append(outimage)
-        ipix += Nyx-1
+        ipix += Nyx
+        iz += 1
+
+    return outimlist
+    '''
+    # interpolated outimages
+    outimlist = []
+    ipix = 0
+    iz = 0
+    Ifrm = frminp(Iout, Nyx, Nf, Nfps)
+    while iz < Nfps:
+        outimage = copy.deepcopy(initimage)
+        outimage.data[istokes, ifreq] = 0.
+        for i in np.arange(Nyx):
+            outimage.data[istokes, ifreq, yidx[i]-1, xidx[i]-1] = Ifrm[ipix+i]
+        outimage.update_fits()
+        outimlist.append(outimage)
+        ipix += Nyx
         iz += 1
 
     return outimlist
 
-
 # ------------------------------------------------------------------------------
 # Subfunctions
 # ------------------------------------------------------------------------------
+def frminp(Iout, Npix, Nf, Nfps):
+    if len(Iout) != Npix*Nf:
+        return -1
+
+    print("\n\n Interpolating %s frames to %s frames \n\n" %(Nf, Nfps))
+
+    #frames = np.arange(Nf)
+    #for i in frames:
+    #    i
+    frames = np.linspace(0, Nf-1, Nfps)
+
+    inplist = []
+    for ipix in range(Npix):
+        apix = []
+        for ifrm in range(Nf):
+            apix.append(Iout[ipix + ifrm*Npix])
+        pixinp = interpolate.interp1d(np.arange(Nf), np.array(apix))
+        inplist.append(pixinp)
+
+    Ifrm = []
+    for i in frames:
+        for inpfn in inplist:
+            Ifrm.append(inpfn(i))
+
+    #Ifrm = np.array(Ifrm)
+    return Ifrm
+
+
 def get_uvlist_loop(Nf, fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=None):
     '''
     '''
