@@ -27,8 +27,6 @@ class UVTable(pd.DataFrame):
     This is a class describing common variables and methods of VisTable,
     BSTable and CATable.
     '''
-    uvunit = "lambda"
-
     @property
     def _constructor(self):
         return UVTable

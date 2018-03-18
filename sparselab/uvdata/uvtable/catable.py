@@ -33,8 +33,6 @@ from ... import fortlib
 # Classes
 # ------------------------------------------------------------------------------
 class CATable(UVTable):
-    uvunit = "lambda"
-
     catable_columns = ["utc", "gsthour",
                        "freq", "stokesid", "ifid", "chid", "ch",
                        "u1", "v1", "w1", "uvdist1",
@@ -64,6 +62,21 @@ class CATable(UVTable):
     def _constructor_sliced(self):
         return CASeries
 
+    def set_uvunit(self, uvunit=None):
+        # Check uvunits
+        if uvunit is None:
+            uvmax = np.max(self.uvdistmax.values)
+            if uvmax < 1e3:
+                self.uvunit = "lambda"
+            elif uvmax < 1e6:
+                self.uvunit = "klambda"
+            elif uvmax < 1e9:
+                self.uvunit = "mlambda"
+            else:
+                self.uvunit = "glambda"
+        else:
+            self.uvunit = uvunit
+
     def eval_image(self, imfits, mask=None, istokes=0, ifreq=0):
         #uvdata.CATable object (storing model closure phase)
         model = self._call_fftlib(imfits=imfits,mask=mask,
@@ -74,7 +87,7 @@ class CATable(UVTable):
         catable["phase"] = np.zeros(Ndata)
         catable["logamp"] = camodel
         return catable
-    
+
     def residual_image(self, imfits, mask=None, istokes=0, ifreq=0):
         #uvdata CATable object (storing residual closure phase)
         model = self._call_fftlib(imfits=imfits,mask=mask,
@@ -100,13 +113,13 @@ class CATable(UVTable):
         # get initial images
         istokes = istokes
         ifreq = ifreq
-        
+
         # size of images
         Iin = np.float64(imfits.data[istokes, ifreq])
         Nx = imfits.header["nx"]
         Ny = imfits.header["ny"]
         Nyx = Nx * Ny
-        
+
         # pixel coordinates
         x, y = imfits.get_xygrid(twodim=True, angunit="rad")
         xidx = np.arange(Nx) + 1
@@ -116,7 +129,7 @@ class CATable(UVTable):
         Nyref = imfits.header["nyref"]
         dx_rad = np.deg2rad(imfits.header["dx"])
         dy_rad = np.deg2rad(imfits.header["dy"])
-        
+
         # apply the imaging area
         if mask is None:
             print("Imaging Window: Not Specified. We calcurate the image on all the pixels.")
@@ -133,14 +146,14 @@ class CATable(UVTable):
             y = y[idx]
             xidx = xidx[idx]
             yidx = yidx[idx]
-        
+
         # Closure Phase
         Ndata = 0
         catable = self.copy()
         ca = np.array(catable["logamp"], dtype=np.float64)
         varca = np.square(np.array(catable["logsigma"], dtype=np.float64))
         Ndata += len(ca)
-        
+
         # get uv coordinates and uv indice
         u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
                 fcvtable=None, amptable=None, bstable=None, catable=catable
@@ -149,7 +162,7 @@ class CATable(UVTable):
         # normalize u, v coordinates
         u *= 2*np.pi*dx_rad
         v *= 2*np.pi*dy_rad
-    
+
         # run model_cp
         model = fortlib.fftlib.model_ca(
                 # Images
@@ -168,7 +181,7 @@ class CATable(UVTable):
                 ca=np.float64(ca),
                 varca=np.float64(varca)
                 )
-            
+
         return model,Ndata
 
     def eval_geomodel(self, geomodel, evalargs={}):
@@ -258,6 +271,7 @@ class CATable(UVTable):
 
         # Set Unit
         if uvunit is None:
+            self.set_uvunit()
             uvunit = self.uvunit
 
         # Conversion Factor
@@ -297,7 +311,7 @@ class CATable(UVTable):
         ax.set_xlim(-np.sort(-xlim))
         ax.set_ylim(np.sort(ylim))
 
-    def radplot(self, uvdtype="ave", uvunit=None, normerror=False, log=True, 
+    def radplot(self, uvdtype="ave", uvunit=None, normerror=False, log=True,
                 errorbar=True, ls="none", marker=".", **plotargs):
         '''
         Plot log(closure amplitudes) as a function of baseline lengths
@@ -330,6 +344,7 @@ class CATable(UVTable):
         '''
         # Set Unit
         if uvunit is None:
+            self.set_uvunit()
             uvunit = self.uvunit
 
         # Conversion Factor
@@ -351,10 +366,10 @@ class CATable(UVTable):
 
         # Label
         unitlabel = self.get_unitlabel(uvunit)
-        
+
         # Copy data
         vistable = copy.deepcopy(self)
-        
+
         # normalized by error
         if normerror:
             if log:
@@ -362,7 +377,7 @@ class CATable(UVTable):
             else:
                 vistable["amp"] /= vistable["sigma"]
             errorbar = False
-        
+
         # plotting data
         if errorbar:
             if log:
@@ -407,7 +422,7 @@ class CATable(UVTable):
             You can set parameters of matplotlib.pyplot.plot() or
             matplotlib.pyplot.errorbars().
             Defaults are {'ls': "none", 'marker': "."}.
-        '''    
+        '''
         # make dictionary of stations
         st1table = self.drop_duplicates(subset='st1')
         st2table = self.drop_duplicates(subset='st2')
@@ -417,14 +432,14 @@ class CATable(UVTable):
         stdict.update(dict(zip(st2table["st2"], st2table["st2name"])))
         stdict.update(dict(zip(st3table["st3"], st3table["st3name"])))
         stdict.update(dict(zip(st4table["st4"], st4table["st4name"])))
-        
+
         if station is None:
             st1 = 1
             st1name = stdict[1]
         else:
             st1 = int(station)
             st1name = stdict[st1]
-        
+
         # edit timescale
         if timescale=="gsthour" or timescale=="gst":
             timescale = "gsthour"
@@ -436,7 +451,7 @@ class CATable(UVTable):
             #
             if tmin > tmax:
                 self.loc[self.gsthour<=tmax, "gsthour"] += 24.
-        
+
         # setting limits of min and max
         ttable = self.drop_duplicates(subset=timescale)
         if timescale=="utc":
@@ -447,13 +462,13 @@ class CATable(UVTable):
         time = np.array(ttable[timescale])
         tmin = time[0]
         tmax = time[-1]
-        
+
         # setting indices
         tmptable = self.set_index(timescale)
-        
+
         # search data of baseline
         tmptable = tmptable.query("st1 == @st1")
-        
+
         # normalized by error
         if normerror:
             if log:
@@ -467,20 +482,20 @@ class CATable(UVTable):
             tmptable.index = pd.to_datetime(tmptable.index)
         if timescale=="gsthour":
             tmptable.index = pd.to_datetime(tmptable.index, unit="h")
-        
+
         # get antenna
         st2 = np.int32((tmptable.drop_duplicates(subset=['st2', 'st3', 'st4']))['st2'])
         st3 = np.int32((tmptable.drop_duplicates(subset=['st2', 'st3', 'st4']))['st3'])
         st4 = np.int32((tmptable.drop_duplicates(subset=['st2', 'st3', 'st4']))['st4'])
         Nant = len(st2)
-    
+
         # plotting data
         fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
         fig.subplots_adjust(hspace=0.)
         for iant in range(Nant):
             ax = axs[iant]
             plt.sca(ax)
-            
+
             plttable = tmptable.query("st2 == @st2[@iant] & st3 == @st3[@iant] & st4 == @st4[@iant]")
             if errorbar:
                 if log:
@@ -513,7 +528,7 @@ class CATable(UVTable):
             #
             for tick in ax.yaxis.get_major_ticks():
                 tick.label.set_fontsize(9)
-    
+
         # major ticks
         ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
@@ -523,7 +538,7 @@ class CATable(UVTable):
         # minor ticks
         ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
         #
-        if timescale=="utc":        
+        if timescale=="utc":
             plt.xlabel(r"Universal Time (UTC)")
         elif timescale=="gsthour":
             plt.xlabel(r"Greenwich Sidereal Time (GST)")
@@ -560,19 +575,5 @@ def read_catable(filename, uvunit=None, **args):
       uvdata.CATable object
     '''
     table = CATable(pd.read_csv(filename, **args))
-
-    maxuvd = np.max(table["uvdistmax"])
-
-    if uvunit is None:
-        if maxuvd < 1e3:
-            table.uvunit = "lambda"
-        elif maxuvd < 1e6:
-            table.uvunit = "klambda"
-        elif maxuvd < 1e9:
-            table.uvunit = "mlambda"
-        else:
-            table.uvunit = "glambda"
-    else:
-        table.uvunit = uvunit
-
+    table.set_uvunit()
     return table
