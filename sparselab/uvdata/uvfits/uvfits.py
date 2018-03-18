@@ -1087,23 +1087,23 @@ class UVFITS(object):
 
     def selfcal(self,imodel):
         '''
-        self calibration: 
+        self calibration:
           This function is currently designed for selfcalibration of
           single polarization (LL, RR, I) or dual polarization (RR+LL, XX+YY).
-          
+
           For dual polarization, we assume that I = LL = RR = XX = YY,
           which means no circlar polariztion for L/R data, and no linear polarization
           for X/Y data.
         '''
         print("Initialize CL Table")
         cltable = CLTable(self)
-        
+
         print("Compute Model Visibilities")
         Vmodel_real,Vmodel_imag = self.get_vismodel(imodel)
-        
+
         # get utc of data
         utc = np.datetime_as_string(self.visdata.coord["utc"])
-        
+
         # Run selfcal for each subarray
         subarrids = self.subarrays.keys()
         for subarrid in subarrids:
@@ -1127,13 +1127,13 @@ class UVFITS(object):
                 Vobs_imag_itime = fdata[:,0,0,iif,ich,istokes,1]
                 sigma_itime     = 1/np.sqrt(fdata[:,0,0,iif,ich,istokes,2])
                 del fdata
-                
+
                 # check if data are not flagged
                 idx_flag = np.isnan(sigma_itime)
                 idx_flag|= sigma_itime < 0
                 idx_flag|= np.isinf(sigma_itime)
                 idx_flag = np.where(idx_flag==False)
-                
+
                 # reselect data
                 Vobs_real_itime = Vobs_real_itime[idx_flag]
                 Vobs_imag_itime = Vobs_imag_itime[idx_flag]
@@ -1155,14 +1155,14 @@ class UVFITS(object):
                 # create dictionary of antenna ids
                 ant1id = [antset_itime.index(ant1_itime[i]) for i in xrange(Ndata_itime)]
                 ant2id = [antset_itime.index(ant2_itime[i]) for i in xrange(Ndata_itime)]
-                
+
                 # compute wij and Xij
                 w_itime = np.sqrt(Vmodel_real_itime**2+Vmodel_imag_itime**2)
                 w_itime/= sigma_itime
                 X_itime = (Vobs_real_itime+1j*Vobs_imag_itime)/(Vmodel_real_itime+1j*Vmodel_imag_itime)
                 del Vobs_real_itime, Vobs_imag_itime, sigma_itime
                 del Vmodel_real_itime, Vmodel_imag_itime
-                
+
                 # (Tentative) initilize gains
 #                gain0r = cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime-1,0]
 #                gain0i = cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime-1,1]
@@ -1174,7 +1174,7 @@ class UVFITS(object):
                     result = leastsq(
                         _selfcal_error_func, gain0, Dfun=_selfcal_error_dfunc,
                         args=(ant1id,ant2id,w_itime,X_itime,Nant_itime,Ndata_itime))
-                    
+
                     # make cltable
                     g = result[0]
                     for i in xrange(Nant_itime):
@@ -1232,20 +1232,20 @@ class UVFITS(object):
                 # gain of the current time and antenna
                 if istokes <2: # dual polarization
                     # compute gains
-                    gic = gain[itime,:,:,istokes,iant,0] - 1j*gain[itime,:,:,istokes,iant,1]
-                    gj = np.conj(gic)
+                    gi = gain[itime,:,:,istokes,iant,0] + 1j*gain[itime,:,:,istokes,iant,1]
+                    gjc = np.conj(gic)
                 elif istokes == 2: # this must be RL or XY
-                    gic = gain[itime,:,:,0,iant,0] - 1j*gain[itime,:,:,0,iant,1]
-                    gj = gain[itime,:,:,1,iant,0] + 1j*gain[itime,:,:,1,iant,1]
+                    gi = gain[itime,:,:,0,iant,0] + 1j*gain[itime,:,:,0,iant,1]
+                    gjc = gain[itime,:,:,1,iant,0] - 1j*gain[itime,:,:,1,iant,1]
                 elif istokes == 3: # this must be LR or YX
-                    gic = gain[itime,:,:,1,iant,0] - 1j*gain[itime,:,:,1,iant,1]
-                    gj = gain[itime,:,:,0,iant,0] + 1j*gain[itime,:,:,0,iant,1]
-                
+                    gi = gain[itime,:,:,1,iant,0] + 1j*gain[itime,:,:,1,iant,1]
+                    gjc = gain[itime,:,:,0,iant,0] - 1j*gain[itime,:,:,0,iant,1]
+
                 # calibrated visibility
-                Vobs_comp[idx1,:,:,:,:,istokes] /= gic
-                Vobs_comp[idx2,:,:,:,:,istokes] /= gj
-                weight[idx1,:,:,:,:,istokes] *= np.abs(gic)**2
-                weight[idx2,:,:,:,:,istokes] *= np.abs(gj)**2
+                Vobs_comp[idx1,:,:,:,:,istokes] /= gi
+                Vobs_comp[idx2,:,:,:,:,istokes] /= gjc
+                weight[idx1,:,:,:,:,istokes] *= np.abs(gi)**2
+                weight[idx2,:,:,:,:,istokes] *= np.abs(gjc)**2
         outfits.visdata.data[:,:,:,:,:,:,0] = np.real(Vobs_comp)
         outfits.visdata.data[:,:,:,:,:,:,1] = np.imag(Vobs_comp)
         outfits.visdata.data[:,:,:,:,:,:,2] = weight
@@ -1892,8 +1892,8 @@ class VisibilityData(object):
 
 
 def _selfcal_error_func(gain,ant1,ant2,w,X,Nant,Ndata):
-    g1 = np.asarray([gain[ant1[i]]-1j*gain[Nant+ant1[i]] for i in xrange(Ndata)])
-    g2 = np.asarray([gain[ant2[i]]+1j*gain[Nant+ant2[i]] for i in xrange(Ndata)])
+    g1 = np.asarray([gain[ant1[i]]+1j*gain[Nant+ant1[i]] for i in xrange(Ndata)])
+    g2 = np.asarray([gain[ant2[i]]-1j*gain[Nant+ant2[i]] for i in xrange(Ndata)])
     dV = w*(X-g1*g2)
     return np.hstack([np.real(dV),np.imag(dV)])
 
@@ -1904,23 +1904,23 @@ def _selfcal_error_dfunc(gain,ant1,ant2,w,X,Nant,Ndata):
         # antenna id
         i = ant1[idata]
         j = ant2[idata]
-        
+
         # gains
-        gr_i = gain[i] 
+        gr_i = gain[i]
         gi_i = gain[i+Nant]
-        gr_j = gain[j] 
+        gr_j = gain[j]
         gi_j = gain[j+Nant]
-        
+
         ddV[idata,       i]      = -w[idata]*gr_j # d(Vreal)/d(gr_i)
         ddV[idata,       j]      = -w[idata]*gr_i # d(Vreal)/d(gr_j)
         ddV[idata,       i+Nant] = -w[idata]*gi_j # d(Vreal)/d(gi_i)
         ddV[idata,       j+Nant] = -w[idata]*gi_i # d(Vreal)/d(gi_j)
-        
-        ddV[idata+Ndata, i]      = -w[idata]*gi_j # d(Vimag)/d(gr_i)
-        ddV[idata+Ndata, j]      = +w[idata]*gi_i # d(Vimag)/d(gr_j)
-        ddV[idata+Ndata, i+Nant] = +w[idata]*gr_j # d(Vimag)/d(gi_i)
-        ddV[idata+Ndata, j+Nant] = -w[idata]*gr_i # d(Vimag)/d(gi_j)
-        
+
+        ddV[idata+Ndata, i]      = +w[idata]*gi_j # d(Vimag)/d(gr_i)
+        ddV[idata+Ndata, j]      = -w[idata]*gi_i # d(Vimag)/d(gr_j)
+        ddV[idata+Ndata, i+Nant] = -w[idata]*gr_j # d(Vimag)/d(gi_i)
+        ddV[idata+Ndata, j+Nant] = +w[idata]*gr_i # d(Vimag)/d(gi_j)
+
     return ddV
 
 
