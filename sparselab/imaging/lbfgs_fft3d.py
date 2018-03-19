@@ -13,11 +13,15 @@ import os
 import copy
 import collections
 import itertools
+import time
 
 # numerical packages
 import numpy as np
 import pandas as pd
 from scipy import interpolate
+
+# astropy
+import astropy.time as at
 
 # matplotlib
 import matplotlib
@@ -361,7 +365,8 @@ def imaging3d(
     ipix = 0
     iz = 0
     Ifrm = frminp(Iout, Nyx, Nf, Nfps)
-    while iz < Nfps:
+    totalframe = (Nf-1)*(Nfps+1)+1
+    while iz < totalframe:
         outimage = copy.deepcopy(initimage)
         outimage.data[istokes, ifreq] = 0.
         for i in np.arange(Nyx):
@@ -377,30 +382,26 @@ def imaging3d(
 # Subfunctions
 # ------------------------------------------------------------------------------
 def frminp(Iout, Npix, Nf, Nfps):
+    '''
+    Nfps: the number of interpolated frames in a frame
+    '''
     if len(Iout) != Npix*Nf:
         return -1
 
-    print("\n\n Interpolating %s frames to %s frames \n\n" %(Nf, Nfps))
+    totalframe = (Nf-1)*(Nfps+1)+1
+    frames = np.linspace(0, Nf-1, totalframe)
 
-    #frames = np.arange(Nf)
-    #for i in frames:
-    #    i
-    frames = np.linspace(0, Nf-1, Nfps)
+    print("\n\n Interpolating %s frames to %s frames \n" %(Nf, totalframe))
 
-    inplist = []
+    fstack = []
     for ipix in range(Npix):
-        apix = []
-        for ifrm in range(Nf):
-            apix.append(Iout[ipix + ifrm*Npix])
-        pixinp = interpolate.interp1d(np.arange(Nf), np.array(apix))
-        inplist.append(pixinp)
+        pixinp = interpolate.interp1d(np.arange(Nf), Iout[ipix::Npix])
+        fstack.append(pixinp(frames))
 
-    Ifrm = []
-    for i in frames:
-        for inpfn in inplist:
-            Ifrm.append(inpfn(i))
+    fstack = np.array(fstack)
+    Ifrm = fstack.reshape(Npix, totalframe).transpose()
+    Ifrm = Ifrm.flatten()
 
-    #Ifrm = np.array(Ifrm)
     return Ifrm
 
 

@@ -96,13 +96,14 @@ class MOVIE(object):
         tend = max(frmtable["utc"])
         tdif = (at.Time(tend) - at.Time(tstart))
         Nf = int(tdif.sec/self.tint.value) + 1
-        return tstart, tend, Nf
+        tintv = self.tint
+        return tstart, tend, Nf, tintv
 
     def timetable(self):
         frmtable = self.tabconcat()
         tstart, tend = self.tinfo()[:2]
         if self.Nf == 0:
-            Nfr = self.tinfo()[-1]
+            Nfr = self.tinfo()[2]
         else:
             Nfr = self.Nf
 
