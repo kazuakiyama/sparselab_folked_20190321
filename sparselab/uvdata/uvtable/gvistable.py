@@ -46,6 +46,21 @@ class GVisTable(UVTable):
     def _constructor_sliced(self):
         return GVisSeries
 
+    def set_uvunit(self, uvunit=None):
+        # Check uvunits
+        if uvunit is None:
+            uvmax = np.max(self.uvdist.values)
+            if uvmax < 1e3:
+                self.uvunit = "lambda"
+            elif uvmax < 1e6:
+                self.uvunit = "klambda"
+            elif uvmax < 1e9:
+                self.uvunit = "mlambda"
+            else:
+                self.uvunit = "glambda"
+        else:
+            self.uvunit = uvunit
+
     def recalc_uvdist(self):
         '''
         Re-calculate the baseline length from self["u"] and self["v"].
@@ -183,6 +198,7 @@ class GVisTable(UVTable):
         '''
         # Set Unit
         if uvunit is None:
+            self.set_uvunit()
             uvunit = self.uvunit
 
         # Conversion Factor
@@ -236,11 +252,12 @@ class GVisTable(UVTable):
         '''
         # Set Unit
         if uvunit is None:
+            self.set_uvunit()
             uvunit = self.uvunit
-        
+
         # Copy data
         vistable = copy.deepcopy(self)
-        
+
         # add real and imaginary part of full-comp. visibilities
         if datatype=="real" or datatype=="imag" or datatype=="real&imag":
             amp = np.float64(vistable["amp"])
@@ -248,7 +265,7 @@ class GVisTable(UVTable):
             #
             vistable["real"] = amp * np.cos(phase)
             vistable["imag"] = amp * np.sin(phase)
-        
+
         # Normalized by error
         if normerror:
             if datatype=="amp" or datatype=="amp&phase":
@@ -261,7 +278,7 @@ class GVisTable(UVTable):
             if datatype=="imag" or datatype=="real&imag":
                 vistable["imag"] /= vistable["sigma"]
             errorbar = False
-        
+
         #Plotting data
         if datatype=="amp":
             _radplot_amp(vistable, uvunit, errorbar, ls, marker, **plotargs)
@@ -275,7 +292,7 @@ class GVisTable(UVTable):
             _radplot_imag(vistable, uvunit, errorbar, ls, marker, **plotargs)
         if datatype=="real&imag":
             _radplot_fcv(vistable, uvunit, errorbar, ls, marker, **plotargs)
-    
+
 
 class GVisSeries(UVSeries):
 
@@ -297,7 +314,7 @@ def _radplot_amp(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["amp"], vistable["sigma"],
@@ -310,7 +327,7 @@ def _radplot_amp(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     plt.ylabel(r"Visibility Amplitude (Jy)")
     plt.xlim(0.,)
     plt.ylim(0.,)
-    
+
 
 def _radplot_phase(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     # Conversion Factor
@@ -318,7 +335,7 @@ def _radplot_phase(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     # Plotting data
     if errorbar:
         pherr = vistable["sigma"] / vistable["sigma"]
@@ -340,7 +357,7 @@ def _radplot_ampph(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["amp"], vistable["sigma"],
@@ -353,7 +370,7 @@ def _radplot_ampph(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     plt.ylabel(r"Visibility Amplitude (Jy)")
     plt.xlim(0.,)
     plt.ylim(0.,)
-    
+
 
 def _radplot_real(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     # Conversion Factor
@@ -361,11 +378,11 @@ def _radplot_real(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     data  = np.float64(vistable["real"])
     ymin = np.min(data)
     ymax = np.max(data)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["real"], vistable["sigma"],
@@ -377,11 +394,11 @@ def _radplot_real(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     ymin = np.min(vistable["real"])
     if ymin>=0.:
         plt.ylim(0.,)
-    
+
     # Label (Plot)
     plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
     plt.ylabel(r"Real Part of Visibilities (Jy)")
-    
+
 
 def _radplot_imag(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     # Conversion Factor
@@ -389,11 +406,11 @@ def _radplot_imag(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     data  = np.float64(vistable["imag"])
     ymin = np.min(data)
     ymax = np.max(data)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["imag"], vistable["sigma"],
@@ -417,11 +434,11 @@ def _radplot_fcv(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     data  = np.float64(vistable["real"])
     ymin = np.min(data)
     ymax = np.max(data)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["real"], vistable["sigma"],

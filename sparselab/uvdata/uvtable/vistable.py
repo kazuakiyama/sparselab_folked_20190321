@@ -53,6 +53,21 @@ class VisTable(UVTable):
     def _constructor_sliced(self):
         return VisSeries
 
+    def set_uvunit(self, uvunit=None):
+        # Check uvunits
+        if uvunit is None:
+            uvmax = np.max(self.uvdist.values)
+            if uvmax < 1e3:
+                self.uvunit = "lambda"
+            elif uvmax < 1e6:
+                self.uvunit = "klambda"
+            elif uvmax < 1e9:
+                self.uvunit = "mlambda"
+            else:
+                self.uvunit = "glambda"
+        else:
+            self.uvunit = uvunit
+
     def uvsort(self):
         '''
         Sort uvdata. First, it will check station IDs of each visibility
@@ -224,12 +239,12 @@ class VisTable(UVTable):
             amptable["amp"] = model
             amptable["phase"] = np.zeros(Ndata)
             return amptable
-    
+
     def residual_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
         #uvdata VisTable object (storing residual full complex visibility)
         model = self._call_fftlib(imfits=imfits,mask=mask,amptable=amptable,
                                   istokes=istokes, ifreq=ifreq)
-        
+
         if not amptable:
             residr = model[0][4]
             residi = model[0][5]
@@ -238,15 +253,15 @@ class VisTable(UVTable):
             residp = np.angle(resid,deg=True)
             residtable = self.copy()
             residtable["amp"] = resida
-            residtable["phase"] = residp            
-            
+            residtable["phase"] = residp
+
         else:
             Ndata = model[1]
             resida = model[0][3]
             residtable = self.copy()
             residtable["amp"] = resida
-            residtable["phase"] = np.zeros(Ndata) 
-            
+            residtable["phase"] = np.zeros(Ndata)
+
         return residtable
 
     def chisq_image(self, imfits, mask=None, amptable=False, istokes=0, ifreq=0):
@@ -255,25 +270,25 @@ class VisTable(UVTable):
                                   istokes=istokes, ifreq=ifreq)
         chisq = model[0][0]
         Ndata = model[1]
-        
+
         if not amptable:
             rchisq = chisq/(Ndata*2)
         else:
             rchisq = chisq/Ndata
 
         return chisq,rchisq
-        
+
     def _call_fftlib(self, imfits, mask, amptable, istokes=0, ifreq=0):
         # get initial images
         istokes = istokes
         ifreq = ifreq
-        
+
         # size of images
         Iin = np.float64(imfits.data[istokes, ifreq])
         Nx = imfits.header["nx"]
         Ny = imfits.header["ny"]
         Nyx = Nx * Ny
-        
+
         # pixel coordinates
         x, y = imfits.get_xygrid(twodim=True, angunit="rad")
         xidx = np.arange(Nx) + 1
@@ -283,7 +298,7 @@ class VisTable(UVTable):
         Nyref = imfits.header["nyref"]
         dx_rad = np.deg2rad(imfits.header["dx"])
         dy_rad = np.deg2rad(imfits.header["dy"])
-        
+
         # apply the imaging area
         if mask is None:
             print("Imaging Window: Not Specified. We calcurate the image on all the pixels.")
@@ -300,7 +315,7 @@ class VisTable(UVTable):
             y = y[idx]
             xidx = xidx[idx]
             yidx = yidx[idx]
-        
+
         # Full Complex Visibility
         if not amptable:
             Ndata = 0
@@ -312,16 +327,16 @@ class VisTable(UVTable):
             varfcv = np.square(np.array(fcvtable["sigma"], dtype=np.float64))
             Ndata += len(varfcv)
             del phase, amp
-            
+
             # get uv coordinates and uv indice
             u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
                     fcvtable=fcvtable, amptable=None, bstable=None, catable=None
                     )
-            
+
             # normalize u, v coordinates
             u *= 2*np.pi*dx_rad
             v *= 2*np.pi*dy_rad
-       
+
             # run model_fcv
             model = fortlib.fftlib.model_fcv(
                     # Images
@@ -341,9 +356,9 @@ class VisTable(UVTable):
                     vfcvi=np.float64(vfcvi),
                     varfcv=np.float64(varfcv)
                     )
-            
+
             return model,Ndata
-        
+
         else:
             Ndata = 0
             amptable = self.copy()
@@ -359,11 +374,11 @@ class VisTable(UVTable):
             u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
                     fcvtable=None, amptable=amptable, bstable=None, catable=None
                     )
-            
+
             # normalize u, v coordinates
             u *= 2*np.pi*dx_rad
             v *= 2*np.pi*dy_rad
-                
+
             # run model_fcv
             model = fortlib.fftlib.model_amp(
                     # Images
@@ -382,7 +397,7 @@ class VisTable(UVTable):
                     vamp=np.float64(vamp),
                     varamp=np.float64(varamp)
                     )
-            
+
             return model,Ndata
 
 
@@ -468,7 +483,7 @@ class VisTable(UVTable):
         '''
         # Number of Stations
         Ndata = len(self["ch"])
-        
+
         # make dictionary of stations
         st1table = self.drop_duplicates(subset='st1')
         st2table = self.drop_duplicates(subset='st2')
@@ -686,7 +701,7 @@ class VisTable(UVTable):
         from scipy.special import expi
         # Number of Stations
         Ndata = len(self["ch"])
-        
+
         # make dictionary of stations
         st1table = self.drop_duplicates(subset='st1')
         st2table = self.drop_duplicates(subset='st2')
@@ -1099,6 +1114,7 @@ class VisTable(UVTable):
         '''
         # Set Unit
         if uvunit is None:
+            self.set_uvunit()
             uvunit = self.uvunit
 
         # Conversion Factor
@@ -1152,11 +1168,12 @@ class VisTable(UVTable):
         '''
         # Set Unit
         if uvunit is None:
+            self.set_uvunit()
             uvunit = self.uvunit
-        
+
         # Copy data
         vistable = copy.deepcopy(self)
-        
+
         # add real and imaginary part of full-comp. visibilities
         if datatype=="real" or datatype=="imag" or datatype=="real&imag":
             amp = np.float64(vistable["amp"])
@@ -1164,7 +1181,7 @@ class VisTable(UVTable):
             #
             vistable["real"] = amp * np.cos(phase)
             vistable["imag"] = amp * np.sin(phase)
-        
+
         # Normalized by error
         if normerror:
             if datatype=="amp" or datatype=="amp&phase":
@@ -1177,7 +1194,7 @@ class VisTable(UVTable):
             if datatype=="imag" or datatype=="real&imag":
                 vistable["imag"] /= vistable["sigma"]
             errorbar = False
-        
+
         #Plotting data
         if datatype=="amp":
             _radplot_amp(vistable, uvunit, errorbar, ls, marker, **plotargs)
@@ -1191,7 +1208,7 @@ class VisTable(UVTable):
             _radplot_imag(vistable, uvunit, errorbar, ls, marker, **plotargs)
         if datatype=="real&imag":
             _radplot_fcv(vistable, uvunit, errorbar, ls, marker, **plotargs)
-        
+
     def vplot(self, station=None, datatype="amp&phase", timescale="utc", normerror=False,
               errorbar=True, ls="none", marker=".", **plotargs):
         '''
@@ -1222,14 +1239,14 @@ class VisTable(UVTable):
         st2table = self.drop_duplicates(subset='st2')
         stdict = dict(zip(st1table["st1"], st1table["st1name"]))
         stdict.update(dict(zip(st2table["st2"], st2table["st2name"])))
-        
+
         if station is None:
             st1 = 1
             st1name = stdict[1]
         else:
             st1 = int(station)
             st1name = stdict[st1]
-        
+
         # edit timescale
         if timescale=="gsthour" or timescale=="gst":
             timescale = "gsthour"
@@ -1241,7 +1258,7 @@ class VisTable(UVTable):
             #
             if tmin > tmax:
                 self.loc[self.gsthour<=tmax, "gsthour"] += 24.
-        
+
         # setting limits of min and max
         ttable = self.drop_duplicates(subset=timescale)
         if timescale=="utc":
@@ -1252,13 +1269,13 @@ class VisTable(UVTable):
         time = np.array(ttable[timescale])
         tmin = time[0]
         tmax = time[-1]
-        
+
         # setting indices
         tmptable = self.set_index(timescale)
-        
+
         # search data of baseline
         plttable = tmptable.query("st1 == @st1")
-        
+
         # add real and imaginary part of full-comp. visibilities
         if datatype=="real" or datatype=="imag" or datatype=="real&imag":
             amp = np.float64(plttable["amp"])
@@ -1266,7 +1283,7 @@ class VisTable(UVTable):
             #
             plttable["real"] = amp * np.cos(phase)
             plttable["imag"] = amp * np.sin(phase)
-        
+
         # normalized by error
         if normerror:
             if datatype=="amp" or datatype=="amp&phase":
@@ -1279,25 +1296,25 @@ class VisTable(UVTable):
             if datatype=="imag" or datatype=="real&imag":
                 plttable["imag"] /= plttable["sigma"]
             errorbar = False
-        
+
         # plotting data
         if datatype=="amp":
-            _vplot_amp(plttable, st1name, stdict, timescale, tmin, tmax, 
+            _vplot_amp(plttable, st1name, stdict, timescale, tmin, tmax,
                        errorbar, ls, marker, **plotargs)
         if datatype=="phase":
-            _vplot_phase(plttable, st1name, stdict, timescale, tmin, tmax, 
+            _vplot_phase(plttable, st1name, stdict, timescale, tmin, tmax,
                          errorbar, ls, marker, **plotargs)
         if datatype=="amp&phase":
-            _vplot_ampph(plttable, st1name, stdict, timescale, tmin, tmax, 
+            _vplot_ampph(plttable, st1name, stdict, timescale, tmin, tmax,
                          errorbar, ls, marker, **plotargs)
         if datatype=="real":
-            _vplot_real(plttable, st1name, stdict, timescale, tmin, tmax, 
+            _vplot_real(plttable, st1name, stdict, timescale, tmin, tmax,
                         errorbar, ls, marker, **plotargs)
         if datatype=="imag":
-            _vplot_imag(plttable, st1name, stdict, timescale, tmin, tmax, 
+            _vplot_imag(plttable, st1name, stdict, timescale, tmin, tmax,
                         errorbar, ls, marker, **plotargs)
         if datatype=="real&imag":
-            _vplot_fcv(plttable, st1name, stdict, timescale, tmin, tmax, 
+            _vplot_fcv(plttable, st1name, stdict, timescale, tmin, tmax,
                        errorbar, ls, marker, **plotargs)
 
 
@@ -1332,21 +1349,7 @@ def read_vistable(filename, uvunit=None, **args):
       uvdata.VisTable object
     '''
     table = VisTable(pd.read_csv(filename, **args))
-
-    maxuvd = np.max(table["uvdist"])
-
-    if uvunit is None:
-        if maxuvd < 1e3:
-            table.uvunit = "lambda"
-        elif maxuvd < 1e6:
-            table.uvunit = "klambda"
-        elif maxuvd < 1e9:
-            table.uvunit = "mlambda"
-        else:
-            table.uvunit = "glambda"
-    else:
-        table.uvunit = uvunit
-
+    table.set_uvunit()
     return table
 
 #-------------------------------------------------------------------------
@@ -1576,7 +1579,7 @@ def _radplot_amp(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["amp"], vistable["sigma"],
@@ -1589,7 +1592,7 @@ def _radplot_amp(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     plt.ylabel(r"Visibility Amplitude (Jy)")
     plt.xlim(0.,)
     plt.ylim(0.,)
-    
+
 
 def _radplot_phase(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     # Conversion Factor
@@ -1597,7 +1600,7 @@ def _radplot_phase(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     # Plotting data
     if errorbar:
         pherr = vistable["sigma"] / vistable["sigma"]
@@ -1619,7 +1622,7 @@ def _radplot_ampph(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["amp"], vistable["sigma"],
@@ -1632,7 +1635,7 @@ def _radplot_ampph(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     plt.ylabel(r"Visibility Amplitude (Jy)")
     plt.xlim(0.,)
     plt.ylim(0.,)
-    
+
 
 def _radplot_real(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     # Conversion Factor
@@ -1640,11 +1643,11 @@ def _radplot_real(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     data  = np.float64(vistable["real"])
     ymin = np.min(data)
     ymax = np.max(data)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["real"], vistable["sigma"],
@@ -1656,11 +1659,11 @@ def _radplot_real(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     ymin = np.min(vistable["real"])
     if ymin>=0.:
         plt.ylim(0.,)
-    
+
     # Label (Plot)
     plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
     plt.ylabel(r"Real Part of Visibilities (Jy)")
-    
+
 
 def _radplot_imag(vistable, uvunit, errorbar, ls ,marker, **plotargs):
     # Conversion Factor
@@ -1668,11 +1671,11 @@ def _radplot_imag(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     data  = np.float64(vistable["imag"])
     ymin = np.min(data)
     ymax = np.max(data)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["imag"], vistable["sigma"],
@@ -1696,11 +1699,11 @@ def _radplot_fcv(vistable, uvunit, errorbar, ls ,marker, **plotargs):
 
     # Label
     unitlabel = vistable.get_unitlabel(uvunit)
-    
+
     data  = np.float64(vistable["real"])
     ymin = np.min(data)
     ymax = np.max(data)
-    
+
     # Plotting data
     if errorbar:
         plt.errorbar(vistable["uvdist"] * conv, vistable["real"], vistable["sigma"],
@@ -1746,20 +1749,20 @@ def _vplot_amp(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
     # get antenna
     st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
     Nant = len(st2)
-    
+
     # convert timescale to pd.to_datetime
     if timescale=="utc":
         vistable.index = pd.to_datetime(vistable.index)
     if timescale=="gsthour":
         vistable.index = pd.to_datetime(vistable.index, unit="h")
-    
+
     # plotting data
     fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
     fig.subplots_adjust(hspace=0)
     for iant in range(Nant):
         ax = axs[iant]
         plt.sca(ax)
-        
+
         plttable = vistable.query("st2 == @st2[@iant]")
         if errorbar:
             plt.errorbar(plttable.index, plttable["amp"], plttable["sigma"],
@@ -1776,7 +1779,7 @@ def _vplot_amp(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         #
         for tick in ax.yaxis.get_major_ticks():
             tick.label.set_fontsize(9)
-    
+
     # major ticks
     ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
@@ -1786,12 +1789,12 @@ def _vplot_amp(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
     # minor ticks
     ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
     #
-    if timescale=="utc":        
+    if timescale=="utc":
         plt.xlabel(r"Universal Time (UTC)")
     elif timescale=="gsthour":
         plt.xlabel(r"Greenwich Sidereal Time (GST)")
-    
-        
+
+
 def _vplot_phase(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
                  ls, marker, **plotargs):
     '''
@@ -1816,24 +1819,24 @@ def _vplot_phase(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         You can set parameters of matplotlib.pyplot.plot() or
         matplotlib.pyplot.errorbars().
         Defaults are {'ls': "none", 'marker': "."}.
-    '''    
+    '''
     # get antenna
     st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
     Nant = len(st2)
-    
+
     # convert timescale to pd.to_datetime
     if timescale=="utc":
         vistable.index = pd.to_datetime(vistable.index)
     if timescale=="gsthour":
         vistable.index = pd.to_datetime(vistable.index, unit="h")
-    
+
     # plotting data
     fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
     fig.subplots_adjust(hspace=0)
     for iant in range(Nant):
         ax = axs[iant]
         plt.sca(ax)
-    
+
         plttable = vistable.query("st2 == @st2[@iant]")
         if errorbar:
             pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
@@ -1851,7 +1854,7 @@ def _vplot_phase(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         for tick in ax.yaxis.get_major_ticks():
             tick.label.set_fontsize(9)
         plt.ylim(-180., 180.)
-    
+
     # major ticks
     ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
@@ -1861,7 +1864,7 @@ def _vplot_phase(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
     # minor ticks
     ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
     #
-    if timescale=="utc":        
+    if timescale=="utc":
         plt.xlabel(r"Universal Time (UTC)")
     elif timescale=="gsthour":
         plt.xlabel(r"Greenwich Sidereal Time (GST)")
@@ -1895,13 +1898,13 @@ def _vplot_ampph(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
     # get antenna
     st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
     Nant = len(st2)
-    
+
     # convert timescale to pd.to_datetime
     if timescale=="utc":
         vistable.index = pd.to_datetime(vistable.index)
     if timescale=="gsthour":
         vistable.index = pd.to_datetime(vistable.index, unit="h")
-    
+
     # plotting data
     fig, axs = plt.subplots(nrows=Nant * 2, ncols=1, sharex=True, sharey=False)
     fig.subplots_adjust(hspace=0)
@@ -1909,7 +1912,7 @@ def _vplot_ampph(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         # amp
         ax = axs[iant*2]
         plt.sca(ax)
-        
+
         plttable = vistable.query("st2 == @st2[@iant]")
         if errorbar:
             plt.errorbar(plttable.index, plttable["amp"], plttable["sigma"],
@@ -1926,11 +1929,11 @@ def _vplot_ampph(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         #
         for tick in ax.yaxis.get_major_ticks():
             tick.label.set_fontsize(9)
-        
+
         # phase
         ax = axs[iant*2+1]
         plt.sca(ax)
-        
+
         if errorbar:
             pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
             plt.errorbar(plttable.index, plttable["phase"], pherr, ls=ls, marker=marker,
@@ -1945,9 +1948,9 @@ def _vplot_ampph(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         # major ticks
         ax.yaxis.set_major_locator(ticker.FixedLocator([-90, 0, 90]))
         for tick in ax.yaxis.get_major_ticks():
-            tick.label.set_fontsize(9) 
-        plt.ylim(-180., 180.)      
-    
+            tick.label.set_fontsize(9)
+        plt.ylim(-180., 180.)
+
     # major ticks
     ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
@@ -1957,7 +1960,7 @@ def _vplot_ampph(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
     # minor ticks
     ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
     #
-    if timescale=="utc":        
+    if timescale=="utc":
         plt.xlabel(r"Universal Time (UTC)")
     elif timescale=="gsthour":
         plt.xlabel(r"Greenwich Sidereal Time (GST)")
@@ -1987,30 +1990,30 @@ def _vplot_real(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         You can set parameters of matplotlib.pyplot.plot() or
         matplotlib.pyplot.errorbars().
         Defaults are {'ls': "none", 'marker': "."}.
-    '''        
+    '''
     # add real part of full-comp. visibilities
     amp = np.float64(vistable["amp"])
     phase = np.radians(np.float64(vistable["phase"]))
     #
     vistable["real"] = amp * np.cos(phase)
-    
+
     # get antenna
     st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
     Nant = len(st2)
-    
+
     # convert timescale to pd.to_datetime
     if timescale=="utc":
         vistable.index = pd.to_datetime(vistable.index)
     if timescale=="gsthour":
         vistable.index = pd.to_datetime(vistable.index, unit="h")
-    
+
     # plotting data
     fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
     fig.subplots_adjust(hspace=0)
     for iant in range(Nant):
         ax = axs[iant]
         plt.sca(ax)
-        
+
         plttable = vistable.query("st2 == @st2[@iant]")
         #
         if errorbar:
@@ -2025,14 +2028,14 @@ def _vplot_real(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         plt.xlim(tmin, tmax)
         #
         for tick in ax.yaxis.get_major_ticks():
-            tick.label.set_fontsize(9) 
+            tick.label.set_fontsize(9)
         ymin = np.min(plttable["real"])
         ymax = np.max(plttable["real"])
         if ymin>=0.:
             plt.ylim(0.,)
         if ymax<=0.:
             plt.ylim(ymax=0.)
-    
+
     # major ticks
     ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
@@ -2042,12 +2045,12 @@ def _vplot_real(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
     # minor ticks
     ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
     #
-    if timescale=="utc":        
+    if timescale=="utc":
         plt.xlabel(r"Universal Time (UTC)")
     elif timescale=="gsthour":
         plt.xlabel(r"Greenwich Sidereal Time (GST)")
 
-        
+
 def _vplot_imag(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
                 ls, marker, **plotargs):
     '''
@@ -2072,34 +2075,34 @@ def _vplot_imag(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         You can set parameters of matplotlib.pyplot.plot() or
         matplotlib.pyplot.errorbars().
         Defaults are {'ls': "none", 'marker': "."}.
-    '''    
+    '''
     # add real part of full-comp. visibilities
     amp = np.float64(vistable["amp"])
     phase = np.radians(np.float64(vistable["phase"]))
     #
     vistable["imag"] = amp * np.sin(phase)
-    
+
     # get antenna
     st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
     Nant = len(st2)
-    
+
     # convert timescale to pd.to_datetime
     if timescale=="utc":
         vistable.index = pd.to_datetime(vistable.index)
     if timescale=="gsthour":
         vistable.index = pd.to_datetime(vistable.index, unit="h")
-    
+
     # plotting data
     fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
     fig.subplots_adjust(hspace=0)
     for iant in range(Nant):
         ax = axs[iant]
         plt.sca(ax)
-        
+
         plttable = vistable.query("st2 == @st2[@iant]")
         #
         if errorbar:
-            plt.errorbar(plttable.index, plttable["imag"], plttable["sigma"], ls=ls, 
+            plt.errorbar(plttable.index, plttable["imag"], plttable["sigma"], ls=ls,
                          marker=marker, **plotargs)
         else:
             plt.plot(plttable.index, plttable["imag"], ls=ls, marker=marker, **plotargs)
@@ -2110,14 +2113,14 @@ def _vplot_imag(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         plt.xlim(tmin, tmax)
         #
         for tick in ax.yaxis.get_major_ticks():
-            tick.label.set_fontsize(9) 
+            tick.label.set_fontsize(9)
         ymin = np.min(plttable["imag"])
         ymax = np.max(plttable["imag"])
         if ymin>=0.:
             plt.ylim(0.,)
         if ymax<=0.:
             plt.ylim(ymax=0.)
-    
+
     # major ticks
     ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
@@ -2127,7 +2130,7 @@ def _vplot_imag(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
     # minor ticks
     ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
     #
-    if timescale=="utc":        
+    if timescale=="utc":
         plt.xlabel(r"Universal Time (UTC)")
     elif timescale=="gsthour":
         plt.xlabel(r"Greenwich Sidereal Time (GST)")
@@ -2157,24 +2160,24 @@ def _vplot_fcv(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         You can set parameters of matplotlib.pyplot.plot() or
         matplotlib.pyplot.errorbars().
         Defaults are {'ls': "none", 'marker': "."}.
-    '''    
+    '''
     # add real part of full-comp. visibilities
     amp = np.float64(vistable["amp"])
     phase = np.radians(np.float64(vistable["phase"]))
     #
     vistable["real"] = amp * np.cos(phase)
     vistable["imag"] = amp * np.sin(phase)
-    
+
     # get antenna
     st2 = np.sort(np.int32((vistable.drop_duplicates(subset='st2'))['st2']))
     Nant = len(st2)
-    
+
     # convert timescale to pd.to_datetime
     if timescale=="utc":
         vistable.index = pd.to_datetime(vistable.index)
     if timescale=="gsthour":
         vistable.index = pd.to_datetime(vistable.index, unit="h")
-    
+
     # plotting data
     fig, axs = plt.subplots(nrows=Nant*2, ncols=1, sharex=True, sharey=False)
     fig.subplots_adjust(hspace=0)
@@ -2182,7 +2185,7 @@ def _vplot_fcv(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         # real part
         ax = axs[iant*2]
         plt.sca(ax)
-        
+
         plttable = vistable.query("st2 == @st2[@iant]")
         #
         if errorbar:
@@ -2197,20 +2200,20 @@ def _vplot_fcv(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         plt.xlim(tmin, tmax)
         #
         for tick in ax.yaxis.get_major_ticks():
-            tick.label.set_fontsize(9) 
+            tick.label.set_fontsize(9)
         ymin = np.min(plttable["real"])
         ymax = np.max(plttable["real"])
         if ymin>=0.:
             plt.ylim(0.,)
         if ymax<=0.:
             plt.ylim(ymax=0.)
-        
+
         # imaginary part
         ax = axs[iant*2+1]
         plt.sca(ax)
-        
+
         if errorbar:
-            plt.errorbar(plttable.index, plttable["imag"], plttable["sigma"], ls=ls, 
+            plt.errorbar(plttable.index, plttable["imag"], plttable["sigma"], ls=ls,
                          marker=marker, **plotargs)
         else:
             plt.plot(plttable.index, plttable["imag"], ls=ls, marker=marker, **plotargs)
@@ -2221,14 +2224,14 @@ def _vplot_fcv(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
         plt.xlim(tmin, tmax)
         #
         for tick in ax.yaxis.get_major_ticks():
-            tick.label.set_fontsize(9) 
+            tick.label.set_fontsize(9)
         ymin = np.min(plttable["imag"])
         ymax = np.max(plttable["imag"])
         if ymin>=0.:
             plt.ylim(0.,)
         if ymax<=0.:
             plt.ylim(ymax=0.)
-    
+
     # major ticks
     ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
@@ -2238,7 +2241,7 @@ def _vplot_fcv(vistable, st1name, stdict, timescale, tmin, tmax, errorbar,
     # minor ticks
     ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
     #
-    if timescale=="utc":        
+    if timescale=="utc":
         plt.xlabel(r"Universal Time (UTC)")
     elif timescale=="gsthour":
         plt.xlabel(r"Greenwich Sidereal Time (GST)")

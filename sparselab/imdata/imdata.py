@@ -23,6 +23,7 @@ from astropy.convolution import convolve_fft
 
 # matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 # internal
 from .. import fortlib, util
@@ -31,8 +32,6 @@ from .. import fortlib, util
 # IMAGEFITS (Manupulating FITS FILES)
 #-------------------------------------------------------------------------
 class IMFITS(object):
-    angunit = "mas"
-
     # Initialization
     def __init__(self, fitsfile=None, uvfitsfile=None, source=None,
                  dx=2., dy=None, nx=100, ny=None, nxref=None, nyref=None,
@@ -710,11 +709,11 @@ class IMFITS(object):
         nxref = self.header["nxref"]
         nyref = self.header["nyref"]
         Iin = np.float64(self.data[istokes, ifreq])
-        
+
         if func is "l1":
-            costs = fortlib.image.i2d_l1(i2d=np.float64(Iin))                         
+            costs = fortlib.image.i2d_l1(i2d=np.float64(Iin))
         elif func is "mem":
-            costs = fortlib.image.i2d_mem(i2d=np.float64(Iin)) 
+            costs = fortlib.image.i2d_mem(i2d=np.float64(Iin))
         elif func is "tv":
             costs = fortlib.image.i2d_tv(i2d=np.float64(Iin))
         elif func is "tsv":
@@ -724,11 +723,11 @@ class IMFITS(object):
                                           nxref=np.float64(nxref),
                                           nyref=np.float64(nyref),
                                           alpha=np.float64(compower))
-        
+
         cost = costs[0]
         costmap = costs[1]
-        gradmap = costs[2]       
-        
+        gradmap = costs[2]
+
         if out is "cost":
             return cost
         elif out is "costmap":
@@ -744,7 +743,7 @@ class IMFITS(object):
     # Plotting
     #-------------------------------------------------------------------------
     def imshow(self, logscale=False, angunit=None, dyrange=100,
-               vmin=None, istokes=0, ifreq=0, **imshow_args):
+               vmin=None, cmap=cm.afmhot, istokes=0, ifreq=0, **imshow_args):
         '''
         plot contours of the image
 
@@ -779,11 +778,11 @@ class IMFITS(object):
             else:
                 vmin_scaled = np.log10(vmin)
             plotdata[np.where(plotdata < vmin_scaled)] = vmin_scaled
-            plt.imshow(plotdata, extent=imextent, origin="lower",
+            plt.imshow(plotdata, extent=imextent, origin="lower", cmap=cmap,
                        vmin=vmin_scaled, **imshow_args)
         else:
             plt.imshow(self.data[istokes, ifreq], extent=imextent, origin="lower",
-                       vmin=vmin, **imshow_args)
+                       cmap=cmap, vmin=vmin, **imshow_args)
 
         # Axis Label
         if angunit.lower().find("pixel") == 0:

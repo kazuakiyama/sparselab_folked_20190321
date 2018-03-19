@@ -106,6 +106,25 @@ class ImRegTable(pd.DataFrame):
         '''
         super(ImRegTable, self).to_csv(filename, index=False, index_label=False, **args)
 
+    # read csv file as ImRegTable
+    def read_region(self, filename):
+        '''
+        Read a csv file as ImRegTable using pd.DataFrame.read_csv().
+
+        Args:
+            filename (string or filehandle): output filename
+        '''
+        # empty region table
+        table = ImRegTable()
+        table.initialize()
+        
+        # read csv file
+        region = pd.read_csv(filename)
+        
+        # append pd.DataFrame table to empty region table
+        table = table.append(region)
+        
+        return table
 
     ## DS9
     # Start DS9
@@ -750,8 +769,8 @@ def region_ellipse(X, Y, x0, y0, radius1, radius2, angle):
     sina = np.sin(np.deg2rad(angle))
     dX = X - x0
     dY = Y - y0
-    X1 = dX * cosa + dY * sina
-    Y1 = -dX * sina + dY * cosa
+    X1 = dX * cosa - dY * sina
+    Y1 = dX * sina + dY * cosa
     return X1 * X1 / radius1 / radius1 + Y1 * Y1 / radius2 / radius2 <= 1
 
 
