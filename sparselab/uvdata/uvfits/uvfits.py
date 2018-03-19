@@ -927,9 +927,9 @@ class UVFITS(object):
                 fqof = fqtable.loc[iif, "if_freq_offset"]
                 sideband = fqtable.loc[iif, "sideband"]
                 if center:
-                    freq = reffreq + fqof + chbw * (ich+1/2) * sideband
-                else:
                     freq = reffreq + fqof + chbw * ich * sideband
+                else:
+                    freq = reffreq + fqof + chbw * (ich-1/2.) * sideband
                 outdic[(subarr,frqsel,iif+1,ich+1)] = freq
         return outdic
 
@@ -958,9 +958,9 @@ class UVFITS(object):
                 chbw = fqtable.loc[iif, "ch_bandwidth"]
                 fqof = fqtable.loc[iif, "if_freq_offset"]
                 if center:
-                    freq = fqof + chbw * (ich+1/2)
-                else:
                     freq = fqof + chbw * ich
+                else:
+                    freq = fqof + chbw * (ich-1/2.)
                 outdic[(frqsel,iif+1,ich+1)] = freq
         return outdic
 
@@ -1945,7 +1945,7 @@ class FrequencyData(object):
             lines.append("  IF Freq setups (Hz):")
             lines.append(prt(fqtable,indent*2,output=True))
         lines.append("  Note: Central Frequency of ch=i at IF=j (where i,j=1,2,3...)")
-        lines.append("     freq(i,j) = reffreq + (i-1/2) * ch_bandwidth(j) * sideband + if_freq_offset(j)")
+        lines.append("     freq(i,j) = reffreq + (i-1) * ch_bandwidth(j) * sideband + if_freq_offset(j)")
         return "\n".join(lines)
 
 
