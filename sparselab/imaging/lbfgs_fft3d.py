@@ -391,7 +391,8 @@ def frminp(Iout, Npix, Nf, Nfps):
     totalframe = (Nf-1)*(Nfps+1)+1
     frames = np.linspace(0, Nf-1, totalframe)
 
-    print("\n\n Interpolating %s frames to %s frames \n" %(Nf, totalframe))
+    print("\n\n Interpolating %s frames to %s frames" %(Nf, totalframe))
+    begin = time.time()
 
     fstack = []
     for ipix in range(Npix):
@@ -401,6 +402,10 @@ def frminp(Iout, Npix, Nf, Nfps):
     fstack = np.array(fstack)
     Ifrm = fstack.reshape(Npix, totalframe).transpose()
     Ifrm = Ifrm.flatten()
+
+    end = time.time()
+    print(' it took %s seconds \n' %(end-begin))
+    print("\n Making movie ... \n")
 
     return Ifrm
 
