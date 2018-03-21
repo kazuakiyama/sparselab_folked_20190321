@@ -159,3 +159,40 @@ real(dp) function ri_dklgrad(xidx,yidx,I2d,Iavg2d,Itmp2d,Nx,Ny,Nz)
 end function
 !
 end module
+!
+!
+!-------------------------------------------------------------------------------
+! A convinient function to compute regularization functions
+! for python interfaces
+!-------------------------------------------------------------------------------
+!
+! subroutine I2d_rtd2(I2d,I2dl,I2du,cost,costmap,gradmap,Nx,Ny,Nz)
+!   implicit none
+!
+!   integer, intent(in)  :: Nx,Ny,Nz
+!   real(dp), intent(in) :: I2d(Nx,Ny),I2dl(Nx,Ny),I2du(Nx,Ny)
+!   real(dp), intent(out):: cost,costmap(Nx,Ny),gradmap(Nx,Ny)
+!
+!   integer :: ixy,ix,iy,iz
+!
+!   ! initialize output
+!   cost = 0d0
+!   costmap(:,:) = 0d0
+!   gradmap(:,:) = 0d0
+!
+!   !$OMP PARALLEL DO DEFAULT(SHARED) &
+!   !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,I2d,I2dl,I2du) &
+!   !$OMP   PRIVATE(ixy,ix,iy,iz) &
+!   !$OMP   REDUCTION(+:cost,costmap,gradmap)
+!   do iz=1, Nz
+!     do ixy=1, Nx*Ny
+!       iparm = (iz-1)*Nx*Ny + ixy
+!       call ixy2ixiy(ixy,ix,iy,Nx)
+!       costmap(ix,iy) = d2(ix,iy,I2d,I2du,Nx,Ny)
+!       gradmap(ix,iy) = rt_d2grad(ix,iy,iz,I2d,I2dl,I2du,Nx,Ny,Nz)
+!       cost = cost+costmap(ix,iy)
+!     end do
+!   end do
+!   !$OMP END PARALLEL DO
+! end subroutine
+!

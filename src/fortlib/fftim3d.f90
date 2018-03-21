@@ -452,7 +452,7 @@ subroutine calc_cost(&
     end if
   end do
   !$OMP END PARALLEL DO
-  deallocate(Vresre,Vresim)!,Vcmp)
+  deallocate(Vresre,Vresim)
 
   ! copy the chisquare into that of cost functions
   cost = chisq

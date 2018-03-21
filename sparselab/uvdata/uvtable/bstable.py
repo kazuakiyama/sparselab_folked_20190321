@@ -14,15 +14,19 @@ __author__ = "Sparselab Developer Team"
 import copy
 import itertools
 
+# numerical packages
 import numpy as np
 import pandas as pd
 import theano.tensor as T
 
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 
 # internal
 from .uvtable import UVTable, UVSeries
-
+from .tools import get_uvlist
+from ... import fortlib
 
 # ------------------------------------------------------------------------------
 # Classes
@@ -42,8 +46,8 @@ class BSTable(UVTable):
                        "u23", "v23", "w23", "uvdist23",
                        "u31", "v31", "w31", "uvdist31",
                        "uvdistmin", "uvdistmax", "uvdistave",
-                       #"st1name","st2name","st3name",
                        "st1", "st2", "st3", "ch",
+                       "st1name", "st2name", "st3name",
                        "amp", "phase", "sigma"]
     bstable_types = [np.asarray, np.float64,
                      np.float64, np.int32, np.int32, np.int32, np.int32,
@@ -51,8 +55,8 @@ class BSTable(UVTable):
                      np.float64, np.float64, np.float64, np.float64,
                      np.float64, np.float64, np.float64, np.float64,
                      np.float64, np.float64, np.float64,
-                     #np.asarray, np.asarray, np.asarray,
                      np.int32, np.int32, np.int32, np.int32,
+                     np.asarray, np.asarray, np.asarray,
                      np.float64, np.float64, np.float64]
 
     @property
@@ -62,6 +66,114 @@ class BSTable(UVTable):
     @property
     def _constructor_sliced(self):
         return BSSeries
+
+    def eval_image(self, imfits, mask=None, istokes=0, ifreq=0):
+        #uvdata.BSTable object (storing model closure phase)
+        model = self._call_fftlib(imfits=imfits,mask=mask,
+                                  istokes=istokes, ifreq=ifreq)
+        Ndata = model[1]
+        cpmodel = model[0][2]
+        cpmodel = np.rad2deg(cpmodel)
+        bstable = self.copy()
+        bstable["phase"] = cpmodel
+        bstable["amp"] = np.zeros(Ndata)
+        return bstable
+    
+    def residual_image(self, imfits, mask=None, istokes=0, ifreq=0):
+        #uvdata BSTable object (storing residual closure phase)
+        model = self._call_fftlib(imfits=imfits,mask=mask,
+                                  istokes=istokes, ifreq=ifreq)
+        residp = model[0][3]
+        residp = np.rad2deg(residp)
+        residtable = self.copy()
+        residtable["phase"] = residp 
+        return residtable
+
+    def chisq_image(self, imfits, mask=None, istokes=0, ifreq=0):
+        # calcurate chisqared and reduced chisqred.
+        model = self._call_fftlib(imfits=imfits,mask=mask,
+                                  istokes=istokes, ifreq=ifreq)
+        chisq = model[0][0]
+        Ndata = model[1]
+        rchisq = chisq/Ndata
+
+        return chisq,rchisq
+
+    def _call_fftlib(self, imfits, mask, istokes=0, ifreq=0):
+        # get initial images
+        istokes = istokes
+        ifreq = ifreq
+        
+        # size of images
+        Iin = np.float64(imfits.data[istokes, ifreq])
+        Nx = imfits.header["nx"]
+        Ny = imfits.header["ny"]
+        Nyx = Nx * Ny
+        
+        # pixel coordinates
+        x, y = imfits.get_xygrid(twodim=True, angunit="rad")
+        xidx = np.arange(Nx) + 1
+        yidx = np.arange(Ny) + 1
+        xidx, yidx = np.meshgrid(xidx, yidx)
+        Nxref = imfits.header["nxref"]
+        Nyref = imfits.header["nyref"]
+        dx_rad = np.deg2rad(imfits.header["dx"])
+        dy_rad = np.deg2rad(imfits.header["dy"])
+        
+        # apply the imaging area
+        if mask is None:
+            print("Imaging Window: Not Specified. We calcurate the image on all the pixels.")
+            Iin = Iin.reshape(Nyx)
+            x = x.reshape(Nyx)
+            y = y.reshape(Nyx)
+            xidx = xidx.reshape(Nyx)
+            yidx = yidx.reshape(Nyx)
+        else:
+            print("Imaging Window: Specified. Images will be calcurated on specified pixels.")
+            idx = np.where(mask)
+            Iin = Iin[idx]
+            x = x[idx]
+            y = y[idx]
+            xidx = xidx[idx]
+            yidx = yidx[idx]
+        
+        # Closure Phase
+        Ndata = 0
+        bstable = self.copy()
+        cp = np.deg2rad(np.array(bstable["phase"], dtype=np.float64))
+        varcp = np.square(
+                np.array(bstable["sigma"] / bstable["amp"], dtype=np.float64))
+        Ndata += len(cp)
+        
+        # get uv coordinates and uv indice
+        u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca = get_uvlist(
+                fcvtable=None, amptable=None, bstable=bstable, catable=None
+                )
+
+        # normalize u, v coordinates
+        u *= 2*np.pi*dx_rad
+        v *= 2*np.pi*dy_rad
+    
+        # run model_cp
+        model = fortlib.fftlib.model_cp(
+                # Images
+                iin=np.float64(Iin),
+                xidx=np.int32(xidx),
+                yidx=np.int32(yidx),
+                nxref=np.float64(Nxref),
+                nyref=np.float64(Nyref),
+                nx=np.int32(Nx),
+                ny=np.int32(Ny),
+                # UV coordinates,
+                u=u,
+                v=v,
+                # Closure Phase
+                uvidxcp=np.int32(uvidxcp),
+                cp=np.float64(cp),
+                varcp=np.float64(varcp)
+                )
+            
+        return model,Ndata
 
     def eval_geomodel(self, geomodel, evalargs={}):
         '''
@@ -180,7 +292,7 @@ class BSTable(UVTable):
         ax.set_xlim(-np.sort(-xlim))
         ax.set_ylim(np.sort(ylim))
 
-    def radplot(self, uvdtype="ave", uvunit=None, errorbar=True, model=None,
+    def radplot(self, uvdtype="ave", uvunit=None, normerror=False, errorbar=True,
                 ls="none", marker=".", **plotargs):
         '''
         Plot closure phases as a function of baseline lengths on the current axes.
@@ -233,22 +345,152 @@ class BSTable(UVTable):
 
         # Label
         unitlabel = self.get_unitlabel(uvunit)
-
+        
+        # normalized by error
+        plttable = copy.deepcopy(self)
+        if normerror:
+            pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
+            plttable["phase"] /= pherr
+            errorbar = False
+			
         # plotting data
-        if model is not None:
-            plt.plot(uvdist, model["cpmod"],
-                     ls=ls, marker=marker, **plotargs)
-        elif errorbar:
-            pherr = np.rad2deg(self["sigma"] / self["amp"])
-            plt.errorbar(uvdist, self["phase"], pherr,
+        if errorbar:
+            pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
+            plt.errorbar(uvdist, plttable["phase"], pherr,
                          ls=ls, marker=marker, **plotargs)
         else:
-            plt.plot(uvdist, self["phase"],
+            plt.plot(uvdist, plttable["phase"],
                      ls=ls, marker=marker, **plotargs)
         plt.xlabel(r"%s Baseline Length (%s)" % (head, unitlabel))
         plt.ylabel(r"Closure Phase ($^\circ$)")
         plt.xlim(0,)
         plt.ylim(-180, 180)
+        
+    def vplot(self, station=1, timescale="utc", normerror=False, errorbar=True,
+              ls="none", marker=".", **plotargs):
+        '''
+        Plot visibility amplitudes as a function of baseline lengths
+        on the current axes. This method uses matplotlib.pyplot.plot() or
+        matplotlib.pyplot.errorbar().
+
+        Args:
+          uvunit (str, default = None):
+            The unit of the baseline length. if uvunit is None, it will use
+            self.uvunit.
+
+          errorbar (boolean, default = True):
+            If errorbar is True, it will plot data with errorbars using
+            matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
+            errorbars using matplotlib.pyplot.plot().
+
+            If you plot model closure phases (i.e. model is not None),
+            it will plot without errobars regardless of this parameter.
+
+          **plotargs:
+            You can set parameters of matplotlib.pyplot.plot() or
+            matplotlib.pyplot.errorbars().
+            Defaults are {'ls': "none", 'marker': "."}.
+        '''    
+        # make dictionary of stations
+        st1table = self.drop_duplicates(subset='st1')
+        st2table = self.drop_duplicates(subset='st2')
+        st3table = self.drop_duplicates(subset='st3')
+        stdict = dict(zip(st1table["st1"], st1table["st1name"]))
+        stdict.update(dict(zip(st2table["st2"], st2table["st2name"])))
+        stdict.update(dict(zip(st3table["st3"], st3table["st3name"])))
+        
+        if station is None:
+            st1 = 1
+            st1name = stdict[1]
+        else:
+            st1 = int(station)
+            st1name = stdict[st1]
+        
+        # edit timescale
+        if timescale=="gsthour" or timescale=="gst":
+            timescale = "gsthour"
+            #
+            ttable = self.drop_duplicates(subset=timescale)
+            time = np.array(ttable[timescale])
+            tmin = time[0]
+            tmax = time[-1]
+            #
+            if tmin > tmax:
+                self.loc[self.gsthour<=tmax, "gsthour"] += 24.
+        
+        # setting limits of min and max
+        ttable = self.drop_duplicates(subset=timescale)
+        if timescale=="utc":
+            ttable[timescale] = pd.to_datetime(ttable[timescale])
+        if timescale=="gsthour":
+            ttable[timescale] = pd.to_datetime(ttable[timescale], unit="h")
+        #
+        time = np.array(ttable[timescale])
+        tmin = time[0]
+        tmax = time[-1]
+        
+        # setting indices
+        tmptable = self.set_index(timescale)
+        
+        # search data of baseline
+        tmptable = tmptable.query("st1 == @st1")
+        
+        # normalized by error
+        if normerror:
+            pherr = np.rad2deg(tmptable["sigma"] / tmptable["amp"])
+            tmptable["phase"] /= pherr
+            errorbar = False
+
+        # convert timescale to pd.to_datetime
+        if timescale=="utc":
+            tmptable.index = pd.to_datetime(tmptable.index)
+        if timescale=="gsthour":
+            tmptable.index = pd.to_datetime(tmptable.index, unit="h")
+        
+        # get antenna
+        st2 = np.int32((tmptable.drop_duplicates(subset=['st2', 'st3']))['st2'])
+        st3 = np.int32((tmptable.drop_duplicates(subset=['st2', 'st3']))['st3'])
+        Nant = len(st2)
+    
+        # plotting data
+        fig, axs = plt.subplots(nrows=Nant, ncols=1, sharex=True, sharey=False)
+        fig.subplots_adjust(hspace=0.)
+        for iant in range(Nant):
+            ax = axs[iant]
+            plt.sca(ax)
+            
+            plttable = tmptable.query("st2 == @st2[@iant] & st3 == @st3[@iant]")
+            if errorbar:
+                pherr = np.rad2deg(plttable["sigma"] / plttable["amp"])
+                plt.errorbar(plttable.index, plttable["phase"], pherr, ls=ls,
+                             marker=marker, **plotargs)
+            else:
+                plt.plot(plttable.index, plttable["phase"], ls=ls, marker=marker, **plotargs)
+            #
+            plt.text(0.97, 0.9, st1name.strip()+"-"+stdict[st2[iant]].strip()+"-"+stdict[st3[iant]].strip(),
+                     horizontalalignment='right', verticalalignment='top',
+                     transform=ax.transAxes, fontsize=8, color="black")
+            plt.xlim(tmin, tmax)
+            # major ticks
+            ax.yaxis.set_major_locator(ticker.FixedLocator([-90, 0, 90]))
+            for tick in ax.yaxis.get_major_ticks():
+                tick.label.set_fontsize(9)
+            #
+            plt.ylim(-180., 180.)
+    
+        # major ticks
+        ax.xaxis.set_major_locator(mdates.HourLocator(np.arange(0, 25, 6)))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H"))
+        #
+        for tick in ax.xaxis.get_major_ticks():
+            tick.label.set_fontsize(10)
+        # minor ticks
+        ax.xaxis.set_minor_locator(mdates.HourLocator(np.arange(0, 25, 2)))
+        #
+        if timescale=="utc":        
+            plt.xlabel(r"Universal Time (UTC)")
+        elif timescale=="gsthour":
+            plt.xlabel(r"Greenwich Sidereal Time (GST)")
 
 
 class BSSeries(UVSeries):

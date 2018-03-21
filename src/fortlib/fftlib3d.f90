@@ -1,4 +1,4 @@
-module fftlib
+module fftlib3d
   !$use omp_lib
   use param, only : dp, dpc, pi, i_dpc
   use image, only: I1d_I2d_fwd, I1d_I2d_inv, zeroeps
@@ -502,8 +502,8 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! Functions to compute chisquares and also residual vectors
 !-------------------------------------------------------------------------------
-subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
-                     u,v,&
+subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
+                     u,v,Nuvs,&
                      uvidxfcv,Vfcvr,Vfcvi,Varfcv,&
                      chisq,gradchisq,modelr,modeli,residr,residi,&
                      Npix,Nuv,Nfcv)
@@ -515,14 +515,15 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   implicit none
 
   ! Image
-  integer,  intent(in) :: Npix, Nx, Ny
-  real(dp), intent(in) :: Iin(Npix)
+  integer,  intent(in) :: Npix, Nx, Ny, Nz
+  real(dp), intent(in) :: Iin(Npix*Nz)
   real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
                                         ! 1 = the leftmost/lowermost pixel
   integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
 
   ! NuFFT-ed visibilities
   integer,  intent(in) :: Nuv
+  integer,  intent(in) :: Nuvs(Nz)        ! number of uv data for each frame
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
   ! Data
   integer,  intent(in):: Nfcv                     ! Number of data
@@ -533,7 +534,7 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   real(dp), intent(out):: chisq                        ! chisquare
   real(dp), intent(out):: modelr(Nfcv), modeli(Nfcv)  ! Model Vector
   real(dp), intent(out):: residr(Nfcv), residi(Nfcv)  ! Residual Vector
-  real(dp), intent(out):: gradchisq(Npix)   !   its adjoint FT provides
+  real(dp), intent(out):: gradchisq(Npix*Nz)   !   its adjoint FT provides
                                             !   the gradient of chisquare
 
   ! allocatable arrays
@@ -545,9 +546,10 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   ! other factors
   real(dp):: factor
   integer:: uvidx
+  integer :: Nuvs_sum(Nz)
 
   ! loop variables
-  integer :: i
+  integer :: i, iz, istart, iend, iparm, ipix
 
   ! initialize full complex visibilities
   !   allocate arrays
@@ -567,22 +569,47 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   end do
   !$OMP END PARALLEL DO
 
-  ! Copy 1d image to 2d image
-  !   allocate array
-  allocate(I2d(Nx,Ny))
-  I2d(:,:)=0d0
-  !   copy image
-  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
-  !   hard thresholding with zero eps
-  where (abs(I2d) < zeroeps) I2d=0d0
+  ! Compute accumulated number of uvdata before each frame
+  !   Nuvs_sum(i) + 1 will be the start index number for i-th frame
+  !   Nuvs_sum(i) + Nuvs(i) will be the end index number for i-th frame
+  Nuvs_sum(1)=0
+  do i=2, Nz
+    Nuvs_sum(i) = Nuvs_sum(i-1) + Nuvs(i-1)
+  end do
 
   ! Forward Non-unifrom Fast Fourier Transform
   !   allocate array
   allocate(Vcmp(Nuv))
   Vcmp(:) = dcmplx(0d0,0d0)
-  !   Forward NUFFT
-  call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
-  deallocate(I2d)
+  !
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v) &
+  !$OMP   PRIVATE(iz, istart, iend, I2d) &
+  !$OMP   REDUCTION(+:Vcmp)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if (Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(I2d(Nx,Ny))
+      I2d(:,:)=0d0
+      call I1d_I2d_fwd(xidx,yidx,Iin((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
+      !
+      !   hard thresholding with zero eps
+      where (abs(I2d) < zeroeps) I2d=0d0
+      !
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      !   run forward NUFFT
+      call NUFFT_fwd(u(istart:iend),v(istart:iend),I2d,Vcmp(istart:iend),&
+                     Nx,Ny,Nuvs(iz))
+
+      ! deallocate array
+      deallocate(I2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
 
   ! Compute Chisquare
   !  allocate array
@@ -622,14 +649,36 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
 
   ! Adjoint Non-unifrom Fast Fourier Transform
   !  this will provide gradient of chisquare functions
-  allocate(gradchisq2d(Nx,Ny))
-  gradchisq2d(:,:) = 0d0
-  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
-  deallocate(Vresre,Vresim)
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v,Vresre,Vresim) &
+  !$OMP   PRIVATE(iz, istart, iend, gradchisq2d) &
+  !$OMP   REDUCTION(+:gradchisq)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if(Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(gradchisq2d(Nx,Ny))
+      gradchisq2d(:,:) = 0d0
 
-  ! copy the gradient of chisquare into that of cost functions
-  call I1d_I2d_inv(xidx,yidx,gradchisq,gradchisq2d,Npix,Nx,Ny)
-  deallocate(gradchisq2d)
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      ! run adujoint NUFFT
+      call NUFFT_adj_resid(u(istart:iend),v(istart:iend),&
+                           Vresre(istart:iend),Vresim(istart:iend),&
+                           gradchisq2d,Nx,Ny,Nuvs(iz))
+
+      ! copy the gradient of chisquare into that of cost functions
+      call I1d_I2d_inv(xidx,yidx,gradchisq((iz-1)*Npix+1:iz*Npix),&
+                       gradchisq2d,Npix,Nx,Ny)
+
+      ! deallocate array
+      deallocate(gradchisq2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vresre,Vresim)
 
   !   shift tracking center of full complex visibilities from the reference
   !   pixel to the center of the image
@@ -658,8 +707,8 @@ subroutine model_fcv(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
 end subroutine
 
 
-subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
-                     u,v,&
+subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
+                     u,v,Nuvs,&
                      uvidxamp,Vamp,Varamp,&
                      chisq,gradchisq,model,resid,&
                      Npix,Nuv,Namp)
@@ -670,14 +719,15 @@ subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
  !
   implicit none
   ! Image
-  integer,  intent(in) :: Npix, Nx, Ny
-  real(dp), intent(in) :: Iin(Npix)
+  integer,  intent(in) :: Npix, Nx, Ny, Nz
+  real(dp), intent(in) :: Iin(Npix*Nz)
   real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
                                         ! 1 = the leftmost/lowermost pixel
   integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
 
   ! NuFFT-ed visibilities
   integer,  intent(in) :: Nuv
+  integer,  intent(in) :: Nuvs(Nz)        ! number of uv data for each frame
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
   ! Data
   integer,  intent(in):: Namp           ! Number of data
@@ -688,7 +738,7 @@ subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   real(dp), intent(out):: chisq           ! chisquare
   real(dp), intent(out):: model(Namp)     ! Model Vector
   real(dp), intent(out):: resid(Namp)     ! Residual Vector
-  real(dp), intent(out):: gradchisq(Npix) ! its adjoint FT provides
+  real(dp), intent(out):: gradchisq(Npix*Nz) ! its adjoint FT provides
                                           ! the gradient of chisquare
 
   ! allocatable arrays
@@ -699,26 +749,53 @@ subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   ! other factors
   real(dp):: factor
   integer:: uvidx
+  integer :: Nuvs_sum(Nz)
 
   ! loop variables
-  integer :: i
+  integer :: i, iz, istart, iend, iparm, ipix
 
-  ! Copy 1d image to 2d image
-  !   allocate array
-  allocate(I2d(Nx,Ny))
-  I2d(:,:)=0d0
-  !   copy image
-  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
-  !   hard thresholding with zero eps
-  where (abs(I2d) < zeroeps) I2d=0d0
+
+  ! Compute accumulated number of uvdata before each frame
+  !   Nuvs_sum(i) + 1 will be the start index number for i-th frame
+  !   Nuvs_sum(i) + Nuvs(i) will be the end index number for i-th frame
+  Nuvs_sum(1)=0
+  do i=2, Nz
+    Nuvs_sum(i) = Nuvs_sum(i-1) + Nuvs(i-1)
+  end do
 
   ! Forward Non-unifrom Fast Fourier Transform
   !   allocate array
   allocate(Vcmp(Nuv))
   Vcmp(:) = dcmplx(0d0,0d0)
-  !   Forward NUFFT
-  call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
-  deallocate(I2d)
+  !
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v) &
+  !$OMP   PRIVATE(iz, istart, iend, I2d) &
+  !$OMP   REDUCTION(+:Vcmp)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if (Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(I2d(Nx,Ny))
+      I2d(:,:)=0d0
+      call I1d_I2d_fwd(xidx,yidx,Iin((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
+      !
+      !   hard thresholding with zero eps
+      where (abs(I2d) < zeroeps) I2d=0d0
+      !
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      !   run forward NUFFT
+      call NUFFT_fwd(u(istart:iend),v(istart:iend),I2d,Vcmp(istart:iend),&
+                     Nx,Ny,Nuvs(iz))
+
+      ! deallocate array
+      deallocate(I2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
 
   ! Compute Chisquare
   !  allocate array
@@ -750,19 +827,41 @@ subroutine model_amp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
 
   ! Adjoint Non-unifrom Fast Fourier Transform
   !  this will provide gradient of chisquare functions
-  allocate(gradchisq2d(Nx,Ny))
-  gradchisq2d(:,:) = 0d0
-  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
-  deallocate(Vresre,Vresim)
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v,Vresre,Vresim) &
+  !$OMP   PRIVATE(iz, istart, iend, gradchisq2d) &
+  !$OMP   REDUCTION(+:gradchisq)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if(Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(gradchisq2d(Nx,Ny))
+      gradchisq2d(:,:) = 0d0
 
-  ! copy the gradient of chisquare into that of cost functions
-  call I1d_I2d_inv(xidx,yidx,gradchisq,gradchisq2d,Npix,Nx,Ny)
-  deallocate(gradchisq2d)
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      ! run adujoint NUFFT
+      call NUFFT_adj_resid(u(istart:iend),v(istart:iend),&
+                           Vresre(istart:iend),Vresim(istart:iend),&
+                           gradchisq2d,Nx,Ny,Nuvs(iz))
+
+      ! copy the gradient of chisquare into that of cost functions
+      call I1d_I2d_inv(xidx,yidx,gradchisq((iz-1)*Npix+1:iz*Npix),&
+                       gradchisq2d,Npix,Nx,Ny)
+
+      ! deallocate array
+      deallocate(gradchisq2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vresre,Vresim)
 end subroutine
 
 
-subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
-                     u,v,&
+subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
+                     u,v,Nuvs,&
                      uvidxca,CA,Varca,&
                      chisq,gradchisq,model,resid,&
                      Npix,Nuv,Nca)
@@ -773,14 +872,15 @@ subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   !
   implicit none
   ! Image
-  integer,  intent(in) :: Npix, Nx, Ny
-  real(dp), intent(in) :: Iin(Npix)
+  integer,  intent(in) :: Npix, Nx, Ny, Nz
+  real(dp), intent(in) :: Iin(Npix*Nz)
   real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
                                         ! 1 = the leftmost/lowermost pixel
   integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
 
   ! NuFFT-ed visibilities
   integer,  intent(in) :: Nuv
+  integer,  intent(in) :: Nuvs(Nz)        ! number of uv data for each frame
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
   ! Data
   integer,  intent(in):: Nca              ! Number of data
@@ -791,7 +891,7 @@ subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   real(dp), intent(out):: chisq           ! chisquare
   real(dp), intent(out):: model(Nca)      ! Model Vector
   real(dp), intent(out):: resid(Nca)      ! Residual Vector
-  real(dp), intent(out):: gradchisq(Npix) ! its adjoint FT provides
+  real(dp), intent(out):: gradchisq(Npix*Nz) ! its adjoint FT provides
                                           ! the gradient of chisquare
 
   ! allocatable arrays
@@ -804,26 +904,53 @@ subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   real(dp):: Vamp1, Vamp2, Vamp3, Vamp4
   complex(dpc):: Vcmp1, Vcmp2, Vcmp3, Vcmp4
   integer:: uvidx1, uvidx2, uvidx3, uvidx4
+  integer :: Nuvs_sum(Nz)
 
   ! loop variables
-  integer :: i
+  integer :: i, iz, istart, iend, iparm, ipix
 
-  ! Copy 1d image to 2d image
-  !   allocate array
-  allocate(I2d(Nx,Ny))
-  I2d(:,:)=0d0
-  !   copy image
-  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
-  !   hard thresholding with zero eps
-  where (abs(I2d) < zeroeps) I2d=0d0
+
+  ! Compute accumulated number of uvdata before each frame
+  !   Nuvs_sum(i) + 1 will be the start index number for i-th frame
+  !   Nuvs_sum(i) + Nuvs(i) will be the end index number for i-th frame
+  Nuvs_sum(1)=0
+  do i=2, Nz
+    Nuvs_sum(i) = Nuvs_sum(i-1) + Nuvs(i-1)
+  end do
 
   ! Forward Non-unifrom Fast Fourier Transform
   !   allocate array
   allocate(Vcmp(Nuv))
   Vcmp(:) = dcmplx(0d0,0d0)
-  !   Forward NUFFT
-  call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
-  deallocate(I2d)
+  !
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v) &
+  !$OMP   PRIVATE(iz, istart, iend, I2d) &
+  !$OMP   REDUCTION(+:Vcmp)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if (Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(I2d(Nx,Ny))
+      I2d(:,:)=0d0
+      call I1d_I2d_fwd(xidx,yidx,Iin((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
+      !
+      !   hard thresholding with zero eps
+      where (abs(I2d) < zeroeps) I2d=0d0
+      !
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      !   run forward NUFFT
+      call NUFFT_fwd(u(istart:iend),v(istart:iend),I2d,Vcmp(istart:iend),&
+                     Nx,Ny,Nuvs(iz))
+
+      ! deallocate array
+      deallocate(I2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
 
   ! Compute Chisquare
   !  allocate array
@@ -877,21 +1004,44 @@ subroutine model_ca(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   !$OMP END PARALLEL DO
   deallocate(Vcmp)
 
+
   ! Adjoint Non-unifrom Fast Fourier Transform
   !  this will provide gradient of chisquare functions
-  allocate(gradchisq2d(Nx,Ny))
-  gradchisq2d(:,:) = 0d0
-  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
-  deallocate(Vresre,Vresim)
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v,Vresre,Vresim) &
+  !$OMP   PRIVATE(iz, istart, iend, gradchisq2d) &
+  !$OMP   REDUCTION(+:gradchisq)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if(Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(gradchisq2d(Nx,Ny))
+      gradchisq2d(:,:) = 0d0
 
-  ! copy the gradient of chisquare into that of cost functions
-  call I1d_I2d_inv(xidx,yidx,gradchisq,gradchisq2d,Npix,Nx,Ny)
-  deallocate(gradchisq2d)
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      ! run adujoint NUFFT
+      call NUFFT_adj_resid(u(istart:iend),v(istart:iend),&
+                           Vresre(istart:iend),Vresim(istart:iend),&
+                           gradchisq2d,Nx,Ny,Nuvs(iz))
+
+      ! copy the gradient of chisquare into that of cost functions
+      call I1d_I2d_inv(xidx,yidx,gradchisq((iz-1)*Npix+1:iz*Npix),&
+                       gradchisq2d,Npix,Nx,Ny)
+
+      ! deallocate array
+      deallocate(gradchisq2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vresre,Vresim)
 end subroutine
 
 
-subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
-                     u,v,&
+subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,Nz,&
+                     u,v,Nuvs,&
                      uvidxcp,CP,Varcp,&
                      chisq,gradchisq,model,resid,&
                      Npix,Nuv,Ncp)
@@ -902,14 +1052,15 @@ subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   !
   implicit none
   ! Image
-  integer,  intent(in) :: Npix, Nx, Ny
-  real(dp), intent(in) :: Iin(Npix)
+  integer,  intent(in) :: Npix, Nx, Ny, Nz
+  real(dp), intent(in) :: Iin(Npix*Nz)
   real(dp), intent(in) :: Nxref, Nyref  ! x,y reference ppixels
                                         ! 1 = the leftmost/lowermost pixel
   integer,  intent(in) :: xidx(Npix), yidx(Npix)  ! x,y pixel number
 
   ! NuFFT-ed visibilities
   integer,  intent(in) :: Nuv
+  integer,  intent(in) :: Nuvs(Nz)        ! number of uv data for each frame
   real(dp), intent(in) :: u(Nuv), v(Nuv)  ! uv coordinates mutiplied by 2*pi*dx, 2*pi*dy
   ! Data
   integer,  intent(in):: Ncp            ! Number of data
@@ -920,7 +1071,7 @@ subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   real(dp), intent(out):: chisq           ! chisquare
   real(dp), intent(out):: model(Ncp)      ! Model Vector
   real(dp), intent(out):: resid(Ncp)      ! Residual Vector
-  real(dp), intent(out):: gradchisq(Npix) ! its adjoint FT provides
+  real(dp), intent(out):: gradchisq(Npix*Nz) ! its adjoint FT provides
                                           ! the gradient of chisquare
 
   ! allocatable arrays
@@ -934,26 +1085,52 @@ subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
   complex(dpc):: Vcmp1, Vcmp2, Vcmp3
   integer:: uvidx1, uvidx2, uvidx3
   integer:: sign1, sign2, sign3
+  integer :: Nuvs_sum(Nz)
 
   ! loop variables
-  integer :: i
+  integer :: i, iz, istart, iend, iparm, ipix
 
-  ! Copy 1d image to 2d image
-  !   allocate array
-  allocate(I2d(Nx,Ny))
-  I2d(:,:)=0d0
-  !   copy image
-  call I1d_I2d_fwd(xidx,yidx,Iin,I2d,Npix,Nx,Ny)
-  !   hard thresholding with zero eps
-  where (abs(I2d) < zeroeps) I2d=0d0
+  ! Compute accumulated number of uvdata before each frame
+  !   Nuvs_sum(i) + 1 will be the start index number for i-th frame
+  !   Nuvs_sum(i) + Nuvs(i) will be the end index number for i-th frame
+  Nuvs_sum(1)=0
+  do i=2, Nz
+    Nuvs_sum(i) = Nuvs_sum(i-1) + Nuvs(i-1)
+  end do
 
   ! Forward Non-unifrom Fast Fourier Transform
   !   allocate array
   allocate(Vcmp(Nuv))
   Vcmp(:) = dcmplx(0d0,0d0)
-  !   Forward NUFFT
-  call NUFFT_fwd(u,v,I2d,Vcmp,Nx,Ny,Nuv)
-  deallocate(I2d)
+  !
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v) &
+  !$OMP   PRIVATE(iz, istart, iend, I2d) &
+  !$OMP   REDUCTION(+:Vcmp)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if (Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(I2d(Nx,Ny))
+      I2d(:,:)=0d0
+      call I1d_I2d_fwd(xidx,yidx,Iin((iz-1)*Npix+1:iz*Npix),I2d,Npix,Nx,Ny)
+      !
+      !   hard thresholding with zero eps
+      where (abs(I2d) < zeroeps) I2d=0d0
+      !
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      !   run forward NUFFT
+      call NUFFT_fwd(u(istart:iend),v(istart:iend),I2d,Vcmp(istart:iend),&
+                     Nx,Ny,Nuvs(iz))
+
+      ! deallocate array
+      deallocate(I2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
 
   ! Compute Chisquare
   !  allocate array
@@ -1011,13 +1188,35 @@ subroutine model_cp(Iin,xidx,yidx,Nxref,Nyref,Nx,Ny,&
 
   ! Adjoint Non-unifrom Fast Fourier Transform
   !  this will provide gradient of chisquare functions
-  allocate(gradchisq2d(Nx,Ny))
-  gradchisq2d(:,:) = 0d0
-  call NUFFT_adj_resid(u,v,Vresre,Vresim,gradchisq2d(:,:),Nx,Ny,Nuv)
-  deallocate(Vresre,Vresim)
+  !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !$OMP   FIRSTPRIVATE(Nx,Ny,Nz,Npix,Nuvs,Nuvs_sum,u,v,Vresre,Vresim) &
+  !$OMP   PRIVATE(iz, istart, iend, gradchisq2d) &
+  !$OMP   REDUCTION(+:gradchisq)
+  do iz=1, Nz
+    ! If there is a data corresponding to this frame
+    if(Nuvs(iz) /= 0) then
+      ! allocate 2D image for imaging
+      allocate(gradchisq2d(Nx,Ny))
+      gradchisq2d(:,:) = 0d0
 
-  ! copy the gradient of chisquare into that of cost functions
-  call I1d_I2d_inv(xidx,yidx,gradchisq,gradchisq2d,Npix,Nx,Ny)
-  deallocate(gradchisq2d)
+      ! Index of data
+      istart = Nuvs_sum(iz) + 1
+      iend   = Nuvs_sum(iz) + Nuvs(iz)
+
+      ! run adujoint NUFFT
+      call NUFFT_adj_resid(u(istart:iend),v(istart:iend),&
+                           Vresre(istart:iend),Vresim(istart:iend),&
+                           gradchisq2d,Nx,Ny,Nuvs(iz))
+
+      ! copy the gradient of chisquare into that of cost functions
+      call I1d_I2d_inv(xidx,yidx,gradchisq((iz-1)*Npix+1:iz*Npix),&
+                       gradchisq2d,Npix,Nx,Ny)
+
+      ! deallocate array
+      deallocate(gradchisq2d)
+    end if
+  end do
+  !$OMP END PARALLEL DO
+  deallocate(Vresre,Vresim)
 end subroutine
 end module
