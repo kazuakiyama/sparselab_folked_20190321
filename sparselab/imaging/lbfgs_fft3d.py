@@ -60,7 +60,8 @@ def imaging3d(
         transform=None, transprm=None,
         compower=1.,
         totalflux=None, fluxconst=False,
-        istokes=0, ifreq=0):
+        istokes=0, ifreq=0,
+        output='list'):
     '''
     '''
     # Sanity Check: Initial Image list
@@ -355,32 +356,38 @@ def imaging3d(
         pgtol=np.float64(lbfgsbprms["pgtol"])
     )
 
-    '''
-    # single image
-    outimage = copy.deepcopy(initimage)
-    outimage.data[istokes, ifreq] = 0.
-    for i in np.arange(len(xidx)):
-        outimage.data[istokes, ifreq, yidx[i] - 1, xidx[i] - 1] = Iout[i]
-    outimage.update_fits()
-
-    return outimage
-    '''
     # multiple outimage
-    outimlist = []
-    ipix = 0
-    iz = 0
-    while iz < Nf:
-        outimage = copy.deepcopy(initimage)
-        outimage.data[istokes, ifreq] = 0.
-        for i in np.arange(Nyx):
-            outimage.data[istokes, ifreq, yidx[i]-1, xidx[i]-1] = Iout[ipix+i]
-        outimage.update_fits()
-        outimlist.append(outimage)
-        ipix += Nyx
-        iz += 1
+    if output == 'list':
+        outimlist = []
+        ipix = 0
+        iz = 0
+        while iz < Nf:
+            outimage = copy.deepcopy(initimage)
+            outimage.data[istokes, ifreq] = 0.
+            for i in np.arange(Nyx):
+                outimage.data[istokes, ifreq, yidx[i]-1, xidx[i]-1] = Iout[ipix+i]
+            outimage.update_fits()
+            outimlist.append(outimage)
+            ipix += Nyx
+            iz += 1
+        return outimlist
 
-    return (Iout, Nyx, xidx, yidx), outimlist
-
+    if output == 'movfrm':
+        outimintp = []
+        ipix = 0
+        iz = 0
+        Ifrm = frminp(Iout, Nyx, Nf, Nfps)
+        totalframe = (Nf-1)*(Nfps+1)+1
+        while iz < totalframe:
+            outimage = copy.deepcopy(initimage)
+            outimage.data[istokes, ifreq] = 0.
+            for i in np.arange(Nyx):
+                outimage.data[istokes, ifreq, yidx[i]-1, xidx[i]-1] = Ifrm[ipix+i]
+            outimage.update_fits()
+            outimintp.append(outimage)
+            ipix += Nyx
+            iz += 1
+        return outimintp
 
 def statistics(
         initimlist, Nf=1, imagewin=None,
@@ -678,7 +685,7 @@ def iterative_imaging(initimlist, imageprm, statprm, iternum=10,
                       dowinmod=False, imageregion=None,
                       doconv=True, convprm={},
                       save_totalflux=False):
-    oldimlist = imaging3d(initimlist, **imageprm)[-1]
+    oldimlist = imaging3d(initimlist,output='list',**imageprm)
 
     for i in np.arange(iternum - 1):
         newimtmp = []
@@ -711,7 +718,7 @@ def iterative_imaging(initimlist, imageprm, statprm, iternum=10,
             newimtmp.append(newimage)
 
         # Imaging Again
-        newimlist = imaging3d(newimtmp, **imageprm)[-1]
+        newimlist = imaging3d(newimtmp,output='list',**imageprm)
         newcost = statistics(newimlist, fulloutput=False, **statprm)["cost"]
 
         print("\n Costs: ")
@@ -719,9 +726,9 @@ def iterative_imaging(initimlist, imageprm, statprm, iternum=10,
         print(" Newcost = %6.4f \n" %(newcost))
 
         if oldcost < newcost:
-            print("No improvement in cost fucntions. Don't update image.")
+            print("No improvement in cost fucntions. Don't update image.\n")
         else:
-            print("Cost fucntions and image can be more improved.")
+            print("Cost fucntions and image can be more improved.\n")
             oldcost = newcost
             oldimlist = newimlist
     return oldimlist
