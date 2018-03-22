@@ -214,6 +214,7 @@ subroutine imaging(&
     call setulb ( Nparm, m, Iout, lower, upper, nbd, cost, gradcost, &
                   factr, pgtol, wa, iwa, task, iprint,&
                   csave, lsave, isave, dsave )
+
     if (task(1:2) == 'FG') then
       ! Calculate cost function and gradcostent of cost function
       call calc_cost(&
@@ -456,6 +457,7 @@ subroutine calc_cost(&
 
   ! copy the chisquare into that of cost functions
   cost = chisq
+  !write(*,*) "chisq: ", chisq
 
   !------------------------------------
   ! Centoroid Regularizer
@@ -610,8 +612,8 @@ subroutine calc_cost(&
       ! Dynamical Imaging
       if (lambrt > 0 .and. iz < Nz) then
         ! Rt from Dp (p=2) distance
-        reg_frm = reg_frm + d2(xidx(ipix),yidx(ipix),I2d,I2du,Nx,Ny)
-        gradreg_frm(ipix) = gradreg_frm(ipix) + rt_d2grad(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
+        !reg_frm = reg_frm + d2(xidx(ipix),yidx(ipix),I2d,I2du,Nx,Ny)
+        !gradreg_frm(ipix) = gradreg_frm(ipix) + rt_d2grad(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
         reg = reg + lambrt * d2(xidx(ipix),yidx(ipix),I2d,I2du,Nx,Ny)
         gradreg(iparm) = gradreg(iparm) + lambrt * rt_d2grad(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
         ! Rt from Kullback-Leibler divergence
@@ -621,8 +623,8 @@ subroutine calc_cost(&
 
       if (lambri > 0) then
         ! Ri from Dp (p=2) distance
-        reg_frm = reg_frm + d2(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
-        gradreg_frm(ipix) = gradreg_frm(ipix) + ri_d2grad(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
+        !reg_frm = reg_frm + d2(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
+        !gradreg_frm(ipix) = gradreg_frm(ipix) + ri_d2grad(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
         reg = reg + lambri * d2(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
         gradreg(iparm) = gradreg(iparm) + lambri * ri_d2grad(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
         ! Ri from Kullback-Leibler divergence
@@ -632,10 +634,7 @@ subroutine calc_cost(&
     end do
 
     regset(iz) = reg_frm
-    do ipix=1, Npix
-      iparm = (iz-1)*Npix + ipix
-      gradregset(iparm) = gradreg_frm(ipix)
-    end do
+    gradregset((iz-1)*Npix+1:iz*Npix) = gradreg_frm
 
     ! deallocate I2d
     if (lambtv > 0 .or. lambtsv > 0 .or. lambrt > 0 .or. lambri > 0) then
@@ -663,8 +662,8 @@ subroutine calc_cost(&
     ! continuity of image entropy
     do iz=1, Nz
       ! regularizer
-      if (iz > 1) then
-        rint_s = rint_s + (regset(iz) - regset(iz-1))**2
+      if (iz < Nz) then
+        rint_s = rint_s + (regset(iz) - regset(iz+1))**2
       end if
       ! gradient of regularizer
       do ipix=1, Npix
