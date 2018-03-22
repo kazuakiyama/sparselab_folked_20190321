@@ -973,8 +973,11 @@ class VisTable(UVTable):
         return outtab
 
 
-    def gridding(self, fitsdata, fgfov=1, mu=6, mv=6, c=10):
+    def gridding(self, fitsdata, conj=False, j=3., beta=2.34):
         '''
+        Perform uv-girdding based on image pixel information of
+        the input fitsdata using the 0-th order Keiser-Bessel Function.
+
         Args:
           vistable (pandas.Dataframe object):
             input visibility table
@@ -982,48 +985,49 @@ class VisTable(UVTable):
           fitsdata (imdata.IMFITS object):
             input imdata.IMFITS object
 
-          fgfov (int)
-            a number of gridded FOV/original FOV
+          conj (boolean, default=False):
+            If true, output also conjugate components
 
-          mu (int; default = 1):
-          mv (int; default = 1):
-            parameter for spheroidal angular function
-            a number of cells for gridding
+          j (int; default = 3):
+            the number of grids (j x j pixels) where convolution will be done.
+            Default is 3x3 pixels
 
-          c (int; default = 1):
-            parameter for spheroidal angular fuction
-            this parameter decides steepness of the function
+          beta (float; default = 2.34):
+            The spread of the Kaiser Bessel function. The default value
+            is based on work presented in Fessler & Sutton (2003).
 
         Returns:
           uvdata.GVisTable object
         '''
         # Copy vistable for edit
         vistable = copy.deepcopy(self)
-
         # Flip uv cordinates and phase, where u < 0 for avoiding redundant
-        # grids
         vistable.loc[vistable["u"] < 0, ("u", "v", "phase")] *= -1
+        # sort data with u,v coordinates
+        vistable.sort_values(by=["u","v"])
 
-        # Create column of full-comp visibility
-        vistable["comp"] = vistable["amp"] * \
-            np.exp(1j * np.radians(vistable["phase"]))
-        Ntable = len(vistable)
-
-        x,y = fitsdata.get_xygrid(angunit="rad")
-        xmax = np.max(np.abs(x))
-        ymax = np.max(np.abs(y))
+        # get images
+        Lx = np.deg2rad(np.abs(fitsdata.header["dx"])) * fitsdata.header["nx"]
+        Ly = np.deg2rad(np.abs(fitsdata.header["dy"])) * fitsdata.header["ny"]
 
         # Calculate du and dv
-        du = 1 / (xmax * 2 * fgfov)
-        dv = 1 / (ymax * 2 * fgfov)
+        du = 1 / Lx
+        dv = 1 / Ly
+
+        # Create column of full-comp visibility, uidx, vidx, u, v
+        Vcomps = vistable.amp.values * \
+                 np.exp(1j * np.deg2rad(vistable.phase.values))
+        ugidxs = np.int32(np.around(vistable.u.values / du))
+        vgidxs = np.int32(np.around(vistable.v.values / dv))
+        u = vistable.u.values
+        v = vistable.v.values
+        sigma = vistable.sigma.values
+        weight = 1 / sigma**2
+        Ntable = len(vistable)
 
         # Calculate index of uv for gridding
-        vistable["ugidx"] = np.int64(np.around(np.array(vistable["u"] / du)))
-        vistable["vgidx"] = np.int64(np.around(np.array(vistable["v"] / dv)))
-
         # Flag for skipping already averaged data
-        vistable["skip"] = np.zeros(Ntable, dtype=np.int64)
-        vistable.loc[:, ("skip")] = -1
+        skip = [False for i in xrange(Ntable)]
 
         # Create new list for gridded data
         outlist = {
@@ -1040,54 +1044,52 @@ class VisTable(UVTable):
 
         # Convolutional gridding
         for itable in xrange(Ntable):
-            if vistable["skip"][itable] > 0:
+            if skip[itable]:
                 continue
 
             # Get the grid index for the current data
-            ugidx = vistable["ugidx"][itable]
-            vgidx = vistable["vgidx"][itable]
-
-            # Data index for visibilities on the same grid
-            gidxs = (vistable["ugidx"] == ugidx) & (vistable["vgidx"] == vgidx)
-
-            # Flip flags
-            vistable.loc[gidxs, "skip"] = 1
-
-            # Get data on the same grid
-            U = np.array(vistable.loc[gidxs, "u"])
-            V = np.array(vistable.loc[gidxs, "v"])
-            Vcomps = np.array(vistable.loc[gidxs, "comp"])
-            sigmas = np.array(vistable.loc[gidxs, "sigma"])
-            weight = 1 / sigmas**2
-
+            ugidx = ugidxs[itable]
+            vgidx = vgidxs[itable]
             ugrid = ugidx * du
             vgrid = vgidx * dv
 
+            # Data index for visibilities on the same grid
+            gidxs = np.where((ugidxs == ugidx) & (vgidxs == vgidx))
+            # Flip flags
+            skip[gidxs] = True
+            del gidxs
+
+            # Gridding Kernel
+            gidxs = np.where(np.abs(ugidxs - ugidx)<=j//2
+                           & np.abs(vgidxs - vgidx)<=j//2)
+
             # Calculate spheroidal angular function
-            U = 2 * (ugrid - U) / (mu * du)
-            V = 2 * (vgrid - V) / (mv * dv)
-            uSAF = ss.pro_ang1(0, 0, c, U)[0]
-            vSAF = ss.pro_ang1(0, 0, c, V)[0]
+            unorm = beta*j*np.sqrt(1-np.square(2*(ugidxs[gidxs]-ugidx)/3.))
+            vnorm = beta*j*np.sqrt(1-np.square(2*(vgidxs[gidxs]-vgidx)/3.))
+            ukern = ss.iv(0, unorm)
+            vkern = ss.iv(0, vnorm)
+            norm = np.sum(ukern * vkern)
 
             # Convolutional gridding
-            Vcomp_ave = np.sum(Vcomps * uSAF * vSAF) / np.sum(uSAF * vSAF)
-            weight_ave = np.sum(weight * uSAF * vSAF) / np.sum(uSAF * vSAF)
+            Vcomp_ave = np.sum(Vcomps[gidxs] * ukern * vkern) / norm
+            weight_ave = np.sum(weight[gidxs] * ukern * vkern) / norm
             sigma_ave = 1 / np.sqrt(weight_ave)
 
             # Save gridded data on the grid
-            outlist["ugidx"] += [ugidx]
-            outlist["vgidx"] += [vgidx]
-            outlist["u"] += [ugrid]
-            outlist["v"] += [vgrid]
-            outlist["uvdist"] += [np.sqrt(ugrid**2 + vgrid**2)]
-            outlist["amp"] += [np.abs(Vcomp_ave)]
-            outlist["phase"] += [np.angle(Vcomp_ave, deg=True)]
-            outlist["weight"] += [weight_ave]
-            outlist["sigma"] += [sigma_ave]
+            outlist["ugidx"].append(ugidx)
+            outlist["vgidx"].append(vgidx)
+            outlist["u"].append(ugrid)
+            outlist["v"].append(vgrid)
+            outlist["uvdist"].append(np.sqrt(ugrid**2 + vgrid**2))
+            outlist["amp"].append(np.abs(Vcomp_ave))
+            outlist["phase"].append(np.angle(Vcomp_ave, deg=True))
+            outlist["weight"].append(weight_ave)
+            outlist["sigma"].append(sigma_ave)
 
         # Output as pandas.DataFrame
-        outtable = pd.DataFrame(outlist, columns=[
-            "ugidx", "vgidx", "u", "v", "uvdist", "amp", "phase", "weight", "sigma"])
+        outtable = pd.DataFrame(outlist,
+            columns=["ugidx", "vgidx", "u", "v", "uvdist",
+                     "amp", "phase", "weight", "sigma"])
         return GVisTable(outtable)
 
 
