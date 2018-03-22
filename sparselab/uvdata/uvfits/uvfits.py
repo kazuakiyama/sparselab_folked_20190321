@@ -1924,7 +1924,6 @@ def _selfcal_error_dfunc(gain,ant1,ant2,w,X,Nant,Ndata):
     return ddV
 
 
-
 class FrequencyData(object):
     def __init__(self):
         # Frequency Setup Number
