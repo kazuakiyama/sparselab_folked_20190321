@@ -1,6 +1,6 @@
 module uvdata
   !$use omp_lib
-  use param, only: dp, sp, shug, seps
+  use param, only: dp, sp, seps
   use interp, only: spline, splintvec
   implicit none
 contains
@@ -105,7 +105,7 @@ subroutine average(uvdata,u,v,w,tin,tout,start,end,solint,minpoint, &
                   if (uvdatatmp(3,i6,i5,i4,i3,i2,i1) < seps) then
                     cycle
                   end if
-                  if (uvdatatmp(3,i6,i5,i4,i3,i2,i1) > shug) then
+                  if (uvdatatmp(3,i6,i5,i4,i3,i2,i1) > 1/seps) then
                     cycle
                   end if
                   if (uvdatatmp(3,i6,i5,i4,i3,i2,i1) .ne. uvdatatmp(3,i6,i5,i4,i3,i2,i1)) then
@@ -203,7 +203,7 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
                 if (uvdataout(3,i7,i6,i5,i4,i3,i2) < seps) then
                   cycle
                 end if
-                if (uvdataout(3,i7,i6,i5,i4,i3,i2) > shug) then
+                if (uvdataout(3,i7,i6,i5,i4,i3,i2) > 1/seps) then
                   cycle
                 end if
                 if (uvdataout(3,i7,i6,i5,i4,i3,i2) .ne. uvdataout(3,i7,i6,i5,i4,i3,i2)) then
@@ -283,7 +283,7 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
               if (uvdata(3,i6,i5,i4,i3,i2,i1) < seps) then
                 uvdataout(3,i6,i5,i4,i3,i2,i1) = 0
               end if
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) > shug) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) > 1/seps) then
                 uvdataout(3,i6,i5,i4,i3,i2,i1) = 0
               end if
               if (uvdata(3,i6,i5,i4,i3,i2,i1) .ne. uvdata(3,i6,i5,i4,i3,i2,i1)) then
@@ -326,7 +326,7 @@ subroutine avspc_dofreq0(uvdata,uvdataout,&
               if (uvdata(3,i6,i5,i4,i3,i2,i1) < seps) then
                 cycle
               end if
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) > shug) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) > 1/seps) then
                 cycle
               end if
               if (uvdata(3,i6,i5,i4,i3,i2,i1) .ne. uvdata(3,i6,i5,i4,i3,i2,i1)) then
@@ -377,7 +377,7 @@ subroutine avspc_dofreq1(uvdata,uvdataout,&
               if (uvdata(3,i6,i5,i4,i3,i2,i1) < seps) then
                 cycle
               end if
-              if (uvdata(3,i6,i5,i4,i3,i2,i1) > shug) then
+              if (uvdata(3,i6,i5,i4,i3,i2,i1) > 1/seps) then
                 cycle
               end if
               if (uvdata(3,i6,i5,i4,i3,i2,i1) .ne. uvdata(3,i6,i5,i4,i3,i2,i1)) then
