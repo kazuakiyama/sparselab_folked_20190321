@@ -1236,10 +1236,10 @@ def pipeline(
         filename = os.path.join(workdir, filename)
         if (skip is False) or (os.path.isfile(filename) is False):
             newimage = imagefunc(initimage, imageprm=imageprm, **imagefargs)
-            for im in range(len(newimage)):
-                filename = header + "_%s.fits" %(im)
-                filename = os.path.join(workdir, filename)
-                newimage[im].save_fits(filename)
+            #for im in range(len(newimage)):
+            #    filename = header + "_%s.fits" %(im)
+            #    filename = os.path.join(workdir, filename)
+            #    newimage[im].save_fits(filename)
         else:
             newimage = imdata.IMFITS(filename)
 
@@ -1353,10 +1353,10 @@ def pipeline(
                     cvnewimage = imagefunc(newimage, imageprm=cvimageprm,
                                            **imagefargs)
                     #cvnewimage.save_fits(filename)
-                    for im in range(len(cvnewimage)):
-                        filename = cvheader + "_%s.fits" %(im)
-                        filename = os.path.join(workdir, filename)
-                        cvnewimage[im].save_fits(filename)
+                    #for im in range(len(cvnewimage)):
+                    #    filename = cvheader + "_%s.fits" %(im)
+                    #    filename = os.path.join(workdir, filename)
+                    #    cvnewimage[im].save_fits(filename)
                 else:
                     cvnewimage = imdata.IMFITS(filename)
                 '''
