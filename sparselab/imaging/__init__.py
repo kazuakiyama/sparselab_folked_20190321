@@ -11,5 +11,6 @@ __author__ = "Sparselab Developer Team"
 
 from . import lbfgs_dft
 from . import lbfgs_fft
+from . import lbfgs_fft3d
 from . import mfista_dft
 from . import mfista_fft

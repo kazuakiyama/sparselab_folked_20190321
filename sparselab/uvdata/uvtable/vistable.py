@@ -32,7 +32,7 @@ from .uvtable   import UVTable, UVSeries
 from .gvistable import GVisTable, GVisSeries
 from .catable   import CATable, CASeries
 from .bstable   import BSTable, BSSeries
-from .tools import get_uvlist
+from .tools import get_uvlist, get_uvlist_loop
 from ... import imdata, fortlib
 
 # ------------------------------------------------------------------------------
@@ -52,21 +52,6 @@ class VisTable(UVTable):
     @property
     def _constructor_sliced(self):
         return VisSeries
-
-    def set_uvunit(self, uvunit=None):
-        # Check uvunits
-        if uvunit is None:
-            uvmax = np.max(self.uvdist.values)
-            if uvmax < 1e3:
-                self.uvunit = "lambda"
-            elif uvmax < 1e6:
-                self.uvunit = "klambda"
-            elif uvmax < 1e9:
-                self.uvunit = "mlambda"
-            else:
-                self.uvunit = "glambda"
-        else:
-            self.uvunit = uvunit
 
     def uvsort(self):
         '''
@@ -285,6 +270,7 @@ class VisTable(UVTable):
 
         # size of images
         Iin = np.float64(imfits.data[istokes, ifreq])
+
         Nx = imfits.header["nx"]
         Ny = imfits.header["ny"]
         Nyx = Nx * Ny
@@ -392,6 +378,158 @@ class VisTable(UVTable):
                     # UV coordinates,
                     u=u,
                     v=v,
+                    # Full Complex Visibilities
+                    uvidxamp=np.int32(uvidxamp),
+                    vamp=np.float64(vamp),
+                    varamp=np.float64(varamp)
+                    )
+
+            return model,Ndata
+
+    def chisq_image3d(self, imfitslist, mask=None, amptable=False, istokes=0, ifreq=0, Nf=2):
+        # calcurate chisqared and reduced chisqred.
+        model = self._call_fftlib3d(imfitslist=imfitslist,mask=mask,amptable=amptable,
+                                  istokes=istokes, ifreq=ifreq, Nf=Nf)
+        chisq = model[0][0]
+        Ndata = model[1]
+
+        if not amptable:
+            rchisq = chisq/(Ndata*2)
+        else:
+            rchisq = chisq/Ndata
+
+        return chisq,rchisq
+
+    def _call_fftlib3d(self, imfitslist, mask, amptable, istokes=0, ifreq=0, Nf=2):
+        # get initial images
+        istokes = istokes
+        ifreq = ifreq
+
+        # size of images
+        Iin = []
+        for im in imfitslist:
+            Iin.append(np.float64(im.data[istokes, ifreq]))
+        imfits = imfitslist[0]
+
+        Nx = imfits.header["nx"]
+        Ny = imfits.header["ny"]
+        Nyx = Nx * Ny
+
+        # pixel coordinates
+        x, y = imfits.get_xygrid(twodim=True, angunit="rad")
+        xidx = np.arange(Nx) + 1
+        yidx = np.arange(Ny) + 1
+        xidx, yidx = np.meshgrid(xidx, yidx)
+        Nxref = imfits.header["nxref"]
+        Nyref = imfits.header["nyref"]
+        dx_rad = np.deg2rad(imfits.header["dx"])
+        dy_rad = np.deg2rad(imfits.header["dy"])
+
+        # apply the imaging area
+        if mask is None:
+            print("Imaging Window: Not Specified. We calcurate the image on all the pixels.")
+            for i in range(len(Iin)):
+                Iin[i] = Iin[i].reshape(Nyx)
+            x = x.reshape(Nyx)
+            y = y.reshape(Nyx)
+            xidx = xidx.reshape(Nyx)
+            yidx = yidx.reshape(Nyx)
+        else:
+            print("Imaging Window: Specified. Images will be calcurated on specified pixels.")
+            idx = np.where(mask)
+            for i in range(len(Iin)):
+                Iin[i] = Iin[i][idx]
+            x = x[idx]
+            y = y[idx]
+            xidx = xidx[idx]
+            yidx = yidx[idx]
+
+        # Full Complex Visibility
+        if not amptable:
+            Ndata = 0
+            fcvtable = self.copy()
+            phase = np.deg2rad(np.array(fcvtable["phase"], dtype=np.float64))
+            amp = np.array(fcvtable["amp"], dtype=np.float64)
+            vfcvr = np.float64(amp*np.cos(phase))
+            vfcvi = np.float64(amp*np.sin(phase))
+            varfcv = np.square(np.array(fcvtable["sigma"], dtype=np.float64))
+            Ndata += len(varfcv)
+            del phase, amp
+
+            # get uv coordinates and uv indice
+            u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs = get_uvlist_loop(Nf=Nf,
+                fcvconcat=fcvtable, ampconcat=None, bsconcat=None, caconcat=None
+            )
+
+            # normalize u, v coordinates
+            u *= 2*np.pi*dx_rad
+            v *= 2*np.pi*dy_rad
+
+            # concatenate the initimages
+            Iin = np.concatenate(Iin)
+
+            # run model_fcv
+            model = fortlib.fftlib3d.model_fcv(
+                    # Images
+                    iin=np.float64(Iin),
+                    xidx=np.int32(xidx),
+                    yidx=np.int32(yidx),
+                    nxref=np.float64(Nxref),
+                    nyref=np.float64(Nyref),
+                    nx=np.int32(Nx),
+                    ny=np.int32(Ny),
+                    nz=np.int32(Nf),
+                    # UV coordinates,
+                    u=u,
+                    v=v,
+                    nuvs=np.int32(Nuvs),
+                    # Full Complex Visibilities
+                    uvidxfcv=np.int32(uvidxfcv),
+                    vfcvr=np.float64(vfcvr),
+                    vfcvi=np.float64(vfcvi),
+                    varfcv=np.float64(varfcv)
+                    )
+
+            return model,Ndata
+
+        else:
+            Ndata = 0
+            amptable = self.copy()
+            dammyreal = np.zeros(1, dtype=np.float64)
+            vfcvr = dammyreal
+            vfcvi = dammyreal
+            varfcv = dammyreal
+            vamp = np.array(amptable["amp"], dtype=np.float64)
+            varamp = np.square(np.array(amptable["sigma"], dtype=np.float64))
+            Ndata += len(vamp)
+
+            # get uv coordinates and uv indice
+            u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs = get_uvlist_loop(Nf=Nf,
+                fcvconcat=None, ampconcat=amptable, bsconcat=None, caconcat=None
+            )
+
+            # normalize u, v coordinates
+            u *= 2*np.pi*dx_rad
+            v *= 2*np.pi*dy_rad
+
+            # concatenate the initimages
+            Iin = np.concatenate(Iin)
+
+            # run model_fcv
+            model = fortlib.fftlib3d.model_amp(
+                    # Images
+                    iin=np.float64(Iin),
+                    xidx=np.int32(xidx),
+                    yidx=np.int32(yidx),
+                    nxref=np.float64(Nxref),
+                    nyref=np.float64(Nyref),
+                    nx=np.int32(Nx),
+                    ny=np.int32(Ny),
+                    nz=np.int32(Nf),
+                    # UV coordinates,
+                    u=u,
+                    v=v,
+                    nuvs=np.int32(Nuvs),
                     # Full Complex Visibilities
                     uvidxamp=np.int32(uvidxamp),
                     vamp=np.float64(vamp),
@@ -1114,7 +1252,6 @@ class VisTable(UVTable):
         '''
         # Set Unit
         if uvunit is None:
-            self.set_uvunit()
             uvunit = self.uvunit
 
         # Conversion Factor
@@ -1168,7 +1305,6 @@ class VisTable(UVTable):
         '''
         # Set Unit
         if uvunit is None:
-            self.set_uvunit()
             uvunit = self.uvunit
 
         # Copy data
@@ -1349,7 +1485,21 @@ def read_vistable(filename, uvunit=None, **args):
       uvdata.VisTable object
     '''
     table = VisTable(pd.read_csv(filename, **args))
-    table.set_uvunit()
+
+    maxuvd = np.max(table["uvdist"])
+
+    if uvunit is None:
+        if maxuvd < 1e3:
+            table.uvunit = "lambda"
+        elif maxuvd < 1e6:
+            table.uvunit = "klambda"
+        elif maxuvd < 1e9:
+            table.uvunit = "mlambda"
+        else:
+            table.uvunit = "glambda"
+    else:
+        table.uvunit = uvunit
+
     return table
 
 #-------------------------------------------------------------------------

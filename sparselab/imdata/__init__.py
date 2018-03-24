@@ -11,3 +11,5 @@ __author__ = "Sparselab Developer Team"
 # -------------------------------------------------------------------------
 from .imdata import *
 from .imregion import ImRegTable, read_imregtable
+from .movie import MOVIE
+
