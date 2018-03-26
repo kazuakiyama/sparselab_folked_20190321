@@ -147,6 +147,8 @@ class ImRegTable(pd.DataFrame):
             raise
         else:
             d.set_pyfits(image.hdulist)
+            d.set('zoom to fit')
+            d.set('cmap heat')
             for index, row in self.iterrows():
                 ds9reg = reg_to_ds9reg(row,image)
                 d.set("region","image; %s" % ds9reg)
@@ -461,7 +463,7 @@ class ImRegTable(pd.DataFrame):
                 mina = region.loc[index,"mina"]
                 region.loc[index,"length"] = max(maja,mina)
 
-        mesh = np.min([region["width"].min(),region["height"].min(),
+        mesh = np.nanmin([region["width"].min(),region["height"].min(),
                        region["radius"].min()*2.0,region["maja"].min(),
                        region["mina"].min()])
         mesh /= 10.0
@@ -487,8 +489,6 @@ class ImRegTable(pd.DataFrame):
             elif row["shape"] is "ellipse":
                 area[index] = region_ellipse(X,Y,row.xc,row.yc,row.mina/2.0,row.maja/2.0,row.angle)
 
-#        return area
-
         # Search duplicated area
         droplist = []
         for index, row in region.iterrows():
@@ -498,8 +498,6 @@ class ImRegTable(pd.DataFrame):
             area2 = area2 > 0
             merge = area1 + area2
             merge = merge > 0
-#            if index is 5:
-#                return area1,area2,merge
             if np.allclose(merge,area2):
                 # area_index is duplicated.
                 area[index] = np.zeros((ny,nx))
