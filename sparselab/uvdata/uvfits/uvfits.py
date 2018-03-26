@@ -1877,7 +1877,7 @@ class VisibilityData(object):
             self.coord.loc[idx, "ant2"] = self.coord.loc[idx, "ant1"]
             self.coord.loc[idx, "ant1"] = ant2
             where = np.where(idx)[0]
-            self.data[where,:,:,:,:,:,0:2] *= -1
+            self.data[where,:,:,:,:,:,1] *= -1
             prt("VisData.sort: %d indexes have wrong station orders (ant1 > ant2)."%(len(where)),indent)
         else:
             prt("VisData.sort: Data have correct station orders (ant1 < ant2).",indent)
