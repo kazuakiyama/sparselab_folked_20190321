@@ -43,7 +43,7 @@ lbfgsbprms = {
 #-------------------------------------------------------------------------
 def imaging(
         initimage,
-        imagewin=None,
+        imregion=None,
         vistable=None,amptable=None, bstable=None, catable=None,
         lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,normlambda=True,
         niter=1000,
@@ -53,7 +53,63 @@ def imaging(
         totalflux=None, fluxconst=False,
         istokes=0, ifreq=0):
     '''
+    FFT imaging with closure quantities.
 
+    Args:
+        initimage (IMFITS):
+            Initial model for fft imaging.
+        imregion (ImRegTable, default=None):
+            Image region to set image windows.
+        vistable (VisTable, default=None):
+            Visibility table containing full complex visiblities.
+        amptable (VisTable, default=None):
+            Amplitude table.
+        bstable (BSTable, default=None):
+            Closure phase table.
+        catable (CATable, default=None):
+            Closure amplitude table.
+        lambl1 (float,default=-1.):
+            Regularization parameter for L1 term. If lambl1 <= 0,
+            then L1 regularizar has no application.
+        lambtv (float,default=-1.):
+            Regularization parameter for total variation. If lambtv <= 0,
+            then total-variation regularizar has no application.
+        lambtsv (float,default=-1.):
+            Regularization parameter for total squared variation. If lambtsv <= 0,
+            then the regularizar of total squared variation has no application.
+        lambmem (float,default=-1.):
+            Regularization parameter for maximum entropy method (MEM). If lambmem <= 0,
+            then the regularizar of MEM has no application.       
+        lambcom (float,default=-1.):
+            Regularization parameter for center of mass weighting. If lambtsv <= 0,
+            then the regularizar has no application.            
+        normlambda (boolean,default=True):
+            If normlabda=True, lambl1, lambtv, lambtsv, and lambmem are normalized
+            with totalflux and the number of data points.
+        niter (int,defalut=100):
+            The number of iterations.
+        nonneg (boolean,default=True):
+            If nonneg=True, the problem is solved with non-negative constrants.
+        transform (str,default=None):
+            If transform="log", log transform will be applied to regularization 
+            functions. If transform="gamma", gamma transform will be applied to 
+            regularization functions.
+        transprm (float, default=None):
+            If transform="log", transprm is a threshold of log transform. If
+            transform="gamma", transprm is a power of gamma correction.
+        compower (float, default=1.):
+            Power of center of mass when lambcom > 0. 
+        totalflux (float, default=None):
+            Total flux of the source.
+        fluxconst (boolean,default=False):
+            If fluxconst=True, total flux is fixed at the totalflux value.
+        istokes (int,default=0):
+            The ordinal number of stokes parameters.
+        ifreq (int,default=0):
+            The ordinal number of frequencies.
+            
+    Returns:
+        imdata.IMFITS object
     '''
     # Sanity Check: Data
     if ((vistable is None) and (amptable is None) and
@@ -120,7 +176,7 @@ def imaging(
     dy_rad = np.deg2rad(initimage.header["dy"])
 
     # apply the imaging area
-    if imagewin is None:
+    if imregion is None:
         print("Imaging Window: Not Specified. We solve the image on all the pixels.")
         Iin = Iin.reshape(Nyx)
         x = x.reshape(Nyx)
@@ -129,6 +185,7 @@ def imaging(
         yidx = yidx.reshape(Nyx)
     else:
         print("Imaging Window: Specified. Images will be solved on specified pixels.")
+        imagewin = imregion.imagewin(initimage,istokes,ifreq)
         idx = np.where(imagewin)
         Iin = Iin[idx]
         x = x[idx]
@@ -312,7 +369,7 @@ def imaging(
     return outimage
 
 def statistics(
-        initimage, imagewin=None,
+        initimage, imregion=None,
         vistable=None, amptable=None, bstable=None, catable=None,
         lambl1=1., lambtv=-1, lambtsv=1, logreg=False, normlambda=True,
         totalflux=None, fluxconst=False,
@@ -343,6 +400,12 @@ def statistics(
         dofluxconst = True
     elif fluxconst is True:
         dofluxconst = True
+    
+    # Image window
+    if imregion is None:
+        imagewin = None
+    else:
+        imagewin = imregion.imagewin(initimage,istokes,ifreq)
 
     # Full Complex Visibility
     Ndata = 0
