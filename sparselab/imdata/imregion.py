@@ -30,7 +30,7 @@ from sparselab import util
 # IMAGEFITS (Manupulating FITS FILES)
 #-------------------------------------------------------------------------
 
-class ImRegTable(pd.DataFrame):
+class IMRegion(pd.DataFrame):
     '''
     This class is for handling two dimentional tables of region. The class
     inherits pandas.DataFrame class, so you can use this class like
@@ -45,7 +45,7 @@ class ImRegTable(pd.DataFrame):
 
     @property
     def _constructor(self):
-        return ImRegTable
+        return IMRegion
 
     @property
     def _constructor_sliced(self):
@@ -60,8 +60,8 @@ class ImRegTable(pd.DataFrame):
         '''
 
         if len(self.keys())==0:
-            for i in xrange(len(ImRegTable.imreg_columns)):
-                column = ImRegTable.imreg_columns[i]
+            for i in xrange(len(IMRegion.imreg_columns)):
+                column = IMRegion.imreg_columns[i]
                 self[column] = []
         else:
             self.drop(np.arange(len(self)),inplace=True)
@@ -110,18 +110,18 @@ class ImRegTable(pd.DataFrame):
             filename (string or filehandle): output filename
             **args: other arguments of pd.DataFrame.to_csv()
         '''
-        super(ImRegTable, self).to_csv(filename, index=False, index_label=False, **args)
+        super(IMRegion, self).to_csv(filename, index=False, index_label=False, **args)
 
-    # read csv file as ImRegTable
+    # read csv file as IMRegion
     def read_region(self, filename):
         '''
-        Read a csv file as ImRegTable using pd.DataFrame.read_csv().
+        Read a csv file as IMRegion using pd.DataFrame.read_csv().
 
         Args:
             filename (string or filehandle): output filename
         '''
         # empty region table
-        table = ImRegTable()
+        table = IMRegion()
         table.initialize()
 
         # read csv file
@@ -162,7 +162,7 @@ class ImRegTable(pd.DataFrame):
     # Load DS9 region
     def load_pyds9(self,image,angunit=None,wait=10,overwrite=True):
         '''
-        Load DS9 region to ImRegTable.
+        Load DS9 region to IMRegion.
         This method uses pyds9.DS9().
 
         Args:
@@ -175,7 +175,7 @@ class ImRegTable(pd.DataFrame):
             overwrite (boolean, default = True):
                 If overwrite=True, previous region is removed.
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         if angunit is None:
             angunit = image.angunit
@@ -198,7 +198,7 @@ class ImRegTable(pd.DataFrame):
     # Read DS9 region file
     def load_ds9reg(self,regfile,image,angunit=None):
         '''
-        Load DS9 region file to ImRegTable.
+        Load DS9 region file to IMRegion.
 
         Args:
             regfile (str):
@@ -208,7 +208,7 @@ class ImRegTable(pd.DataFrame):
                 The angular unit of region. If None, it will take from
                 the default angunit of the input image
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         if angunit is None:
             angunit = image.angunit
@@ -222,7 +222,7 @@ class ImRegTable(pd.DataFrame):
     # Write DS9 region file
     def to_ds9reg(self,regfile,image,overwrite=True):
         '''
-        Write DS9 region file from ImRegTable.
+        Write DS9 region file from IMRegion.
 
         Args:
             regfile (str):
@@ -261,12 +261,12 @@ class ImRegTable(pd.DataFrame):
 
     ## Difmap
     # Load and save difmap window
-    def load_difmapwin(self,winname,overwrite=True):
-        pass
-
-    def to_difmapwin(self,winname):
-        # もしも box (angle=0) 以外の shape があれば、エラーを返す。
-        pass
+    #def load_difmapwin(self,winname,overwrite=True):
+    #    pass
+    #
+    #def to_difmapwin(self,winname):
+    #    # もしも box (angle=0) 以外の shape があれば、エラーを返す。
+    #    pass
 
 
     ## Edit region
@@ -289,7 +289,7 @@ class ImRegTable(pd.DataFrame):
             angunit (str, default=mas):
                 Anguler unit of xc, yc, width, height.
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         if height is None:
             height = width
@@ -308,12 +308,12 @@ class ImRegTable(pd.DataFrame):
 
         region = region.append(s,ignore_index=True)
 
-        for i in xrange(len(ImRegTable.imreg_columns)):
-            column = ImRegTable.imreg_columns[i]
-            if ImRegTable.imreg_types[i] is None:
+        for i in xrange(len(IMRegion.imreg_columns)):
+            column = IMRegion.imreg_columns[i]
+            if IMRegion.imreg_types[i] is None:
                 pass
             else:
-                region[column] = ImRegTable.imreg_types[i](region[column])
+                region[column] = IMRegion.imreg_types[i](region[column])
 
         return region
 
@@ -331,7 +331,7 @@ class ImRegTable(pd.DataFrame):
             angunit (str, default=mas):
                 Anguler unit of xc, yc, radius.
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         s = ImRegSeries(['circle',xc,yc,np.nan,np.nan,radius,np.nan,np.nan,np.nan,angunit],
                        index=['shape','xc','yc','width','height','radius',
@@ -345,12 +345,12 @@ class ImRegTable(pd.DataFrame):
 
         region = region.append(s,ignore_index=True)
 
-        for i in xrange(len(ImRegTable.imreg_columns)):
-            column = ImRegTable.imreg_columns[i]
-            if ImRegTable.imreg_types[i] is None:
+        for i in xrange(len(IMRegion.imreg_columns)):
+            column = IMRegion.imreg_columns[i]
+            if IMRegion.imreg_types[i] is None:
                 pass
             else:
-                region[column] = ImRegTable.imreg_types[i](region[column])
+                region[column] = IMRegion.imreg_types[i](region[column])
 
         return region
 
@@ -372,7 +372,7 @@ class ImRegTable(pd.DataFrame):
             angunit (str, default=mas):
                 Anguler unit of xc, yc, maja, mina.
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         s = ImRegSeries(['ellipse',xc,yc,np.nan,np.nan,np.nan,maja,mina,angle,angunit],
                        index=['shape','xc','yc','width','height','radius',
@@ -386,12 +386,12 @@ class ImRegTable(pd.DataFrame):
 
         region = region.append(s,ignore_index=True)
 
-        for i in xrange(len(ImRegTable.imreg_columns)):
-            column = ImRegTable.imreg_columns[i]
-            if ImRegTable.imreg_types[i] is None:
+        for i in xrange(len(IMRegion.imreg_columns)):
+            column = IMRegion.imreg_columns[i]
+            if IMRegion.imreg_types[i] is None:
                 pass
             else:
-                region[column] = ImRegTable.imreg_types[i](region[column])
+                region[column] = IMRegion.imreg_types[i](region[column])
 
         return region
 
@@ -449,7 +449,7 @@ class ImRegTable(pd.DataFrame):
         Remove duplicated regions.
 
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         region = self.copy()
         outregion = self.copy()
@@ -532,7 +532,7 @@ class ImRegTable(pd.DataFrame):
 
 
     ## Edit image
-    def editimage(self,image,save_totalflux=False):
+    def winmod(self,image,save_totalflux=False):
         '''
         Trim the image with image regions.
 
@@ -584,7 +584,7 @@ class ImRegTable(pd.DataFrame):
 
     ## Mask Image
     # 1.0 or 0.0
-    def maskimage(self,image):
+    def maskimage(self, image):
         '''
         Make a mask image. Each pixel of the output image is stored as a
         single bit—i.e., a 0 or 1.
@@ -653,14 +653,14 @@ class ImRegSeries(pd.Series):
 
     @property
     def _constructor_expanddim(self):
-        return ImRegTable
+        return IMRegion
 
 # ------------------------------------------------------------------------------
 # Functions
 # ------------------------------------------------------------------------------
-def read_imregtable(filename, **args):
+def read_imregion(filename, **args):
     '''
-    This fuction loads imdata.ImRegTable from an input csv file using pd.read_csv().
+    This fuction loads imdata.IMRegion from an input csv file using pd.read_csv().
 
     Args:
       filename:
@@ -668,9 +668,9 @@ def read_imregtable(filename, **args):
         method (such as a file handle or StringIO)
 
     Returns:
-      imdata.ImRegTable object
+      imdata.IMRegion object
     '''
-    region = ImRegTable(pd.read_csv(filename, **args))
+    region = IMRegion(pd.read_csv(filename, **args))
 
     return region
 
@@ -837,7 +837,7 @@ def ds9reg_to_reg(ds9reg,image,angunit="mas"):
         pass
 
     ds9reg = ds9reg.split("\n")
-    region = ImRegTable()
+    region = IMRegion()
     region.initialize()
     for reg in ds9reg:
         if reg[0:3] == "box":

@@ -585,9 +585,19 @@ class IMFITS(object):
         else:
             self.hdulist.writeto(outfitsfile)
 
-    def winmod(self, imagewin, save_totalflux=False):
+    def winmod(self, imregion, save_totalflux=False):
+        '''
+        clear brightness distribution outside regions
+
+        Args:
+            region (imdata.ImRegTable object):
+                region data
+            save_totalflux (boolean; default=False):
+                if True, keep Totalflux
+        '''
         # create output fits
         outfits = copy.deepcopy(self)
+        imagewin = imregion.imagewin(outfits)
 
         for idxs in np.arange(self.header["ns"]):
             for idxf in np.arange(self.header["nf"]):

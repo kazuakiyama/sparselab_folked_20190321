@@ -58,7 +58,7 @@ def imaging(
     Args:
         initimage (IMFITS):
             Initial model for fft imaging.
-        imregion (ImRegTable, default=None):
+        imregion (IMRegion, default=None):
             Image region to set image windows.
         vistable (VisTable, default=None):
             Visibility table containing full complex visiblities.
@@ -563,7 +563,7 @@ def statistics(
 def iterative_imaging(initimage, imageprm, Niter=10,
                       dothres=True, threstype="hard", threshold=0.3,
                       doshift=True, shifttype="peak",
-                      dowinmod=False, imageregion=None,
+                      dowinmod=False, imregion=None,
                       doconv=True, convprm={},
                       save_totalflux=False):
     oldimage = imaging(initimage, **imageprm)
@@ -585,9 +585,9 @@ def iterative_imaging(initimage, imageprm, Niter=10,
                 newimage = newimage.peakshift(save_totalflux=save_totalflux)
 
         # Edit Images
-        if dowinmod and imageregion is not None:
-            newimage = imageregion.editimage(newimage,
-                                             save_totalflux=save_totalflux)
+        if dowinmod and imregion is not None:
+            newimage = imregion.winmod(newimage,
+                                       save_totalflux=save_totalflux)
 
         if doconv:
             newimage = newimage.gauss_convolve(
@@ -606,9 +606,12 @@ def iterative_imaging(initimage, imageprm, Niter=10,
     return oldimage
 
 def plots(outimage, imageprm={}, filename=None,
-                     angunit="mas", uvunit="ml", plotargs={'ms': 1., }):
+          angunit=None, uvunit=None, plotargs={'ms': 1., }):
     isinteractive = plt.isinteractive()
     backend = matplotlib.rcParams["backend"]
+
+    if angunit is None:
+        angunit=outimage.angunit
 
     if isinteractive:
         plt.ioff()
@@ -655,6 +658,8 @@ def plots(outimage, imageprm={}, filename=None,
     # fcv
     if stats["isfcv"] == True:
         table = imageprm["vistable"]
+        if uvunit is None:
+            uvunit = table.uvunit
 
         # Get model data
         model = table.eval_image(imfits=outimage,
@@ -743,6 +748,8 @@ def plots(outimage, imageprm={}, filename=None,
 
     if stats["isamp"] == True:
         table = imageprm["amptable"]
+        if uvunit is None:
+            uvunit = table.uvunit
 
         # Get model data
         model = table.eval_image(imfits=outimage,
@@ -812,6 +819,8 @@ def plots(outimage, imageprm={}, filename=None,
     # Closure Amplitude
     if stats["isca"] == True:
         table = imageprm["catable"]
+        if uvunit is None:
+            uvunit = table.uvunit
 
         # Get model data
         model = table.eval_image(imfits=outimage,
@@ -877,6 +886,8 @@ def plots(outimage, imageprm={}, filename=None,
     # Closure Phase
     if stats["iscp"] == True:
         table = imageprm["bstable"]
+        if uvunit is None:
+            uvunit = table.uvunit
 
         # Get model data
         model = table.eval_image(imfits=outimage,
@@ -946,6 +957,8 @@ def plots(outimage, imageprm={}, filename=None,
     if isinteractive:
         plt.ion()
         matplotlib.use(backend)
+
+    matplotlib.rcdefaults()
 
 
 def pipeline(
