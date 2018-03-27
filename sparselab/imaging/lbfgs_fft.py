@@ -79,10 +79,10 @@ def imaging(
             then the regularizar of total squared variation has no application.
         lambmem (float,default=-1.):
             Regularization parameter for maximum entropy method (MEM). If lambmem <= 0,
-            then the regularizar of MEM has no application.       
+            then the regularizar of MEM has no application.
         lambcom (float,default=-1.):
             Regularization parameter for center of mass weighting. If lambtsv <= 0,
-            then the regularizar has no application.            
+            then the regularizar has no application.
         normlambda (boolean,default=True):
             If normlabda=True, lambl1, lambtv, lambtsv, and lambmem are normalized
             with totalflux and the number of data points.
@@ -91,14 +91,14 @@ def imaging(
         nonneg (boolean,default=True):
             If nonneg=True, the problem is solved with non-negative constrants.
         transform (str,default=None):
-            If transform="log", log transform will be applied to regularization 
-            functions. If transform="gamma", gamma transform will be applied to 
+            If transform="log", log transform will be applied to regularization
+            functions. If transform="gamma", gamma transform will be applied to
             regularization functions.
         transprm (float, default=None):
             If transform="log", transprm is a threshold of log transform. If
             transform="gamma", transprm is a power of gamma correction.
         compower (float, default=1.):
-            Power of center of mass when lambcom > 0. 
+            Power of center of mass when lambcom > 0.
         totalflux (float, default=None):
             Total flux of the source.
         fluxconst (boolean,default=False):
@@ -107,7 +107,7 @@ def imaging(
             The ordinal number of stokes parameters.
         ifreq (int,default=0):
             The ordinal number of frequencies.
-            
+
     Returns:
         imdata.IMFITS object
     '''
@@ -400,7 +400,7 @@ def statistics(
         dofluxconst = True
     elif fluxconst is True:
         dofluxconst = True
-    
+
     # Image window
     if imregion is None:
         imagewin = None
@@ -415,7 +415,7 @@ def statistics(
         rchisqfcv = 0.
     else:
         isfcv = True
-        chisqfcv, rchisqfcv = vistable.chisq_image(imfits=initimage, 
+        chisqfcv, rchisqfcv = vistable.chisq_image(imfits=initimage,
                                                    mask=imagewin,
                                                    amptable=False,
                                                    istokes=istokes,
@@ -429,11 +429,11 @@ def statistics(
         rchisqamp = 0.
     else:
         isamp = True
-        chisqamp, rchisqamp = amptable.chisq_image(imfits=initimage, 
+        chisqamp, rchisqamp = amptable.chisq_image(imfits=initimage,
                                                    mask=imagewin,
                                                    amptable=True,
                                                    istokes=istokes,
-                                                   ifreq=ifreq)        
+                                                   ifreq=ifreq)
         Ndata += len(amptable)
 
     # Closure Phase
@@ -443,10 +443,10 @@ def statistics(
         rchisqcp = 0.
     else:
         iscp = True
-        chisqcp, rchisqcp = bstable.chisq_image(imfits=initimage, 
+        chisqcp, rchisqcp = bstable.chisq_image(imfits=initimage,
                                                 mask=imagewin,
                                                 istokes=istokes,
-                                                ifreq=ifreq)        
+                                                ifreq=ifreq)
         Ndata += len(bstable)
 
     # Closure Amplitude
@@ -456,10 +456,10 @@ def statistics(
         rchisqca = 0.
     else:
         isca = True
-        chisqca, rchisqca = catable.chisq_image(imfits=initimage, 
+        chisqca, rchisqca = catable.chisq_image(imfits=initimage,
                                                 mask=imagewin,
                                                 istokes=istokes,
-                                                ifreq=ifreq)        
+                                                ifreq=ifreq)
         Ndata += len(catable)
 
     # Normalize Lambda
@@ -524,12 +524,13 @@ def statistics(
         lambtsv = 0.
         lambtsv_sim = 0.
         tsvcost = 0.
-    
+
     # Cost and Chisquares
     stats = collections.OrderedDict()
     stats["cost"] = l1cost + tvcost + tsvcost
     stats["chisq"] = chisqfcv + chisqamp + chisqcp + chisqca
     stats["rchisq"] = stats["chisq"] / Ndata
+    stats["cost"] += stats["rchisq"]
     stats["isfcv"] = isfcv
     stats["isamp"] = isamp
     stats["iscp"] = iscp
@@ -542,7 +543,7 @@ def statistics(
     stats["rchisqamp"] = rchisqamp
     stats["rchisqcp"] = rchisqcp
     stats["rchisqca"] = rchisqca
-    
+
     # Regularization functions
     stats["lambl1"] = lambl1
     stats["lambl1_sim"] = lambl1_sim
@@ -585,7 +586,7 @@ def iterative_imaging(initimage, imageprm, Niter=10,
 
         # Edit Images
         if dowinmod and imageregion is not None:
-            newimage = imageregion.editimage(newimage, 
+            newimage = imageregion.editimage(newimage,
                                              save_totalflux=save_totalflux)
 
         if doconv:
@@ -654,17 +655,17 @@ def plots(outimage, imageprm={}, filename=None,
     # fcv
     if stats["isfcv"] == True:
         table = imageprm["vistable"]
-   
+
         # Get model data
         model = table.eval_image(imfits=outimage,
                                  mask=None,
                                  amptable=False,
                                  istokes=0,
                                  ifreq=0)
-        resid = table.residual_image(imfits=outimage, 
-                                     mask=None, 
-                                     amptable=False, 
-                                     istokes=0, 
+        resid = table.residual_image(imfits=outimage,
+                                     mask=None,
+                                     amptable=False,
+                                     istokes=0,
                                      ifreq=0)
 
         if filename is not None:
@@ -742,17 +743,17 @@ def plots(outimage, imageprm={}, filename=None,
 
     if stats["isamp"] == True:
         table = imageprm["amptable"]
-        
+
         # Get model data
         model = table.eval_image(imfits=outimage,
                                  mask=None,
                                  amptable=True,
                                  istokes=0,
                                  ifreq=0)
-        resid = table.residual_image(imfits=outimage, 
-                                     mask=None, 
-                                     amptable=True, 
-                                     istokes=0, 
+        resid = table.residual_image(imfits=outimage,
+                                     mask=None,
+                                     amptable=True,
+                                     istokes=0,
                                      ifreq=0)
 
         if filename is not None:
@@ -811,17 +812,17 @@ def plots(outimage, imageprm={}, filename=None,
     # Closure Amplitude
     if stats["isca"] == True:
         table = imageprm["catable"]
-        
+
         # Get model data
         model = table.eval_image(imfits=outimage,
                                  mask=None,
                                  istokes=0,
                                  ifreq=0)
-        resid = table.residual_image(imfits=outimage, 
+        resid = table.residual_image(imfits=outimage,
                                      mask=None,
-                                     istokes=0, 
+                                     istokes=0,
                                      ifreq=0)
-    
+
         if filename is not None:
             util.matplotlibrc(nrows=2, ncols=1, width=600, height=300)
         else:
@@ -832,9 +833,9 @@ def plots(outimage, imageprm={}, filename=None,
 
         ax = axs[0]
         plt.sca(ax)
-        
-        
-        table.radplot(uvunit=uvunit, uvdtype="ave", color="black", log=True, 
+
+
+        table.radplot(uvunit=uvunit, uvdtype="ave", color="black", log=True,
                       **plotargs)
         model.radplot(uvunit=uvunit, uvdtype="ave", color="red", log=True,
                       errorbar=False, **plotargs)
@@ -848,7 +849,7 @@ def plots(outimage, imageprm={}, filename=None,
                       normerror=True,
                       errorbar=False,
                       color="black",
-                      **plotargs)        
+                      **plotargs)
         plt.axhline(0, color="black", ls="--")
         plt.ylabel("Normalized Residuals")
         plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
@@ -882,11 +883,11 @@ def plots(outimage, imageprm={}, filename=None,
                                  mask=None,
                                  istokes=0,
                                  ifreq=0)
-        resid = table.residual_image(imfits=outimage, 
+        resid = table.residual_image(imfits=outimage,
                                      mask=None,
-                                     istokes=0, 
-                                     ifreq=0)        
-        
+                                     istokes=0,
+                                     ifreq=0)
+
         if filename is not None:
             util.matplotlibrc(nrows=2, ncols=1, width=600, height=300)
         else:
@@ -897,10 +898,10 @@ def plots(outimage, imageprm={}, filename=None,
 
         ax = axs[0]
         plt.sca(ax)
-        table.radplot(uvunit=uvunit, uvdtype="ave", color="black", 
+        table.radplot(uvunit=uvunit, uvdtype="ave", color="black",
                       **plotargs)
         model.radplot(uvunit=uvunit, uvdtype="ave", color="red",
-                      errorbar=False, **plotargs)        
+                      errorbar=False, **plotargs)
         plt.xlabel("")
 
         ax = axs[1]
@@ -910,7 +911,7 @@ def plots(outimage, imageprm={}, filename=None,
                       normerror=True,
                       errorbar=False,
                       color="black",
-                      **plotargs)                
+                      **plotargs)
         plt.axhline(0, color="black", ls="--")
         normresid = resid["phase"] / (np.rad2deg(resid["sigma"] / resid["amp"]))
         N = len(normresid)
@@ -1051,13 +1052,13 @@ def pipeline(
             np.arange(ntv),
             np.arange(nl1),
             np.arange(nmem)):
-        
+
         # output
         imageprm["lambl1"] = lambl1s[il1]
         imageprm["lambtv"] = lambtvs[itv]
         imageprm["lambtsv"] = lambtsvs[itsv]
         imageprm["lambmem"] = lambmems[imem]
-        
+
         header = "tsv%02d.tv%02d.l1%02d.mem%02d" % (itsv, itv, il1, imem)
         if imageprm["lambtsv"] <= 0.0:
             place = header.find("tsv")
