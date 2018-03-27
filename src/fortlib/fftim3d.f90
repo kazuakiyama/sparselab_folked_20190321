@@ -344,7 +344,7 @@ subroutine calc_cost(&
   real(dp), allocatable :: I2d(:,:),I2dl(:,:),I2du(:,:),Iin_reg(:)
   real(dp), allocatable :: Iavg(:), Iavg2d(:,:), Ij(:), Itmp(:), Itmp2d(:,:)
   real(dp), allocatable :: gradchisq2d(:,:)
-  real(dp), allocatable :: gradreg(:)
+  real(dp), allocatable :: gradreg(:), gradreg_tmp(:)
   real(dp), allocatable :: Vresre(:),Vresim(:)
   complex(dpc), allocatable :: Vcmp(:)
   real(dp), allocatable :: gradreg_frm(:), regset(:), gradregset(:), gradrint_s(:)
@@ -462,44 +462,68 @@ subroutine calc_cost(&
   !------------------------------------
   ! Centoroid Regularizer
   !------------------------------------
-  if (lambcom > 0) then
-    ! initialize
-    !   scalars
-    reg = 0d0
-    !   allocatable arrays
-    allocate(gradreg(Nparm))
-    gradreg(:) = 0d0
-    !$OMP PARALLEL DO DEFAULT(SHARED) &
-    !$OMP   FIRSTPRIVATE(Npix,Nx,Ny,Nz,Nxref,Nyref,lambcom,Iin,xidx,yidx) &
-    !$OMP   PRIVATE(iz, istart, iend) &
-    !$OMP   REDUCTION(+: reg, gradreg)
-    do iz=1, Nz
-      istart = (iz-1)*Npix+1
-      iend = iz*Npix
-      call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin(istart:iend),reg,gradreg(istart:iend),Npix)
-    end do
-    !$OMP END PARALLEL DO
-    cost = cost + lambcom * reg
-    call daxpy(Nparm, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
-    deallocate(gradreg)
-  end if
-  !
-  !  if (lambcom > 0) then
+  ! if (lambcom > 0) then
   !   ! initialize
   !   !   scalars
   !   reg = 0d0
   !   !   allocatable arrays
   !   allocate(gradreg(Nparm))
   !   gradreg(:) = 0d0
-  !
-  !   ! calc cost and its gradient
-  !   call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin,reg,gradreg,Nparm)
+  !   !$OMP PARALLEL DO DEFAULT(SHARED) &
+  !   !$OMP   FIRSTPRIVATE(Npix,Nx,Ny,Nz,Nxref,Nyref,lambcom,Iin,xidx,yidx) &
+  !   !$OMP   PRIVATE(iz, istart, iend) &
+  !   !$OMP   REDUCTION(+: reg, gradreg)
+  !   do iz=1, Nz
+  !     istart = (iz-1)*Npix+1
+  !     iend = iz*Npix
+  !     call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin(istart:iend),reg,gradreg(istart:iend),Npix)
+  !   end do
+  !   !$OMP END PARALLEL DO
   !   cost = cost + lambcom * reg
-  !   call daxpy(Npix, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
-  !
-  !   ! deallocate array
+  !   call daxpy(Nparm, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
   !   deallocate(gradreg)
   ! end if
+  !
+  if (lambcom > 0) then
+    ! initialize
+    !   scalars
+    reg = 0d0
+    !   allocatable arrays
+    allocate(gradreg_tmp(Npix))
+    allocate(gradreg(Nparm))
+    allocate(Iavg(Npix))
+    Iavg(:) = 0d0
+    gradreg_tmp(:) = 0d0
+    gradreg(:) = 0d0
+
+    ! calc cost and its gradient
+    call comreg(xidx,yidx,Nxref,Nyref,pcom,Iavg,reg,gradreg_tmp,Npix)
+    cost = cost + lambcom * reg
+    !
+    ! Averaged Image
+    do iz=1, Nz
+      Iavg = Iavg + Iin((iz-1)*Npix+1:iz*Npix)
+    end do
+    do ipix=1,Npix
+      Iavg(ipix) = Iavg(ipix)/Nz
+    end do
+    !
+    !$OMP PARALLEL DO DEFAULT(SHARED) &
+    !$OMP   FIRSTPRIVATE(Npix,Nz,gradreg_tmp) &
+    !$OMP   PRIVATE(iz, istart, iend) &
+    !$OMP   REDUCTION(+: gradreg)
+    do iz=1, Nz
+      istart = (iz-1)*Npix+1
+      iend = iz*Npix
+      gradreg(istart:iend) = gradreg_tmp
+    end do
+    !$OMP END PARALLEL DO
+    call daxpy(Nparm, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
+    ! deallocate array
+    deallocate(gradreg_tmp)
+    deallocate(gradreg)
+    deallocate(Iavg)
+  end if
 
   !------------------------------------
   ! 2D & 3D Regularization Functions

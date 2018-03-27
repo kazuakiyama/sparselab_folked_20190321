@@ -25,7 +25,8 @@ import matplotlib.ticker as ticker
 
 # internal
 from .uvtable import UVTable, UVSeries
-from .tools import get_uvlist
+from .tools import get_uvlist, get_uvlist_loop
+
 from ... import fortlib
 
 # ------------------------------------------------------------------------------
