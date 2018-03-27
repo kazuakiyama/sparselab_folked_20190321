@@ -1201,6 +1201,11 @@ class UVFITS(object):
         weight    = fdata[:,:,:,:,:,:,2]
         del fdata
 
+        # get antenna ids
+        subarr = outfits.visdata.coord.subarray.values
+        ant1 = outfits.visdata.coord.ant1.values
+        ant2 = outfits.visdata.coord.ant2.values
+
         for subarrid in subarrids:
             # get the number of data along each dimension
             Ntime,dammy,dammy,dammy,Nant,Ncomp = cltable.gaintabs[subarrid]["gain"].shape
@@ -1211,19 +1216,17 @@ class UVFITS(object):
 
             # get gain
             gain = cltable.gaintabs[subarrid]["gain"]
-
-            # get antenna ids
-            ant1 = outfits.visdata.coord.ant1.values
-            ant2 = outfits.visdata.coord.ant2.values
-            antset = sorted(set(ant1.tolist()+ant2.tolist()))
+            antset = outfits.subarrays[subarrid].antable.id.values
 
             for itime, istokes, iant in itertools.product(xrange(Ntime),xrange(Nstokes),xrange(Nant)):
                 # data index of the current time and antenna
                 idx = set(tuple(utcgroup.groups[utcset[itime]]))
+
                 idx1 = np.where(ant1==antset[iant])
                 idx1 = set(idx1[0])
                 idx1 &= idx
                 idx1 = list(idx1)
+
                 idx2 = np.where(ant2==antset[iant])
                 idx2 = set(idx2[0])
                 idx2 &= idx
@@ -1233,7 +1236,7 @@ class UVFITS(object):
                 if istokes <2: # dual polarization
                     # compute gains
                     gi = gain[itime,:,:,istokes,iant,0] + 1j*gain[itime,:,:,istokes,iant,1]
-                    gjc = np.conj(gic)
+                    gjc = np.conj(gi)
                 elif istokes == 2: # this must be RL or XY
                     gi = gain[itime,:,:,0,iant,0] + 1j*gain[itime,:,:,0,iant,1]
                     gjc = gain[itime,:,:,1,iant,0] - 1j*gain[itime,:,:,1,iant,1]
