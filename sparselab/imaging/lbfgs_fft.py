@@ -954,11 +954,11 @@ def plots(outimage, imageprm={}, filename=None,
     else:
         plt.show()
 
+    # Reset rcsetting
+    matplotlib.rcdefaults()
     if isinteractive:
         plt.ion()
         matplotlib.use(backend)
-
-    matplotlib.rcdefaults()
 
 
 def pipeline(
