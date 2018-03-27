@@ -11,6 +11,7 @@ __author__ = "Sparselab Developer Team"
 # standard modules
 import copy
 import os
+from collections import Counter
 
 # numerical packages
 import numpy as np
@@ -71,23 +72,28 @@ class ImRegTable(pd.DataFrame):
         return reg3
 
     ## Plot region
-    def plot(self,angunit="mas",**pltargs):
+    def plot(self,angunit=None,**pltargs):
         '''
         Plot region.
         This method uses matplotlib.pyplot.plot().
 
         Args:
-            angunit (str, default = mas):
-                The angular unit of plot.
+            angunit (str, default = None):
+                The angular unit of plot. If none, it will use the most frequent
+                angular unit in the region list
             **plotargs:
                 You can set parameters of matplotlib.pyplot.plot.
         '''
+        if angunit is None:
+            cnt = Counter(self["angunit"])
+            angunit = cnt.most_common()[0][0]
+
         for index, row in self.iterrows():
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 plot_box(row,angunit=angunit,**pltargs)
-            if row["shape"] is "circle":
+            if row["shape"] == "circle":
                 plot_circle(row,angunit=angunit,**pltargs)
-            if row["shape"] is "ellipse":
+            if row["shape"] == "ellipse":
                 plot_ellipse(row,angunit=angunit,**pltargs)
 
     ## csv
@@ -117,13 +123,13 @@ class ImRegTable(pd.DataFrame):
         # empty region table
         table = ImRegTable()
         table.initialize()
-        
+
         # read csv file
         region = pd.read_csv(filename)
-        
+
         # append pd.DataFrame table to empty region table
         table = table.append(region)
-        
+
         return table
 
     ## DS9
@@ -154,15 +160,16 @@ class ImRegTable(pd.DataFrame):
                 d.set("region","image; %s" % ds9reg)
 
     # Load DS9 region
-    def load_pyds9(self,image,angunit="mas",wait=10,overwrite=True):
+    def load_pyds9(self,image,angunit=None,wait=10,overwrite=True):
         '''
         Load DS9 region to ImRegTable.
         This method uses pyds9.DS9().
 
         Args:
             image (IMFITS)
-            angunit (str, default = mas):
-                The angular unit of region.
+            angunit (str, default = None):
+                The angular unit of region. If None, it will take from
+                the default angunit of the input image
             wait (float, default = 10):
                 seconds to wait for ds9 to start.
             overwrite (boolean, default = True):
@@ -170,6 +177,9 @@ class ImRegTable(pd.DataFrame):
         Returns:
             ImRegTable.
         '''
+        if angunit is None:
+            angunit = image.angunit
+
         try:
             d = pyds9.DS9(wait=wait)
         except ValueError:
@@ -179,14 +189,14 @@ class ImRegTable(pd.DataFrame):
             raise
         else:
             ds9reg = d.get("regions -system image")
-            region = ds9reg_to_reg(ds9reg=ds9reg,image=image,angunit="mas")
+            region = ds9reg_to_reg(ds9reg=ds9reg,image=image,angunit=angunit)
             if overwrite:
                 return region
             else:
                 return self + region
 
     # Read DS9 region file
-    def load_ds9reg(self,regfile,image):
+    def load_ds9reg(self,regfile,image,angunit=None):
         '''
         Load DS9 region file to ImRegTable.
 
@@ -194,13 +204,19 @@ class ImRegTable(pd.DataFrame):
             regfile (str):
                 Region file name to read.
             image (IMFITS)
+            angunit (str, default = None):
+                The angular unit of region. If None, it will take from
+                the default angunit of the input image
         Returns:
             ImRegTable.
         '''
+        if angunit is None:
+            angunit = image.angunit
+
         f = open(regfile,'r')
         ds9reg = f.read()
         f.close()
-        region = ds9reg_to_reg(ds9reg=ds9reg,image=image,angunit="mas")
+        region = ds9reg_to_reg(ds9reg=ds9reg,image=image,angunit=angunit)
         return region
 
     # Write DS9 region file
@@ -418,12 +434,12 @@ class ImRegTable(pd.DataFrame):
             pass
 
         for index, row in self.iterrows():
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 self.loc[index,"width"] *= fx
                 self.loc[index,"height"] *= fy
-            if row["shape"] is "circle":
+            if row["shape"] == "circle":
                 self.loc[index,"radius"] *= fx
-            if row["shape"] is "ellipse":
+            if row["shape"] == "ellipse":
                 self.loc[index,"mina"] *= fx
                 self.loc[index,"maja"] *= fy
 
@@ -451,14 +467,14 @@ class ImRegTable(pd.DataFrame):
             region.loc[index,"angunit"] = "mas"
 
             # Make "length" column for characteristic length
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 width = region.loc[index,"width"]
                 height = region.loc[index,"height"]
                 region.loc[index,"length"] = np.sqrt(width*width + height*height)
-            elif row["shape"] is "circle":
+            elif row["shape"] == "circle":
                 radius = region.loc[index,"radius"]
                 region.loc[index,"length"] = radius*2.0
-            elif row["shape"] is "ellipse":
+            elif row["shape"] == "ellipse":
                 maja = region.loc[index,"maja"]
                 mina = region.loc[index,"mina"]
                 region.loc[index,"length"] = max(maja,mina)
@@ -482,11 +498,11 @@ class ImRegTable(pd.DataFrame):
         items = len(region)
         area = np.zeros((items,ny,nx))
         for index, row in region.iterrows():
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 area[index] = region_box(X,Y,row.xc,row.yc,row.width,row.height,row.angle)
-            elif row["shape"] is "circle":
+            elif row["shape"] == "circle":
                 area[index] = region_circle(X,Y,row.xc,row.yc,row.radius)
-            elif row["shape"] is "ellipse":
+            elif row["shape"] == "ellipse":
                 area[index] = region_ellipse(X,Y,row.xc,row.yc,row.mina/2.0,row.maja/2.0,row.angle)
 
         # Search duplicated area
@@ -537,15 +553,15 @@ class ImRegTable(pd.DataFrame):
             angconv = util.angconv(row["angunit"],"deg")
             x0 = row["xc"]*angconv/image.header["dx"]+image.header["nxref"]-1
             y0 = row["yc"]*angconv/image.header["dy"]+image.header["nyref"]-1
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 width = row["width"]*angconv/image.header["dx"]
                 height = row["height"]*angconv/image.header["dy"]
                 angle = row["angle"]
                 tmparea = region_box(X,Y,x0,y0,width,height,angle)
-            elif row["shape"] is "circle":
+            elif row["shape"] == "circle":
                 radius = row["radius"]*angconv/image.header["dx"]
                 tmparea = region_circle(X,Y,x0,y0,radius)
-            elif row["shape"] is "ellipse":
+            elif row["shape"] == "ellipse":
                 radius1 = row["mina"]/2.0*angconv/image.header["dx"]
                 radius2 = row["maja"]/2.0*angconv/image.header["dy"]
                 angle = row["angle"]
@@ -587,15 +603,15 @@ class ImRegTable(pd.DataFrame):
             angconv = util.angconv(row["angunit"],"deg")
             x0 = row["xc"]*angconv/image.header["dx"]+image.header["nxref"]-1
             y0 = row["yc"]*angconv/image.header["dy"]+image.header["nyref"]-1
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 width = row["width"]*angconv/image.header["dx"]
                 height = row["height"]*angconv/image.header["dy"]
                 angle = row["angle"]
                 tmparea = region_box(X,Y,x0,y0,width,height,angle)
-            elif row["shape"] is "circle":
+            elif row["shape"] == "circle":
                 radius = row["radius"]*angconv/image.header["dx"]
                 tmparea = region_circle(X,Y,x0,y0,radius)
-            elif row["shape"] is "ellipse":
+            elif row["shape"] == "ellipse":
                 radius1 = row["mina"]/2.0*angconv/image.header["dx"]
                 radius2 = row["maja"]/2.0*angconv/image.header["dy"]
                 angle = row["angle"]
@@ -617,14 +633,14 @@ class ImRegTable(pd.DataFrame):
     # True or False
     def imagewin(self,image,istokes=0, ifreq=0):
         '''
-        Make a mask image. Each pixel of the output image is stored as a 
+        Make a mask image. Each pixel of the output image is stored as a
         True/False.
-        
+
         Args:
             image (IMFITS)
         Returns:
             numpy.array.
-        '''                
+        '''
         maskimage = self.maskimage(image)
         imagewin = maskimage.data[istokes,ifreq] == 1.0
         return imagewin
@@ -791,17 +807,17 @@ def reg_to_ds9reg(row,image):
     x = row["xc"]/dx + nxref
     y = row["yc"]/dy + nyref
 
-    if row["shape"] is "box":
+    if row["shape"] == "box":
         width = -row["width"]/dx
         height = row["height"]/dy
         angle = row["angle"]
         return "image; box(%f,%f,%f,%f,%f)" % (x,y,width,height,angle)
 
-    if row["shape"] is "circle":
+    if row["shape"] == "circle":
         r = -row["radius"]/dx
         return "image; circle(%f,%f,%f)" % (x,y,r)
 
-    if row["shape"] is "ellipse":
+    if row["shape"] == "ellipse":
         a = -row["mina"]/2.0/dx
         b = row["maja"]/2.0/dy
         angle = row["angle"]
