@@ -81,6 +81,10 @@ def imaging3d(
         vistable = vistable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
     if amptable is not None:
         amptable = amptable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
+    #if bstable is not None:
+    #    bstable = bstable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
+    #if catable is not None:
+    #    catable = catable.sort_values(by=["utc", "stokesid", "ch", "st1", "st2"]).reset_index(drop=True)
 
     # Sanity Check: Total Flux constraint
     dofluxconst = False

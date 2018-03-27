@@ -147,7 +147,7 @@ class CATable(UVTable):
             xidx = xidx[idx]
             yidx = yidx[idx]
 
-        # Closure Phase
+        # Closure Amplitude
         Ndata = 0
         catable = self.copy()
         ca = np.array(catable["logamp"], dtype=np.float64)
@@ -176,7 +176,103 @@ class CATable(UVTable):
                 # UV coordinates,
                 u=u,
                 v=v,
-                # Closure Phase
+                # Closure Amplitude
+                uvidxca=np.int32(uvidxca),
+                ca=np.float64(ca),
+                varca=np.float64(varca)
+                )
+
+        return model,Ndata
+
+    def chisq_image3d(self, imfitslist, mask=None, istokes=0, ifreq=0, Nf=2):
+        # calcurate chisqared and reduced chisqred.
+        model = self._call_fftlib3d(imfitslist=imfitslist,mask=mask,
+                                  istokes=istokes, ifreq=ifreq, Nf=Nf)
+        chisq = model[0][0]
+        Ndata = model[1]
+        rchisq = chisq/Ndata
+
+        return chisq,rchisq
+
+    def _call_fftlib3d(self, imfitslist, mask, istokes=0, ifreq=0, Nf=2):
+        # get initial images
+        istokes = istokes
+        ifreq = ifreq
+
+        # size of images
+        Iin = []
+        for im in imfitslist:
+            Iin.append(np.float64(im.data[istokes, ifreq]))
+        imfits = imfitslist[0]
+
+        Nx = imfits.header["nx"]
+        Ny = imfits.header["ny"]
+        Nyx = Nx * Ny
+
+        # pixel coordinates
+        x, y = imfits.get_xygrid(twodim=True, angunit="rad")
+        xidx = np.arange(Nx) + 1
+        yidx = np.arange(Ny) + 1
+        xidx, yidx = np.meshgrid(xidx, yidx)
+        Nxref = imfits.header["nxref"]
+        Nyref = imfits.header["nyref"]
+        dx_rad = np.deg2rad(imfits.header["dx"])
+        dy_rad = np.deg2rad(imfits.header["dy"])
+
+        # apply the imaging area
+        if mask is None:
+            print("Imaging Window: Not Specified. We calcurate the image on all the pixels.")
+            for i in range(len(Iin)):
+                Iin[i] = Iin[i].reshape(Nyx)
+            x = x.reshape(Nyx)
+            y = y.reshape(Nyx)
+            xidx = xidx.reshape(Nyx)
+            yidx = yidx.reshape(Nyx)
+        else:
+            print("Imaging Window: Specified. Images will be calcurated on specified pixels.")
+            idx = np.where(mask)
+            for i in range(len(Iin)):
+                Iin[i] = Iin[i][idx]
+            x = x[idx]
+            y = y[idx]
+            xidx = xidx[idx]
+            yidx = yidx[idx]
+
+        # Closure Amplitude
+        Ndata = 0
+        catable = self.copy()
+        ca = np.array(catable["logamp"], dtype=np.float64)
+        varca = np.square(np.array(catable["logsigma"], dtype=np.float64))
+        Ndata += len(ca)
+
+        # get uv coordinates and uv indice
+        u, v, uvidxfcv, uvidxamp, uvidxcp, uvidxca, Nuvs = get_uvlist_loop(Nf=Nf,
+            fcvconcat=None, ampconcat=None, bsconcat=None, caconcat=catable
+        )
+
+        # normalize u, v coordinates
+        u *= 2*np.pi*dx_rad
+        v *= 2*np.pi*dy_rad
+
+        # concatenate the initimages
+        Iin = np.concatenate(Iin)
+
+        # run model_cp
+        model = fortlib.fftlib3d.model_ca(
+                # Images
+                iin=np.float64(Iin),
+                xidx=np.int32(xidx),
+                yidx=np.int32(yidx),
+                nxref=np.float64(Nxref),
+                nyref=np.float64(Nyref),
+                nx=np.int32(Nx),
+                ny=np.int32(Ny),
+                nz=np.int32(Nf),
+                # UV coordinates,
+                u=u,
+                v=v,
+                nuvs=np.int32(Nuvs),
+                # Closure Amplitude
                 uvidxca=np.int32(uvidxca),
                 ca=np.float64(ca),
                 varca=np.float64(varca)

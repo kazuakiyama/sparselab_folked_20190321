@@ -462,10 +462,32 @@ subroutine calc_cost(&
   !------------------------------------
   ! Centoroid Regularizer
   !------------------------------------
-  ! if (lambcom > 0) then
+  if (lambcom > 0) then
+    ! initialize
+    !   scalars
+    reg = 0d0
+    !   allocatable arrays
+    allocate(gradreg(Nparm))
+    gradreg(:) = 0d0
+    !$OMP PARALLEL DO DEFAULT(SHARED) &
+    !$OMP   FIRSTPRIVATE(Npix,Nx,Ny,Nz,Nxref,Nyref,lambcom,Iin,xidx,yidx) &
+    !$OMP   PRIVATE(iz, istart, iend) &
+    !$OMP   REDUCTION(+: reg, gradreg)
+    do iz=1, Nz
+      istart = (iz-1)*Npix+1
+      iend = iz*Npix
+      call comreg(xidx,yidx,Nxref,Nyref,pcom,Iin(istart:iend),reg,gradreg(istart:iend),Npix)
+    end do
+    !$OMP END PARALLEL DO
+    cost = cost + lambcom * reg
+    call daxpy(Nparm, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
+    deallocate(gradreg)
+  end if
+  !
+  !  if (lambcom > 0) then
   !   ! initialize
   !   !   scalars
-  !   reg = 0
+  !   reg = 0d0
   !   !   allocatable arrays
   !   allocate(gradreg(Nparm))
   !   gradreg(:) = 0d0
@@ -612,8 +634,6 @@ subroutine calc_cost(&
       ! Dynamical Imaging
       if (lambrt > 0 .and. iz < Nz) then
         ! Rt from Dp (p=2) distance
-        !reg_frm = reg_frm + d2(xidx(ipix),yidx(ipix),I2d,I2du,Nx,Ny)
-        !gradreg_frm(ipix) = gradreg_frm(ipix) + rt_d2grad(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
         reg = reg + lambrt * d2(xidx(ipix),yidx(ipix),I2d,I2du,Nx,Ny)
         gradreg(iparm) = gradreg(iparm) + lambrt * rt_d2grad(xidx(ipix),yidx(ipix),iz,I2d,I2dl,I2du,Nx,Ny,Nz)
         ! Rt from Kullback-Leibler divergence
@@ -623,8 +643,6 @@ subroutine calc_cost(&
 
       if (lambri > 0) then
         ! Ri from Dp (p=2) distance
-        !reg_frm = reg_frm + d2(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
-        !gradreg_frm(ipix) = gradreg_frm(ipix) + ri_d2grad(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
         reg = reg + lambri * d2(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
         gradreg(iparm) = gradreg(iparm) + lambri * ri_d2grad(xidx(ipix),yidx(ipix),I2d,Iavg2d,Nx,Ny)
         ! Ri from Kullback-Leibler divergence
