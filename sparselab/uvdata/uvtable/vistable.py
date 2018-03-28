@@ -1027,7 +1027,7 @@ class VisTable(UVTable):
 
         # Calculate index of uv for gridding
         # Flag for skipping already averaged data
-        skip = [False for i in xrange(Ntable)]
+        skip = np.asarray([False for i in xrange(Ntable)])
 
         # Create new list for gridded data
         outlist = {
@@ -1060,10 +1060,11 @@ class VisTable(UVTable):
             del gidxs
 
             # Gridding Kernel
-            gidxs = np.where(np.abs(ugidxs - ugidx)<=j//2
-                           & np.abs(vgidxs - vgidx)<=j//2)
+            gidxs = np.abs(ugidxs - ugidx)<=j//2
+            gidxs&= np.abs(vgidxs - vgidx)<=j//2
+            gidxs = np.where(gidxs)
 
-            # Calculate spheroidal angular function
+            # Calculate Keiser-Bessel Function
             unorm = beta*j*np.sqrt(1-np.square(2*(ugidxs[gidxs]-ugidx)/3.))
             vnorm = beta*j*np.sqrt(1-np.square(2*(vgidxs[gidxs]-vgidx)/3.))
             ukern = ss.iv(0, unorm)
