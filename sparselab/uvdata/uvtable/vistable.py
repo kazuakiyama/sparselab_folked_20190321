@@ -203,6 +203,7 @@ class VisTable(UVTable):
                      factor, 'angunit': angunit, 'pa': PA})
         return cb_parms
 
+
     def snrcutoff(self, threshold=5):
         '''
         Thesholding data with SNR (amp/sigma)
@@ -989,8 +990,8 @@ class VisTable(UVTable):
             If true, output also conjugate components
 
           j (int; default = 3):
-            the number of grids (j x j pixels) where convolution will be done.
-            Default is 3x3 pixels
+            The number of grids (j x j pixels) giving the size of the
+            convolution kernel. Default is 3x3 pixels.
 
           beta (float; default = 2.34):
             The spread of the Kaiser Bessel function. The default value
@@ -1007,20 +1008,28 @@ class VisTable(UVTable):
         vistable.sort_values(by=["u","v"])
 
         # get images
-        Lx = np.deg2rad(np.abs(fitsdata.header["dx"])) * fitsdata.header["nx"]
-        Ly = np.deg2rad(np.abs(fitsdata.header["dy"])) * fitsdata.header["ny"]
+        dx = np.abs(fitsdata.header["dx"])
+        dy = np.abs(fitsdata.header["dy"])
+        nx = fitsdata.header["nx"]
+        ny = fitsdata.header["ny"]
+        nxref = fitsdata.header["nxref"]
+        nyref = fitsdata.header["nyref"]
+        Lx = np.deg2rad(dx*nx)
+        Ly = np.deg2rad(dy*ny)
 
         # Calculate du and dv
         du = 1 / Lx
         dv = 1 / Ly
 
-        # Create column of full-comp visibility, uidx, vidx, u, v
-        Vcomps = vistable.amp.values * \
-                 np.exp(1j * np.deg2rad(vistable.phase.values))
-        ugidxs = np.int32(np.around(vistable.u.values / du))
-        vgidxs = np.int32(np.around(vistable.v.values / dv))
+        # uv index
         u = vistable.u.values
         v = vistable.v.values
+        ugidxs = np.int32(np.around(u / du))
+        vgidxs = np.int32(np.around(v / dv))
+
+        # Create column of full-comp visibility
+        Vcomps = vistable.amp.values * \
+                 np.exp(1j * np.deg2rad(vistable.phase.values))
         sigma = vistable.sigma.values
         weight = 1 / sigma**2
         Ntable = len(vistable)
@@ -1091,7 +1100,18 @@ class VisTable(UVTable):
         outtable = pd.DataFrame(outlist,
             columns=["ugidx", "vgidx", "u", "v", "uvdist",
                      "amp", "phase", "weight", "sigma"])
-        return GVisTable(outtable)
+        if conj==True:
+            outtable_c = copy.deepcopy(outtable)
+            outtable_c.loc[:,["u","v","ugidx","vgidx","phase"]] *= -1
+            outtable = pd.concat([outtable, outtable_c], ignore_index=True)
+        outtable = GVisTable(outtable)
+        outtable.nx = nx
+        outtable.ny = ny
+        outtable.nxref = nxref
+        outtable.nyref = nyref
+        outtable.du = du
+        outtable.dv = dv
+        return outtable
 
 
     #-------------------------------------------------------------------------

@@ -42,9 +42,11 @@ class GVisTable(UVTable):
     def _constructor(self):
         return GVisTable
 
+
     @property
     def _constructor_sliced(self):
         return GVisSeries
+
 
     def set_uvunit(self, uvunit=None):
         # Check uvunits
@@ -61,11 +63,13 @@ class GVisTable(UVTable):
         else:
             self.uvunit = uvunit
 
+
     def recalc_uvdist(self):
         '''
         Re-calculate the baseline length from self["u"] and self["v"].
         '''
         self["uvdist"] = np.sqrt(self["u"] * self["u"] + self["v"] * self["v"])
+
 
     def fit_beam(self, angunit="mas", errweight=0., ftsign=+1):
         '''
@@ -117,63 +121,189 @@ class GVisTable(UVTable):
                      factor, 'angunit': angunit, 'pa': PA})
         return cb_parms
 
-    def fftshift(self, fitsdata, fgfov=1):
+
+    def fftshift(self):
         '''
-        Arguments:
-          vistable (pandas.Dataframe object):
-            input visibility table
+        shift ugidx and vgidx in the area of [0, Nx), [0, Ny)
 
-          fitsdata (imdata.IMFITS object):
-            input imdata.IMFITS object
-
-          fgfov (int)
-            a number of gridded FOV/original FOV
-
-        Output: pandas.Dataframe object
+        Output: GVisTable object
         '''
         # Copy vistable for edit
-        vistable = self.copy()
-
-        # Calculate du and dv
-        Nupix = fitsdata.header["nx"] * fgfov
-        Nvpix = fitsdata.header["ny"] * fgfov
-        du = 1 / np.radians(np.abs(fitsdata.header["dx"]) * Nupix)
-        dv = 1 / np.radians(fitsdata.header["dy"] * Nvpix)
+        outtable = copy.deepcopy(self).reset_index(drop=True)
+        outtable.nx = self.nx
+        outtable.ny = self.ny
+        outtable.nxref = self.nxref
+        outtable.nyref = self.nyref
+        outtable.du = self.du
+        outtable.dv = self.dv
 
         # Shift vistable
-        vistable.loc[vistable["vgidx"] < 0, "vgidx"] += Nvpix
+        flag = True
+        while(flag):
+            idx = outtable.ugidx.values < 0
+            if True in idx:
+                outtable.loc[idx, "ugidx"] += self.nx
+            else:
+                flag=False
+        #
+        flag = True
+        while(flag):
+            idx = outtable.vgidx.values < 0
+            if True in idx:
+                outtable.loc[idx, "vgidx"] += self.ny
+            else:
+                flag=False
+        #
+        flag = True
+        while(flag):
+            idx = outtable.ugidx.values >= self.nx
+            if True in idx:
+                outtable.loc[idx, "ugidx"] -= self.nx
+            else:
+                flag=False
+        #
+        flag = True
+        while(flag):
+            idx = outtable.vgidx.values >= self.ny
+            if True in idx:
+                outtable.loc[idx, "vgidx"] -= self.ny
+            else:
+                flag=False
 
-        # Create new list for shift
-        outlist = {
-            "ugidx": [],
-            "vgidx": [],
-            "u": [],
-            "v": [],
-            "orgu": [],
-            "orgv": [],
-            "uvdist": [],
-            "amp": [],
-            "phase": [],
-            "weight": [],
-            "sigma": []
-        }
-
-        # Save shifted data
-        outlist["ugidx"] = vistable["ugidx"]
-        outlist["vgidx"] = vistable["vgidx"]
-        outlist["u"] = vistable["ugidx"] * du
-        outlist["v"] = vistable["vgidx"] * dv
-        outlist["orgu"] = self["u"]
-        outlist["orgv"] = self["v"]
-        outlist["uvdist"] = np.sqrt(self["u"]*self["u"]+self["v"]*self["v"])
-        outlist["amp"] = self["amp"]
-        outlist["phase"] = self["phase"]
-        outlist["weight"] = self["weight"]
-        outlist["sigma"] = self["sigma"]
-
-        # Output as pandas.DataFrame
-        outtable = GVisTable(outlist)
+        outtable["u"] = outtable["ugidx"] * self.du
+        outtable["v"] = outtable["vgidx"] * self.dv
+        outtable = outtable.sort_values(by=["ugidx","vgidx"]).reset_index(drop=True)
         return outtable
+
+
+    def ifftshift(self):
+        '''
+        shift ugidx and vgidx in the area of [-Nx/2, Nx/2), [-Ny/2, Ny/2)
+
+        Output: GVisTable object
+        '''
+        # Copy vistable for edit
+        outtable = copy.deepcopy(self).reset_index(drop=True)
+        outtable.nx = self.nx
+        outtable.ny = self.ny
+        outtable.nxref = self.nxref
+        outtable.nyref = self.nyref
+        outtable.du = self.du
+        outtable.dv = self.dv
+
+        # Shift vistable
+        flag = True
+        while(flag):
+            idx = outtable.ugidx.values < -self.nx//2
+            if True in idx:
+                outtable.loc[idx, "ugidx"] += self.nx
+            else:
+                flag=False
+        #
+        flag = True
+        while(flag):
+            idx = outtable.vgidx.values < -self.ny//2
+            if True in idx:
+                outtable.loc[idx, "vgidx"] += self.ny
+            else:
+                flag=False
+        #
+        flag = True
+        while(flag):
+            idx = outtable.ugidx.values >= self.nx//2
+            if True in idx:
+                outtable.loc[idx, "ugidx"] -= self.nx
+            else:
+                flag=False
+        #
+        flag = True
+        while(flag):
+            idx = outtable.vgidx.values >= self.ny//2
+            if True in idx:
+                outtable.loc[idx, "vgidx"] -= self.ny
+            else:
+                flag=False
+
+        outtable["u"] = outtable["ugidx"] * self.du
+        outtable["v"] = outtable["vgidx"] * self.dv
+        outtable = outtable.sort_values(by=["ugidx","vgidx"]).reset_index(drop=True)
+        return outtable
+
+
+    def pshift_r2e(self):
+        '''
+        Shift the phase tracking center position from the current reference
+        (nxref, nyref) to (1,1)(the pixel on the bottom-left corner)
+
+        Output: GVisTable object
+        '''
+        # Copy vistable for edit
+        outtable = copy.deepcopy(self).reset_index(drop=True)
+        outtable.nx = self.nx
+        outtable.ny = self.ny
+        outtable.nxref = self.nxref
+        outtable.nyref = self.nyref
+        outtable.du = self.du
+        outtable.dv = self.dv
+
+        # Phase shift
+        phase = (self.nxref - 1)*outtable.ugidx.values/self.nx
+        phase+= (self.nyref - 1)*outtable.vgidx.values/self.ny
+        phase*= 2*np.pi
+        phase+= np.deg2rad(outtable.phase.values)
+        phase = np.angle(np.cos(phase)+1j*np.sin(phase), deg=True)
+        outtable["phase"] = phase
+
+        return outtable
+
+
+    def pshift_e2r(self):
+        '''
+        Shift the phase tracking center position from (1, 1)
+        to the current reference(nxref, nyref)
+
+        Output: GVisTable object
+        '''
+        # Copy vistable for edit
+        outtable = copy.deepcopy(self).reset_index(drop=True)
+        outtable.nx = self.nx
+        outtable.ny = self.ny
+        outtable.nxref = self.nxref
+        outtable.nyref = self.nyref
+        outtable.du = self.du
+        outtable.dv = self.dv
+
+        # Phase shift
+        phase = (1 - self.nxref)*outtable.ugidx.values/self.nx
+        phase+= (1 - self.nyref)*outtable.vgidx.values/self.ny
+        phase*= 2*np.pi
+        phase+= np.deg2rad(outtable.phase.values)
+        phase = np.angle(np.cos(phase)+1j*np.sin(phase), deg=True)
+        outtable["phase"] = phase
+
+        return outtable
+
+
+    def trans_for_fftw(self):
+        '''
+        This method is a quick shortcut to (1) shift phases, (2) flip u coordinates
+        (3) rotate uv coordinates for mfista-fft imaging that uses fftw.
+        This method uses pshift_r2e and fftshift methods.
+
+        Returns:
+            GVisTable object
+        '''
+        # Shift phase
+        outtable = self.pshift_r2e()
+
+        # flip u sign (since fftw has an opposite x-axis direction)
+        outtable.loc[:, ["u","ugidx"]] *= -1
+
+        # fft shift ()
+        outtable = outtable.fftshift()
+
+        return outtable
+
 
     #-------------------------------------------------------------------------
     # Plot Functions
@@ -224,6 +354,7 @@ class GVisTable(UVTable):
         ylim = np.asarray(ax.get_ylim())
         ax.set_xlim(-np.sort(-xlim))
         ax.set_ylim(np.sort(ylim))
+
 
     def radplot(self, uvunit=None, datatype="amp", normerror=False, errorbar=True,
                 ls="none", marker=".", **plotargs):
