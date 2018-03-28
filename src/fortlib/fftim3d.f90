@@ -495,10 +495,6 @@ subroutine calc_cost(&
     Iavg(:) = 0d0
     gradreg_tmp(:) = 0d0
     gradreg(:) = 0d0
-
-    ! calc cost and its gradient
-    call comreg(xidx,yidx,Nxref,Nyref,pcom,Iavg,reg,gradreg_tmp,Npix)
-    cost = cost + lambcom * reg
     !
     ! Averaged Image
     do iz=1, Nz
@@ -508,14 +504,20 @@ subroutine calc_cost(&
       Iavg(ipix) = Iavg(ipix)/Nz
     end do
     !
+    ! calc cost and its gradient
+    call comreg(xidx,yidx,Nxref,Nyref,pcom,Iavg,reg,gradreg_tmp,Npix)
+    cost = cost + lambcom * reg
+    !
     !$OMP PARALLEL DO DEFAULT(SHARED) &
     !$OMP   FIRSTPRIVATE(Npix,Nz,gradreg_tmp) &
-    !$OMP   PRIVATE(iz, istart, iend) &
+    !$OMP   PRIVATE(iz, ipix, istart) &
     !$OMP   REDUCTION(+: gradreg)
     do iz=1, Nz
       istart = (iz-1)*Npix+1
-      iend = iz*Npix
-      gradreg(istart:iend) = gradreg_tmp
+      !iend = iz*Npix
+      do ipix=1,Npix
+        gradreg(istart+ipix-1) = gradreg_tmp(ipix)/Nz
+      end do
     end do
     !$OMP END PARALLEL DO
     call daxpy(Nparm, lambcom, gradreg, 1, gradcost, 1) ! gradcost := lambcom * gradreg + gradcost
