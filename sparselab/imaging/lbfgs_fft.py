@@ -43,7 +43,7 @@ lbfgsbprms = {
 #-------------------------------------------------------------------------
 def imaging(
         initimage,
-        imagewin=None,
+        imregion=None,
         vistable=None,amptable=None, bstable=None, catable=None,
         lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,normlambda=True,
         niter=1000,
@@ -53,7 +53,63 @@ def imaging(
         totalflux=None, fluxconst=False,
         istokes=0, ifreq=0):
     '''
+    FFT imaging with closure quantities.
 
+    Args:
+        initimage (IMFITS):
+            Initial model for fft imaging.
+        imregion (IMRegion, default=None):
+            Image region to set image windows.
+        vistable (VisTable, default=None):
+            Visibility table containing full complex visiblities.
+        amptable (VisTable, default=None):
+            Amplitude table.
+        bstable (BSTable, default=None):
+            Closure phase table.
+        catable (CATable, default=None):
+            Closure amplitude table.
+        lambl1 (float,default=-1.):
+            Regularization parameter for L1 term. If lambl1 <= 0,
+            then L1 regularizar has no application.
+        lambtv (float,default=-1.):
+            Regularization parameter for total variation. If lambtv <= 0,
+            then total-variation regularizar has no application.
+        lambtsv (float,default=-1.):
+            Regularization parameter for total squared variation. If lambtsv <= 0,
+            then the regularizar of total squared variation has no application.
+        lambmem (float,default=-1.):
+            Regularization parameter for maximum entropy method (MEM). If lambmem <= 0,
+            then the regularizar of MEM has no application.
+        lambcom (float,default=-1.):
+            Regularization parameter for center of mass weighting. If lambtsv <= 0,
+            then the regularizar has no application.
+        normlambda (boolean,default=True):
+            If normlabda=True, lambl1, lambtv, lambtsv, and lambmem are normalized
+            with totalflux and the number of data points.
+        niter (int,defalut=100):
+            The number of iterations.
+        nonneg (boolean,default=True):
+            If nonneg=True, the problem is solved with non-negative constrants.
+        transform (str,default=None):
+            If transform="log", log transform will be applied to regularization
+            functions. If transform="gamma", gamma transform will be applied to
+            regularization functions.
+        transprm (float, default=None):
+            If transform="log", transprm is a threshold of log transform. If
+            transform="gamma", transprm is a power of gamma correction.
+        compower (float, default=1.):
+            Power of center of mass when lambcom > 0.
+        totalflux (float, default=None):
+            Total flux of the source.
+        fluxconst (boolean,default=False):
+            If fluxconst=True, total flux is fixed at the totalflux value.
+        istokes (int,default=0):
+            The ordinal number of stokes parameters.
+        ifreq (int,default=0):
+            The ordinal number of frequencies.
+
+    Returns:
+        imdata.IMFITS object
     '''
     # Sanity Check: Data
     if ((vistable is None) and (amptable is None) and
@@ -120,7 +176,7 @@ def imaging(
     dy_rad = np.deg2rad(initimage.header["dy"])
 
     # apply the imaging area
-    if imagewin is None:
+    if imregion is None:
         print("Imaging Window: Not Specified. We solve the image on all the pixels.")
         Iin = Iin.reshape(Nyx)
         x = x.reshape(Nyx)
@@ -129,6 +185,7 @@ def imaging(
         yidx = yidx.reshape(Nyx)
     else:
         print("Imaging Window: Specified. Images will be solved on specified pixels.")
+        imagewin = imregion.imagewin(initimage,istokes,ifreq)
         idx = np.where(imagewin)
         Iin = Iin[idx]
         x = x[idx]
@@ -312,7 +369,7 @@ def imaging(
     return outimage
 
 def statistics(
-        initimage, imagewin=None,
+        initimage, imregion=None,
         vistable=None, amptable=None, bstable=None, catable=None,
         lambl1=1., lambtv=-1, lambtsv=1, logreg=False, normlambda=True,
         totalflux=None, fluxconst=False,
@@ -344,6 +401,12 @@ def statistics(
     elif fluxconst is True:
         dofluxconst = True
 
+    # Image window
+    if imregion is None:
+        imagewin = None
+    else:
+        imagewin = imregion.imagewin(initimage,istokes,ifreq)
+
     # Full Complex Visibility
     Ndata = 0
     if vistable is None:
@@ -352,7 +415,7 @@ def statistics(
         rchisqfcv = 0.
     else:
         isfcv = True
-        chisqfcv, rchisqfcv = vistable.chisq_image(imfits=initimage, 
+        chisqfcv, rchisqfcv = vistable.chisq_image(imfits=initimage,
                                                    mask=imagewin,
                                                    amptable=False,
                                                    istokes=istokes,
@@ -366,11 +429,11 @@ def statistics(
         rchisqamp = 0.
     else:
         isamp = True
-        chisqamp, rchisqamp = amptable.chisq_image(imfits=initimage, 
+        chisqamp, rchisqamp = amptable.chisq_image(imfits=initimage,
                                                    mask=imagewin,
                                                    amptable=True,
                                                    istokes=istokes,
-                                                   ifreq=ifreq)        
+                                                   ifreq=ifreq)
         Ndata += len(amptable)
 
     # Closure Phase
@@ -380,10 +443,10 @@ def statistics(
         rchisqcp = 0.
     else:
         iscp = True
-        chisqcp, rchisqcp = bstable.chisq_image(imfits=initimage, 
+        chisqcp, rchisqcp = bstable.chisq_image(imfits=initimage,
                                                 mask=imagewin,
                                                 istokes=istokes,
-                                                ifreq=ifreq)        
+                                                ifreq=ifreq)
         Ndata += len(bstable)
 
     # Closure Amplitude
@@ -393,10 +456,10 @@ def statistics(
         rchisqca = 0.
     else:
         isca = True
-        chisqca, rchisqca = catable.chisq_image(imfits=initimage, 
+        chisqca, rchisqca = catable.chisq_image(imfits=initimage,
                                                 mask=imagewin,
                                                 istokes=istokes,
-                                                ifreq=ifreq)        
+                                                ifreq=ifreq)
         Ndata += len(catable)
 
     # Normalize Lambda
@@ -461,12 +524,13 @@ def statistics(
         lambtsv = 0.
         lambtsv_sim = 0.
         tsvcost = 0.
-    
+
     # Cost and Chisquares
     stats = collections.OrderedDict()
     stats["cost"] = l1cost + tvcost + tsvcost
     stats["chisq"] = chisqfcv + chisqamp + chisqcp + chisqca
     stats["rchisq"] = stats["chisq"] / Ndata
+    stats["cost"] += stats["rchisq"]
     stats["isfcv"] = isfcv
     stats["isamp"] = isamp
     stats["iscp"] = iscp
@@ -479,7 +543,7 @@ def statistics(
     stats["rchisqamp"] = rchisqamp
     stats["rchisqcp"] = rchisqcp
     stats["rchisqca"] = rchisqca
-    
+
     # Regularization functions
     stats["lambl1"] = lambl1
     stats["lambl1_sim"] = lambl1_sim
@@ -499,7 +563,7 @@ def statistics(
 def iterative_imaging(initimage, imageprm, Niter=10,
                       dothres=True, threstype="hard", threshold=0.3,
                       doshift=True, shifttype="peak",
-                      dowinmod=False, imageregion=None,
+                      dowinmod=False, imregion=None,
                       doconv=True, convprm={},
                       save_totalflux=False):
     oldimage = imaging(initimage, **imageprm)
@@ -521,9 +585,9 @@ def iterative_imaging(initimage, imageprm, Niter=10,
                 newimage = newimage.peakshift(save_totalflux=save_totalflux)
 
         # Edit Images
-        if dowinmod and imageregion is not None:
-            newimage = imageregion.editimage(newimage, 
-                                             save_totalflux=save_totalflux)
+        if dowinmod and imregion is not None:
+            newimage = imregion.winmod(newimage,
+                                       save_totalflux=save_totalflux)
 
         if doconv:
             newimage = newimage.gauss_convolve(
@@ -542,9 +606,12 @@ def iterative_imaging(initimage, imageprm, Niter=10,
     return oldimage
 
 def plots(outimage, imageprm={}, filename=None,
-                     angunit="mas", uvunit="ml", plotargs={'ms': 1., }):
+          angunit=None, uvunit=None, plotargs={'ms': 1., }):
     isinteractive = plt.isinteractive()
     backend = matplotlib.rcParams["backend"]
+
+    if angunit is None:
+        angunit=outimage.angunit
 
     if isinteractive:
         plt.ioff()
@@ -591,17 +658,19 @@ def plots(outimage, imageprm={}, filename=None,
     # fcv
     if stats["isfcv"] == True:
         table = imageprm["vistable"]
-   
+        if uvunit is None:
+            uvunit = table.uvunit
+
         # Get model data
         model = table.eval_image(imfits=outimage,
                                  mask=None,
                                  amptable=False,
                                  istokes=0,
                                  ifreq=0)
-        resid = table.residual_image(imfits=outimage, 
-                                     mask=None, 
-                                     amptable=False, 
-                                     istokes=0, 
+        resid = table.residual_image(imfits=outimage,
+                                     mask=None,
+                                     amptable=False,
+                                     istokes=0,
                                      ifreq=0)
 
         if filename is not None:
@@ -679,17 +748,19 @@ def plots(outimage, imageprm={}, filename=None,
 
     if stats["isamp"] == True:
         table = imageprm["amptable"]
-        
+        if uvunit is None:
+            uvunit = table.uvunit
+
         # Get model data
         model = table.eval_image(imfits=outimage,
                                  mask=None,
                                  amptable=True,
                                  istokes=0,
                                  ifreq=0)
-        resid = table.residual_image(imfits=outimage, 
-                                     mask=None, 
-                                     amptable=True, 
-                                     istokes=0, 
+        resid = table.residual_image(imfits=outimage,
+                                     mask=None,
+                                     amptable=True,
+                                     istokes=0,
                                      ifreq=0)
 
         if filename is not None:
@@ -748,17 +819,19 @@ def plots(outimage, imageprm={}, filename=None,
     # Closure Amplitude
     if stats["isca"] == True:
         table = imageprm["catable"]
-        
+        if uvunit is None:
+            uvunit = table.uvunit
+
         # Get model data
         model = table.eval_image(imfits=outimage,
                                  mask=None,
                                  istokes=0,
                                  ifreq=0)
-        resid = table.residual_image(imfits=outimage, 
+        resid = table.residual_image(imfits=outimage,
                                      mask=None,
-                                     istokes=0, 
+                                     istokes=0,
                                      ifreq=0)
-    
+
         if filename is not None:
             util.matplotlibrc(nrows=2, ncols=1, width=600, height=300)
         else:
@@ -769,9 +842,9 @@ def plots(outimage, imageprm={}, filename=None,
 
         ax = axs[0]
         plt.sca(ax)
-        
-        
-        table.radplot(uvunit=uvunit, uvdtype="ave", color="black", log=True, 
+
+
+        table.radplot(uvunit=uvunit, uvdtype="ave", color="black", log=True,
                       **plotargs)
         model.radplot(uvunit=uvunit, uvdtype="ave", color="red", log=True,
                       errorbar=False, **plotargs)
@@ -785,7 +858,7 @@ def plots(outimage, imageprm={}, filename=None,
                       normerror=True,
                       errorbar=False,
                       color="black",
-                      **plotargs)        
+                      **plotargs)
         plt.axhline(0, color="black", ls="--")
         plt.ylabel("Normalized Residuals")
         plt.xlabel(r"Baseline Length (%s)" % (unitlabel))
@@ -813,17 +886,19 @@ def plots(outimage, imageprm={}, filename=None,
     # Closure Phase
     if stats["iscp"] == True:
         table = imageprm["bstable"]
+        if uvunit is None:
+            uvunit = table.uvunit
 
         # Get model data
         model = table.eval_image(imfits=outimage,
                                  mask=None,
                                  istokes=0,
                                  ifreq=0)
-        resid = table.residual_image(imfits=outimage, 
+        resid = table.residual_image(imfits=outimage,
                                      mask=None,
-                                     istokes=0, 
-                                     ifreq=0)        
-        
+                                     istokes=0,
+                                     ifreq=0)
+
         if filename is not None:
             util.matplotlibrc(nrows=2, ncols=1, width=600, height=300)
         else:
@@ -834,10 +909,10 @@ def plots(outimage, imageprm={}, filename=None,
 
         ax = axs[0]
         plt.sca(ax)
-        table.radplot(uvunit=uvunit, uvdtype="ave", color="black", 
+        table.radplot(uvunit=uvunit, uvdtype="ave", color="black",
                       **plotargs)
         model.radplot(uvunit=uvunit, uvdtype="ave", color="red",
-                      errorbar=False, **plotargs)        
+                      errorbar=False, **plotargs)
         plt.xlabel("")
 
         ax = axs[1]
@@ -847,7 +922,7 @@ def plots(outimage, imageprm={}, filename=None,
                       normerror=True,
                       errorbar=False,
                       color="black",
-                      **plotargs)                
+                      **plotargs)
         plt.axhline(0, color="black", ls="--")
         normresid = resid["phase"] / (np.rad2deg(resid["sigma"] / resid["amp"]))
         N = len(normresid)
@@ -879,6 +954,8 @@ def plots(outimage, imageprm={}, filename=None,
     else:
         plt.show()
 
+    # Reset rcsetting
+    matplotlib.rcdefaults()
     if isinteractive:
         plt.ion()
         matplotlib.use(backend)
@@ -988,13 +1065,13 @@ def pipeline(
             np.arange(ntv),
             np.arange(nl1),
             np.arange(nmem)):
-        
+
         # output
         imageprm["lambl1"] = lambl1s[il1]
         imageprm["lambtv"] = lambtvs[itv]
         imageprm["lambtsv"] = lambtsvs[itsv]
         imageprm["lambmem"] = lambmems[imem]
-        
+
         header = "tsv%02d.tv%02d.l1%02d.mem%02d" % (itsv, itv, il1, imem)
         if imageprm["lambtsv"] <= 0.0:
             place = header.find("tsv")

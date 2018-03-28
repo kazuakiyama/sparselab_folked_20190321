@@ -11,6 +11,7 @@ __author__ = "Sparselab Developer Team"
 # standard modules
 import copy
 import os
+from collections import Counter
 
 # numerical packages
 import numpy as np
@@ -29,7 +30,7 @@ from sparselab import util
 # IMAGEFITS (Manupulating FITS FILES)
 #-------------------------------------------------------------------------
 
-class ImRegTable(pd.DataFrame):
+class IMRegion(pd.DataFrame):
     '''
     This class is for handling two dimentional tables of region. The class
     inherits pandas.DataFrame class, so you can use this class like
@@ -44,7 +45,7 @@ class ImRegTable(pd.DataFrame):
 
     @property
     def _constructor(self):
-        return ImRegTable
+        return IMRegion
 
     @property
     def _constructor_sliced(self):
@@ -59,8 +60,8 @@ class ImRegTable(pd.DataFrame):
         '''
 
         if len(self.keys())==0:
-            for i in xrange(len(ImRegTable.imreg_columns)):
-                column = ImRegTable.imreg_columns[i]
+            for i in xrange(len(IMRegion.imreg_columns)):
+                column = IMRegion.imreg_columns[i]
                 self[column] = []
         else:
             self.drop(np.arange(len(self)),inplace=True)
@@ -71,23 +72,28 @@ class ImRegTable(pd.DataFrame):
         return reg3
 
     ## Plot region
-    def plot(self,angunit="mas",**pltargs):
+    def plot(self,angunit=None,**pltargs):
         '''
         Plot region.
         This method uses matplotlib.pyplot.plot().
 
         Args:
-            angunit (str, default = mas):
-                The angular unit of plot.
+            angunit (str, default = None):
+                The angular unit of plot. If none, it will use the most frequent
+                angular unit in the region list
             **plotargs:
                 You can set parameters of matplotlib.pyplot.plot.
         '''
+        if angunit is None:
+            cnt = Counter(self["angunit"])
+            angunit = cnt.most_common()[0][0]
+
         for index, row in self.iterrows():
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 plot_box(row,angunit=angunit,**pltargs)
-            if row["shape"] is "circle":
+            if row["shape"] == "circle":
                 plot_circle(row,angunit=angunit,**pltargs)
-            if row["shape"] is "ellipse":
+            if row["shape"] == "ellipse":
                 plot_ellipse(row,angunit=angunit,**pltargs)
 
     ## csv
@@ -104,26 +110,26 @@ class ImRegTable(pd.DataFrame):
             filename (string or filehandle): output filename
             **args: other arguments of pd.DataFrame.to_csv()
         '''
-        super(ImRegTable, self).to_csv(filename, index=False, index_label=False, **args)
+        super(IMRegion, self).to_csv(filename, index=False, index_label=False, **args)
 
-    # read csv file as ImRegTable
+    # read csv file as IMRegion
     def read_region(self, filename):
         '''
-        Read a csv file as ImRegTable using pd.DataFrame.read_csv().
+        Read a csv file as IMRegion using pd.DataFrame.read_csv().
 
         Args:
             filename (string or filehandle): output filename
         '''
         # empty region table
-        table = ImRegTable()
+        table = IMRegion()
         table.initialize()
-        
+
         # read csv file
         region = pd.read_csv(filename)
-        
+
         # append pd.DataFrame table to empty region table
         table = table.append(region)
-        
+
         return table
 
     ## DS9
@@ -147,27 +153,33 @@ class ImRegTable(pd.DataFrame):
             raise
         else:
             d.set_pyfits(image.hdulist)
+            d.set('zoom to fit')
+            d.set('cmap heat')
             for index, row in self.iterrows():
                 ds9reg = reg_to_ds9reg(row,image)
                 d.set("region","image; %s" % ds9reg)
 
     # Load DS9 region
-    def load_pyds9(self,image,angunit="mas",wait=10,overwrite=True):
+    def load_pyds9(self,image,angunit=None,wait=10,overwrite=True):
         '''
-        Load DS9 region to ImRegTable.
+        Load DS9 region to IMRegion.
         This method uses pyds9.DS9().
 
         Args:
             image (IMFITS)
-            angunit (str, default = mas):
-                The angular unit of region.
+            angunit (str, default = None):
+                The angular unit of region. If None, it will take from
+                the default angunit of the input image
             wait (float, default = 10):
                 seconds to wait for ds9 to start.
             overwrite (boolean, default = True):
                 If overwrite=True, previous region is removed.
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
+        if angunit is None:
+            angunit = image.angunit
+
         try:
             d = pyds9.DS9(wait=wait)
         except ValueError:
@@ -177,34 +189,40 @@ class ImRegTable(pd.DataFrame):
             raise
         else:
             ds9reg = d.get("regions -system image")
-            region = ds9reg_to_reg(ds9reg=ds9reg,image=image,angunit="mas")
+            region = ds9reg_to_reg(ds9reg=ds9reg,image=image,angunit=angunit)
             if overwrite:
                 return region
             else:
                 return self + region
 
     # Read DS9 region file
-    def load_ds9reg(self,regfile,image):
+    def load_ds9reg(self,regfile,image,angunit=None):
         '''
-        Load DS9 region file to ImRegTable.
+        Load DS9 region file to IMRegion.
 
         Args:
             regfile (str):
                 Region file name to read.
             image (IMFITS)
+            angunit (str, default = None):
+                The angular unit of region. If None, it will take from
+                the default angunit of the input image
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
+        if angunit is None:
+            angunit = image.angunit
+
         f = open(regfile,'r')
         ds9reg = f.read()
         f.close()
-        region = ds9reg_to_reg(ds9reg=ds9reg,image=image,angunit="mas")
+        region = ds9reg_to_reg(ds9reg=ds9reg,image=image,angunit=angunit)
         return region
 
     # Write DS9 region file
     def to_ds9reg(self,regfile,image,overwrite=True):
         '''
-        Write DS9 region file from ImRegTable.
+        Write DS9 region file from IMRegion.
 
         Args:
             regfile (str):
@@ -243,12 +261,12 @@ class ImRegTable(pd.DataFrame):
 
     ## Difmap
     # Load and save difmap window
-    def load_difmapwin(self,winname,overwrite=True):
-        pass
-
-    def to_difmapwin(self,winname):
-        # もしも box (angle=0) 以外の shape があれば、エラーを返す。
-        pass
+    #def load_difmapwin(self,winname,overwrite=True):
+    #    pass
+    #
+    #def to_difmapwin(self,winname):
+    #    # もしも box (angle=0) 以外の shape があれば、エラーを返す。
+    #    pass
 
 
     ## Edit region
@@ -271,7 +289,7 @@ class ImRegTable(pd.DataFrame):
             angunit (str, default=mas):
                 Anguler unit of xc, yc, width, height.
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         if height is None:
             height = width
@@ -290,12 +308,12 @@ class ImRegTable(pd.DataFrame):
 
         region = region.append(s,ignore_index=True)
 
-        for i in xrange(len(ImRegTable.imreg_columns)):
-            column = ImRegTable.imreg_columns[i]
-            if ImRegTable.imreg_types[i] is None:
+        for i in xrange(len(IMRegion.imreg_columns)):
+            column = IMRegion.imreg_columns[i]
+            if IMRegion.imreg_types[i] is None:
                 pass
             else:
-                region[column] = ImRegTable.imreg_types[i](region[column])
+                region[column] = IMRegion.imreg_types[i](region[column])
 
         return region
 
@@ -313,7 +331,7 @@ class ImRegTable(pd.DataFrame):
             angunit (str, default=mas):
                 Anguler unit of xc, yc, radius.
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         s = ImRegSeries(['circle',xc,yc,np.nan,np.nan,radius,np.nan,np.nan,np.nan,angunit],
                        index=['shape','xc','yc','width','height','radius',
@@ -327,12 +345,12 @@ class ImRegTable(pd.DataFrame):
 
         region = region.append(s,ignore_index=True)
 
-        for i in xrange(len(ImRegTable.imreg_columns)):
-            column = ImRegTable.imreg_columns[i]
-            if ImRegTable.imreg_types[i] is None:
+        for i in xrange(len(IMRegion.imreg_columns)):
+            column = IMRegion.imreg_columns[i]
+            if IMRegion.imreg_types[i] is None:
                 pass
             else:
-                region[column] = ImRegTable.imreg_types[i](region[column])
+                region[column] = IMRegion.imreg_types[i](region[column])
 
         return region
 
@@ -354,7 +372,7 @@ class ImRegTable(pd.DataFrame):
             angunit (str, default=mas):
                 Anguler unit of xc, yc, maja, mina.
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         s = ImRegSeries(['ellipse',xc,yc,np.nan,np.nan,np.nan,maja,mina,angle,angunit],
                        index=['shape','xc','yc','width','height','radius',
@@ -368,12 +386,12 @@ class ImRegTable(pd.DataFrame):
 
         region = region.append(s,ignore_index=True)
 
-        for i in xrange(len(ImRegTable.imreg_columns)):
-            column = ImRegTable.imreg_columns[i]
-            if ImRegTable.imreg_types[i] is None:
+        for i in xrange(len(IMRegion.imreg_columns)):
+            column = IMRegion.imreg_columns[i]
+            if IMRegion.imreg_types[i] is None:
                 pass
             else:
-                region[column] = ImRegTable.imreg_types[i](region[column])
+                region[column] = IMRegion.imreg_types[i](region[column])
 
         return region
 
@@ -416,12 +434,12 @@ class ImRegTable(pd.DataFrame):
             pass
 
         for index, row in self.iterrows():
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 self.loc[index,"width"] *= fx
                 self.loc[index,"height"] *= fy
-            if row["shape"] is "circle":
+            if row["shape"] == "circle":
                 self.loc[index,"radius"] *= fx
-            if row["shape"] is "ellipse":
+            if row["shape"] == "ellipse":
                 self.loc[index,"mina"] *= fx
                 self.loc[index,"maja"] *= fy
 
@@ -431,7 +449,7 @@ class ImRegTable(pd.DataFrame):
         Remove duplicated regions.
 
         Returns:
-            ImRegTable.
+            IMRegion.
         '''
         region = self.copy()
         outregion = self.copy()
@@ -449,19 +467,19 @@ class ImRegTable(pd.DataFrame):
             region.loc[index,"angunit"] = "mas"
 
             # Make "length" column for characteristic length
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 width = region.loc[index,"width"]
                 height = region.loc[index,"height"]
                 region.loc[index,"length"] = np.sqrt(width*width + height*height)
-            elif row["shape"] is "circle":
+            elif row["shape"] == "circle":
                 radius = region.loc[index,"radius"]
                 region.loc[index,"length"] = radius*2.0
-            elif row["shape"] is "ellipse":
+            elif row["shape"] == "ellipse":
                 maja = region.loc[index,"maja"]
                 mina = region.loc[index,"mina"]
                 region.loc[index,"length"] = max(maja,mina)
 
-        mesh = np.min([region["width"].min(),region["height"].min(),
+        mesh = np.nanmin([region["width"].min(),region["height"].min(),
                        region["radius"].min()*2.0,region["maja"].min(),
                        region["mina"].min()])
         mesh /= 10.0
@@ -480,14 +498,12 @@ class ImRegTable(pd.DataFrame):
         items = len(region)
         area = np.zeros((items,ny,nx))
         for index, row in region.iterrows():
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 area[index] = region_box(X,Y,row.xc,row.yc,row.width,row.height,row.angle)
-            elif row["shape"] is "circle":
+            elif row["shape"] == "circle":
                 area[index] = region_circle(X,Y,row.xc,row.yc,row.radius)
-            elif row["shape"] is "ellipse":
+            elif row["shape"] == "ellipse":
                 area[index] = region_ellipse(X,Y,row.xc,row.yc,row.mina/2.0,row.maja/2.0,row.angle)
-
-#        return area
 
         # Search duplicated area
         droplist = []
@@ -498,8 +514,6 @@ class ImRegTable(pd.DataFrame):
             area2 = area2 > 0
             merge = area1 + area2
             merge = merge > 0
-#            if index is 5:
-#                return area1,area2,merge
             if np.allclose(merge,area2):
                 # area_index is duplicated.
                 area[index] = np.zeros((ny,nx))
@@ -518,7 +532,7 @@ class ImRegTable(pd.DataFrame):
 
 
     ## Edit image
-    def editimage(self,image,save_totalflux=False):
+    def winmod(self,image,save_totalflux=False):
         '''
         Trim the image with image regions.
 
@@ -539,15 +553,15 @@ class ImRegTable(pd.DataFrame):
             angconv = util.angconv(row["angunit"],"deg")
             x0 = row["xc"]*angconv/image.header["dx"]+image.header["nxref"]-1
             y0 = row["yc"]*angconv/image.header["dy"]+image.header["nyref"]-1
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 width = row["width"]*angconv/image.header["dx"]
                 height = row["height"]*angconv/image.header["dy"]
                 angle = row["angle"]
                 tmparea = region_box(X,Y,x0,y0,width,height,angle)
-            elif row["shape"] is "circle":
+            elif row["shape"] == "circle":
                 radius = row["radius"]*angconv/image.header["dx"]
                 tmparea = region_circle(X,Y,x0,y0,radius)
-            elif row["shape"] is "ellipse":
+            elif row["shape"] == "ellipse":
                 radius1 = row["mina"]/2.0*angconv/image.header["dx"]
                 radius2 = row["maja"]/2.0*angconv/image.header["dy"]
                 angle = row["angle"]
@@ -570,7 +584,7 @@ class ImRegTable(pd.DataFrame):
 
     ## Mask Image
     # 1.0 or 0.0
-    def maskimage(self,image):
+    def maskimage(self, image):
         '''
         Make a mask image. Each pixel of the output image is stored as a
         single bit—i.e., a 0 or 1.
@@ -589,15 +603,15 @@ class ImRegTable(pd.DataFrame):
             angconv = util.angconv(row["angunit"],"deg")
             x0 = row["xc"]*angconv/image.header["dx"]+image.header["nxref"]-1
             y0 = row["yc"]*angconv/image.header["dy"]+image.header["nyref"]-1
-            if row["shape"] is "box":
+            if row["shape"] == "box":
                 width = row["width"]*angconv/image.header["dx"]
                 height = row["height"]*angconv/image.header["dy"]
                 angle = row["angle"]
                 tmparea = region_box(X,Y,x0,y0,width,height,angle)
-            elif row["shape"] is "circle":
+            elif row["shape"] == "circle":
                 radius = row["radius"]*angconv/image.header["dx"]
                 tmparea = region_circle(X,Y,x0,y0,radius)
-            elif row["shape"] is "ellipse":
+            elif row["shape"] == "ellipse":
                 radius1 = row["mina"]/2.0*angconv/image.header["dx"]
                 radius2 = row["maja"]/2.0*angconv/image.header["dy"]
                 angle = row["angle"]
@@ -619,14 +633,14 @@ class ImRegTable(pd.DataFrame):
     # True or False
     def imagewin(self,image,istokes=0, ifreq=0):
         '''
-        Make a mask image. Each pixel of the output image is stored as a 
+        Make a mask image. Each pixel of the output image is stored as a
         True/False.
-        
+
         Args:
             image (IMFITS)
         Returns:
             numpy.array.
-        '''                
+        '''
         maskimage = self.maskimage(image)
         imagewin = maskimage.data[istokes,ifreq] == 1.0
         return imagewin
@@ -639,14 +653,14 @@ class ImRegSeries(pd.Series):
 
     @property
     def _constructor_expanddim(self):
-        return ImRegTable
+        return IMRegion
 
 # ------------------------------------------------------------------------------
 # Functions
 # ------------------------------------------------------------------------------
-def read_imregtable(filename, **args):
+def read_imregion(filename, **args):
     '''
-    This fuction loads imdata.ImRegTable from an input csv file using pd.read_csv().
+    This fuction loads imdata.IMRegion from an input csv file using pd.read_csv().
 
     Args:
       filename:
@@ -654,9 +668,9 @@ def read_imregtable(filename, **args):
         method (such as a file handle or StringIO)
 
     Returns:
-      imdata.ImRegTable object
+      imdata.IMRegion object
     '''
-    region = ImRegTable(pd.read_csv(filename, **args))
+    region = IMRegion(pd.read_csv(filename, **args))
 
     return region
 
@@ -793,17 +807,17 @@ def reg_to_ds9reg(row,image):
     x = row["xc"]/dx + nxref
     y = row["yc"]/dy + nyref
 
-    if row["shape"] is "box":
+    if row["shape"] == "box":
         width = -row["width"]/dx
         height = row["height"]/dy
         angle = row["angle"]
         return "image; box(%f,%f,%f,%f,%f)" % (x,y,width,height,angle)
 
-    if row["shape"] is "circle":
+    if row["shape"] == "circle":
         r = -row["radius"]/dx
         return "image; circle(%f,%f,%f)" % (x,y,r)
 
-    if row["shape"] is "ellipse":
+    if row["shape"] == "ellipse":
         a = -row["mina"]/2.0/dx
         b = row["maja"]/2.0/dy
         angle = row["angle"]
@@ -823,7 +837,7 @@ def ds9reg_to_reg(ds9reg,image,angunit="mas"):
         pass
 
     ds9reg = ds9reg.split("\n")
-    region = ImRegTable()
+    region = IMRegion()
     region.initialize()
     for reg in ds9reg:
         if reg[0:3] == "box":
