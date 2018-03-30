@@ -133,6 +133,9 @@ subroutine average(uvdata,u,v,w,tin,tout,start,end,solint,minpoint, &
         visum = visum/wsum
         cnt = cnt - minpoint + 1
       elsewhere
+        vrsum = 0
+        visum = 0
+        wsum = 0
         cnt = 0
       end where
       !
