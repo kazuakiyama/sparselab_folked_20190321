@@ -208,7 +208,9 @@ class UVFITS(object):
             arrdata.frqsel = ANtab.header.get("FREQID")
             if arrdata.frqsel is None:
                 arrdata.frqsel=1
-            elif arrdata.frqsel == -1:
+            elif arrdata.frqsel < 1:
+                prt("[WARNING] Negative FRQSEL in AIPS AN Table (subarray=%d)"%(subarrid), indent)
+                prt("          FRQSEL=1 is set for this subarray", indent)
                 arrdata.frqsel=1
             arrdata.subarray = subarrid
 
