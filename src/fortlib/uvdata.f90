@@ -39,12 +39,12 @@ subroutine average(uvdata,u,v,w,tin,tout,start,end,solint,minpoint, &
   uvdataout(:,:,:,:,:,:,:) = 0.0
   isdata(:) = .False.
 
-  !!$OMP PARALLEL DO DEFAULT(SHARED)&
-  !!$OMP   FIRSTPRIVATE(tout,solint,minpoint,start,end,u,v,w,&
-  !!$OMP                Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx) &
-  !!$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,idx,it,Ndata_idx,&
-  !!$OMP           uvdatatmp,uvwtmp1,uvwtmp2,tintmp,cnt,vrsum,visum,wsum) &
-  !!$OMP   REDUCTION(+:uvdataout,uout,vout,wout)
+  !$OMP PARALLEL DO DEFAULT(SHARED)&
+  !$OMP   FIRSTPRIVATE(tout,solint,minpoint,start,end,u,v,w,&
+  !$OMP                Nstokes,Nch,Nif,Nra,Ndec,Ndata,Nt,Nidx) &
+  !$OMP   PRIVATE(i1,i2,i3,i4,i5,i6,i7,idx,it,Ndata_idx,&
+  !$OMP           uvdatatmp,uvwtmp1,uvwtmp2,tintmp,cnt,vrsum,visum,wsum) &
+  !$OMP   REDUCTION(+:uvdataout,uout,vout,wout)
   do idx=1, Nidx
     Ndata_idx = end(idx) - start(idx) + 1
 
@@ -148,7 +148,7 @@ subroutine average(uvdata,u,v,w,tin,tout,start,end,solint,minpoint, &
     end do ! Nt
     deallocate(uvdatatmp,tintmp,vrsum,visum,wsum,cnt)
   end do ! Nidx
-  !!$OMP END PARALLEL DO
+  !$OMP END PARALLEL DO
 end subroutine
 !
 ! weightcal
@@ -233,8 +233,9 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
         if (dofreq .eq. 0) then
           do i4=1, Nstokes
             N = sum(cnt(i4,:,:,i3,i2))
-            if (N <= 2*minpoint) then
+            if (N <= minpoint) then
               uvdataout(3,i4,:,:,i3,i2,i1) = 0.0
+              cycle
             end if
             aver = sum(vmr(i4,:,:,i3,i2))/N
             avei = sum(vmi(i4,:,:,i3,i2))/N
@@ -247,8 +248,9 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
           do i4=1, Nif
             do i5=1, Nstokes
               N = sum(cnt(i5,:,i4,i3,i2))
-              if (N <= 2*minpoint) then
+              if (N <= minpoint) then
                 uvdataout(3,i5,:,i4,i3,i2,i1) = 0.0
+                cycle
               end if
               aver = sum(vmr(i5,:,i4,i3,i2))/N
               avei = sum(vmi(i5,:,i4,i3,i2))/N
@@ -263,8 +265,9 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
             do i5=1, Nch
               do i6=1, Nstokes
                 N = cnt(i6,i5,i4,i3,i2)
-                if (N <= 2*minpoint) then
+                if (N <= minpoint) then
                   uvdataout(3,i6,i5,i4,i3,i2,i1) = 0.0
+                  cycle
                 end if
                 aver = vmr(i6,i5,i4,i3,i2)/N
                 avei = vmi(i6,i5,i4,i3,i2)/N
