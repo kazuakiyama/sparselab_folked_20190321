@@ -5,7 +5,16 @@
 PYTHONLIBDIR=../../sparselab
 
 CC=@CC@
-CFLAGS=-fPIC -O2 @CFLAGS@
+
+# Optimization Flag
+ifeq ($(OSTYPE),"LINUX")
+  OPTFLAGS=-Ofast -march=native
+else
+  OPTFLAGS=-O3 -march=core2
+endif
+
+CFLAGS=-fPIC $(OPTFLAGS) @CFLAGS@
+
 OS := $(shell uname)
 ifeq ($(OS),Darwin)
 	CLIBS=@CFLAGS@ @LDFLAGS@ @lapacklib@ @blaslib@ -lm -lpthread
@@ -36,10 +45,10 @@ libmfista_fft: $(object_tools2) $(object_fft2)
 	$(CC) $(CFLAGS) -shared $(object_fft2) $(object_tools2) -o $@.so $(CLIBS) $(CLIBS_FFTW)
 
 .c.o:
-	$(CC) -c -O2 -Wall $(CFLAGS) -o $@ $<
+	$(CC) -c -Wall $(CFLAGS) -o $@ $<
 
 .c.o2:
-	$(CC) -c -O2 -Wall -fPIC $(CFLAGS) -o $@ $<
+	$(CC) -c -Wall -fPIC $(CFLAGS) -o $@ $<
 
 clean:
 	rm -f $(targets) *.o *.o2 *.so
