@@ -33,8 +33,8 @@ from .. import uvdata, util, imdata
 # Default Parameters
 #-------------------------------------------------------------------------
 mfistaprm = {}
-mfistaprm["eps"]=1e-4
-mfistaprm["fftw_measure"]=0
+mfistaprm["eps"]=1e-10
+mfistaprm["fftw_measure"]=1
 mfistaprm["cinit"]=10000.0
 
 #-------------------------------------------------------------------------
@@ -72,6 +72,8 @@ class _MFISTA_RESULT(ctypes.Structure):
     ]
 
     def __init__(self,M,N):
+        self.residarr = np.zeros(M, dtype=np.float64)
+
         c_double_p = ctypes.POINTER(ctypes.c_double)
         self.M = ctypes.c_int(M)
         self.N = ctypes.c_int(N)
@@ -100,15 +102,14 @@ class _MFISTA_RESULT(ctypes.Structure):
 #-------------------------------------------------------------------------
 # Wrapping Function
 #-------------------------------------------------------------------------
-
-
-
-def _run_mfista(
-    initimage, vistable,
-    imagewin=None,
-    lambl1=-1., lambtv=-1, lambtsv=-1,
-    niter=5000, fgfov=1,
-    normlambda=True, nonneg=True,
+def imaging(
+    initimage,
+    vistable,
+    imregion=None,
+    lambl1=-1., lambtv=-1, lambtsv=-1, normlambda=True,
+    niter=5000,
+    nonneg=True,
+    totalflux=None,
     istokes=0, ifreq=0):
 
     # Nonneg condition
@@ -127,41 +128,59 @@ def _run_mfista(
     Nyx = Nx * Ny
 
     # image region
-    if imagewin is not None:
+    if imregion is not None:
         box_flag = 1
-        mask = imagewin.reshape(Nyx)
+        mask = imregion.maskimage(initimage).reshape(Nyx)
     else:
         box_flag = 0
         mask = np.zeros(Nyx)
 
+    if totalflux is None:
+        totalflux = vistable["amp"].max()
+
+    # nomarlization of lambda
+    if normlambda:
+        fluxscale = np.float64(totalflux)
+        # convert Flux Scaling Factor
+        fluxscale = np.abs(fluxscale) / Nyx
+        lambl1_sim = lambl1 / (fluxscale * Nyx)
+        lambtv_sim = lambtv / (4 * fluxscale * Nyx)
+        lambtsv_sim = lambtsv / (4 *fluxscale**2 * Nyx)
+    else:
+        lambl1_sim = lambl1
+        lambtv_sim = lambtv
+        lambtsv_sim = lambtsv
+
     # reshape image and coordinates
     Iin = Iin.reshape(Nyx)
     Iout = Iout.reshape(Nyx)
-    x = x.reshape(Nyx)
-    y = y.reshape(Nyx)
 
     # do gridding
     print("Gridding Visibility")
-    gvistable = vistable.gridding(fgfov=fgfov, conj=True)
+    gvistable = vistable.gridding(initimage)
+    gvistable = gvistable.trans_for_fftw()
 
     # Pick up data sets
-    u_idx = np.asarray(gvistable.uidx.values, dtype=np.int32)
-    v_idx = np.asarray(gvistable.vidx.values, dtype=np.int32)
-    Vcomp = np.exp(1j*gvistable.amp.values * np.deg2rad(gvistable.phase.values))
+    uidx = np.asarray(gvistable.ugidx.values, dtype=np.int32)
+    vidx = np.asarray(gvistable.vgidx.values, dtype=np.int32)
+    Vcomp = gvistable.amp.values*np.exp(-1j*np.deg2rad(gvistable.phase.values))
     Vreal = np.asarray(np.real(Vcomp), dtype=np.float64)
     Vimag = np.asarray(np.imag(Vcomp), dtype=np.float64)
-    Verr = np.asarray(gvistable.sigma.values, dtype=np.float64)
-    M = Verr.size
-    Verr *= 2*M
+    Verr = np.abs(np.asarray(gvistable.sigma.values, dtype=np.float64))
+    M = len(Verr)
+    Verr *= np.sqrt(M)
+    #Vreal /= Verr
+    #Vimag /= Verr
     del Vcomp
 
     # Lambda
-    lambl1_sim = lambl1
-    lambtv_sim = lambtv
-    lambtsv_sim = lambtsv
     if lambl1_sim < 0: lambl1_sim = 0.
     if lambtv_sim < 0: lambtv_sim = 0.
     if lambtsv_sim < 0: lambtsv_sim = 0.
+    print("lambl1_sim:",lambl1_sim)
+    print("lambtsv_sim:",lambtsv_sim)
+    print("lambtv_sim:",lambtv_sim)
+
 
     # make an MFISTA_result object
     mfista_result = _MFISTA_RESULT(M,Nyx)
@@ -187,27 +206,28 @@ def _run_mfista(
     libmfistapath = os.path.join(libmfistapath,"libmfista_fft.so")
     libmfista = ctypes.cdll.LoadLibrary(libmfistapath)
     libmfista.mfista_imaging_core_fft(
-        # uv coordinates
+        # uv coordinates (u_idx, v_idx), MFISTA handles u is column, v is row. so no need to flip
         uidx_p, vidx_p,
-        # full complex Visibilities
+        # full complex Visibilities (y_r, y_i, noise_stdev)
         Vreal_p, Vimag_p, Verr_p,
-        # Array Size
-        ctypes.c_int(M), ctypes.c_int(Nx), ctypes.c_int(Ny),
-        ctypes.maxiter(niter), ctypes.c_double(mfistaprm["eps"]),
-        # Imaging Parameters
+        # Array Size (M, Nx, Ny, maxiter, eps), Since the input image is column order, Nx, Ny are flipped
+        ctypes.c_int(M), ctypes.c_int(Ny), ctypes.c_int(Nx),
+        ctypes.c_int(niter), ctypes.c_double(mfistaprm["eps"]),
+        # Imaging Parameters (lambdas, cinit)
         ctypes.c_double(lambl1_sim),
         ctypes.c_double(lambtv_sim),
         ctypes.c_double(lambtsv_sim),
         ctypes.c_double(mfistaprm["cinit"]),
-        # Input and Output Images
+        # Input and Output Images (xinit, xout)
         Iin_p, Iout_p,
-        # Flags
+        # Flags (nonneg_flag, fftw_measure)
         ctypes.c_int(nonneg_flag),
         ctypes.c_int(mfistaprm["fftw_measure"]),
-        # clean box
+        # clean box (box_flag, cl_box, mfista_result)
         ctypes.c_int(box_flag),
-        mask,
+        mask_p,
         mfista_result_p)
+
 
     # Get Results
     outimage = copy.deepcopy(initimage)

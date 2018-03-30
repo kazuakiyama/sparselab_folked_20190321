@@ -172,13 +172,13 @@ class GVisTable(UVTable):
 
         outtable["u"] = outtable["ugidx"] * self.du
         outtable["v"] = outtable["vgidx"] * self.dv
-        outtable = outtable.sort_values(by=["ugidx","vgidx"]).reset_index(drop=True)
+        #outtable = outtable.sort_values(by=["ugidx","vgidx"]).reset_index(drop=True)
         return outtable
 
 
     def ifftshift(self):
         '''
-        shift ugidx and vgidx in the area of [-Nx/2, Nx/2), [-Ny/2, Ny/2)
+        shift ugidx and vgidx in the area of (-Nx/2, Nx/2], (-Ny/2, Ny/2]
 
         Output: GVisTable object
         '''
@@ -194,7 +194,7 @@ class GVisTable(UVTable):
         # Shift vistable
         flag = True
         while(flag):
-            idx = outtable.ugidx.values < -self.nx//2
+            idx = outtable.ugidx.values <= -self.nx//2
             if True in idx:
                 outtable.loc[idx, "ugidx"] += self.nx
             else:
@@ -202,7 +202,7 @@ class GVisTable(UVTable):
         #
         flag = True
         while(flag):
-            idx = outtable.vgidx.values < -self.ny//2
+            idx = outtable.vgidx.values <= -self.ny//2
             if True in idx:
                 outtable.loc[idx, "vgidx"] += self.ny
             else:
@@ -210,7 +210,7 @@ class GVisTable(UVTable):
         #
         flag = True
         while(flag):
-            idx = outtable.ugidx.values >= self.nx//2
+            idx = outtable.ugidx.values > self.nx//2
             if True in idx:
                 outtable.loc[idx, "ugidx"] -= self.nx
             else:
@@ -218,7 +218,7 @@ class GVisTable(UVTable):
         #
         flag = True
         while(flag):
-            idx = outtable.vgidx.values >= self.ny//2
+            idx = outtable.vgidx.values > self.ny//2
             if True in idx:
                 outtable.loc[idx, "vgidx"] -= self.ny
             else:
@@ -233,7 +233,7 @@ class GVisTable(UVTable):
     def pshift_r2e(self):
         '''
         Shift the phase tracking center position from the current reference
-        (nxref, nyref) to (1,1)(the pixel on the bottom-left corner)
+        (nxref, nyref) to (1,1) (the pixel on the bottom-left corner)
 
         Output: GVisTable object
         '''
@@ -247,7 +247,7 @@ class GVisTable(UVTable):
         outtable.dv = self.dv
 
         # Phase shift
-        phase = (self.nxref - 1)*outtable.ugidx.values/self.nx
+        phase = (self.nxref - 1)*outtable.ugidx.values/self.nx * (-1)
         phase+= (self.nyref - 1)*outtable.vgidx.values/self.ny
         phase*= 2*np.pi
         phase+= np.deg2rad(outtable.phase.values)
@@ -274,7 +274,7 @@ class GVisTable(UVTable):
         outtable.dv = self.dv
 
         # Phase shift
-        phase = (1 - self.nxref)*outtable.ugidx.values/self.nx
+        phase = (1 - self.nxref)*outtable.ugidx.values/self.nx * (-1)
         phase+= (1 - self.nyref)*outtable.vgidx.values/self.ny
         phase*= 2*np.pi
         phase+= np.deg2rad(outtable.phase.values)
@@ -293,14 +293,37 @@ class GVisTable(UVTable):
         Returns:
             GVisTable object
         '''
+        # Copy vistable for edit
+        #outtable = copy.deepcopy(self).reset_index(drop=True)
+
         # Shift phase
         outtable = self.pshift_r2e()
 
         # flip u sign (since fftw has an opposite x-axis direction)
         outtable.loc[:, ["u","ugidx"]] *= -1
+        outtable.nx = self.nx
+        outtable.ny = self.ny
+        outtable.nxref = self.nxref
+        outtable.nyref = self.nyref
+        outtable.du = self.du
+        outtable.dv = self.dv
 
-        # fft shift ()
+
+        # Shift uidx, vidx to (-Nx/2, Nx/2], (-Ny/2, Ny/2)
+        outtable = outtable.ifftshift()
+
+        # shift negative u points to the positive u point by taking conjugate
+        outtable.loc[outtable["ugidx"]<0, ["u","ugidx","v","vgidx","phase"]] *= -1
+        outtable.nx = self.nx
+        outtable.ny = self.ny
+        outtable.nxref = self.nxref
+        outtable.nyref = self.nyref
+        outtable.du = self.du
+        outtable.dv = self.dv
+
+        # Shift uidx, vidx to [0, Nx), [0, Ny)
         outtable = outtable.fftshift()
+
 
         return outtable
 

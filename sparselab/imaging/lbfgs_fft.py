@@ -45,10 +45,9 @@ def imaging(
         initimage,
         imregion=None,
         vistable=None,amptable=None, bstable=None, catable=None,
-        lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,normlambda=True,
+        lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambcom=-1.,normlambda=True,
         niter=1000,
         nonneg=True,
-        transform=None, transprm=None,
         compower=1.,
         totalflux=None, fluxconst=False,
         istokes=0, ifreq=0):
@@ -77,9 +76,6 @@ def imaging(
         lambtsv (float,default=-1.):
             Regularization parameter for total squared variation. If lambtsv <= 0,
             then the regularizar of total squared variation has no application.
-        lambmem (float,default=-1.):
-            Regularization parameter for maximum entropy method (MEM). If lambmem <= 0,
-            then the regularizar of MEM has no application.
         lambcom (float,default=-1.):
             Regularization parameter for center of mass weighting. If lambtsv <= 0,
             then the regularizar has no application.
@@ -90,13 +86,6 @@ def imaging(
             The number of iterations.
         nonneg (boolean,default=True):
             If nonneg=True, the problem is solved with non-negative constrants.
-        transform (str,default=None):
-            If transform="log", log transform will be applied to regularization
-            functions. If transform="gamma", gamma transform will be applied to
-            regularization functions.
-        transprm (float, default=None):
-            If transform="log", transprm is a threshold of log transform. If
-            transform="gamma", transprm is a power of gamma correction.
         compower (float, default=1.):
             Power of center of mass when lambcom > 0.
         totalflux (float, default=None):
@@ -132,30 +121,33 @@ def imaging(
         dofluxconst = True
 
     # Sanity Check: Transform
-    if transform is None:
-        print("No transform will be applied to regularization functions.")
-        transtype = np.int32(0)
-        transprm = np.float64(0)
-    elif transform == "log":
-        print("log transform will be applied to regularization functions.")
-        transtype = np.int32(1)
-        if transprm is None:
-            transprm = 1e-10
-        elif transprm <= 0:
-            raise ValueError("transprm must be positive.")
-        else:
-            transprm = np.float64(transprm)
-        print("  threshold of log transform: %g"%(transprm))
-    elif transform == "gamma":
-        print("Gamma transform will be applied to regularization functions.")
-        transtype = np.int32(2)
-        if transprm is None:
-            transprm = 1/2.2
-        elif transprm <= 0:
-            raise ValueError("transprm must be positive.")
-        else:
-            transprm = np.float64(transprm)
-        print("  Power of Gamma correction: %g"%(transprm))
+    transform = None
+    transtype = np.int32(0)
+    transprm = np.float64(0)
+    # if transform is None:
+    #     print("No transform will be applied to regularization functions.")
+    #     transtype = np.int32(0)
+    #     transprm = np.float64(0)
+    # elif transform == "log":
+    #     print("log transform will be applied to regularization functions.")
+    #     transtype = np.int32(1)
+    #     if transprm is None:
+    #         transprm = 1e-10
+    #     elif transprm <= 0:
+    #         raise ValueError("transprm must be positive.")
+    #     else:
+    #         transprm = np.float64(transprm)
+    #     print("  threshold of log transform: %g"%(transprm))
+    # elif transform == "gamma":
+    #     print("Gamma transform will be applied to regularization functions.")
+    #     transtype = np.int32(2)
+    #     if transprm is None:
+    #         transprm = 1/2.2
+    #     elif transprm <= 0:
+    #         raise ValueError("transprm must be positive.")
+    #     else:
+    #         transprm = np.float64(transprm)
+    #     print("  Power of Gamma correction: %g"%(transprm))
 
     # get initial images
     Iin = np.float64(initimage.data[istokes, ifreq])
@@ -283,20 +275,20 @@ def imaging(
 
         # convert Flux Scaling Factor
         fluxscale = np.abs(fluxscale) / Nyx
-        if   transform=="log":   # log correction
-            fluxscale = np.log(fluxscale+transprm)-np.log(transprm)
-        elif transform=="gamma": # gamma correction
-            fluxscale = (fluxscale)**transprm
+        #if   transform=="log":   # log correction
+        #    fluxscale = np.log(fluxscale+transprm)-np.log(transprm)
+        #elif transform=="gamma": # gamma correction
+        #    fluxscale = (fluxscale)**transprm
 
         lambl1_sim = lambl1 / (fluxscale * Nyx)
         lambtv_sim = lambtv / (4 * fluxscale * Nyx)
         lambtsv_sim = lambtsv / (4 *fluxscale**2 * Nyx)
-        lambmem_sim = lambmem / np.abs(fluxscale*np.log(fluxscale) * Nyx)
+        #lambmem_sim = lambmem / np.abs(fluxscale*np.log(fluxscale) * Nyx)
     else:
         lambl1_sim = lambl1
         lambtv_sim = lambtv
         lambtsv_sim = lambtsv
-        lambmem_sim = lambmem
+    lambmem_sim = -1
 
     # Center of Mass regularization
     lambcom_sim = lambcom # No normalization for COM regularization
@@ -369,11 +361,15 @@ def imaging(
     return outimage
 
 def statistics(
-        initimage, imregion=None,
-        vistable=None, amptable=None, bstable=None, catable=None,
-        lambl1=1., lambtv=-1, lambtsv=1, logreg=False, normlambda=True,
+        initimage,
+        imregion=None,
+        vistable=None,amptable=None, bstable=None, catable=None,
+        lambl1=-1.,lambtv=-1.,lambtsv=-1.,lambmem=-1.,lambcom=-1.,normlambda=True,
+        niter=1000,
+        nonneg=True,
+        compower=1.,
         totalflux=None, fluxconst=False,
-        istokes=0, ifreq=0, fulloutput=True, **args):
+        istokes=0, ifreq=0):
     '''
 
     '''
@@ -383,29 +379,19 @@ def statistics(
         print("Error: No data are input.")
         return -1
 
-    # Total Flux constraint: Sanity Check
-    dofluxconst = False
-    if ((vistable is None) and (amptable is None) and (totalflux is None)):
-        print("Error: No absolute amplitude information in the input data.")
-        print("       You need to set the total flux constraint by totalflux.")
-        return -1
-    elif ((totalflux is None) and (fluxconst is True)):
-        print("Error: No total flux is specified, although you set fluxconst=True.")
-        print("       You need to set the total flux constraint by totalflux.")
-        return -1
-    elif ((vistable is None) and (amptable is None) and
-          (totalflux is not None) and (fluxconst is False)):
-        print("Warning: No absolute amplitude information in the input data.")
-        print("         The total flux will be constrained, although you do not set fluxconst=True.")
-        dofluxconst = True
-    elif fluxconst is True:
-        dofluxconst = True
-
-    # Image window
-    if imregion is None:
-        imagewin = None
-    else:
+    # apply the imaging area
+    if imregion is not None:
         imagewin = imregion.imagewin(initimage,istokes,ifreq)
+    else:
+        imagewin = None
+
+    if totalflux is None:
+        totalflux = []
+        if vistable is not None:
+            totalflux.append(vistable["amp"].max())
+        if amptable is not None:
+            totalflux.append(amptable["amp"].max())
+        totalflux = np.max(totalflux)
 
     # Full Complex Visibility
     Ndata = 0
@@ -466,32 +452,25 @@ def statistics(
     Nx = np.int32(initimage.header["nx"])
     Ny = np.int32(initimage.header["ny"])
     Nyx = Nx * Ny
+
     if imagewin is None:
         pixnum = Nyx
     else:
         pixnum = sum(imagewin.reshape(Nyx))
+
     if normlambda:
-        # Guess Total Flux
-        if totalflux is None:
-            fluxscale = []
-            if vistable is not None:
-                fluxscale.append(vistable["amp"].max())
-            if amptable is not None:
-                fluxscale.append(amptable["amp"].max())
-            fluxscale = np.max(fluxscale)
-            print("Flux Scaling Factor for lambda: The expected total flux is not given.")
-            print("The scaling factor will be %g" % (fluxscale))
-        else:
-            fluxscale = np.float64(totalflux)
-            print("Flux Scaling Factor for lambda: The scaling factor will be %g" % (fluxscale))
-        if logreg:
-            lambl1_sim = lambl1 / (len(xidx)*np.log(1+fluxscale/len(xidx)))
-            lambtv_sim = lambtv / (len(xidx)*np.log(1+fluxscale/len(xidx)))
-            lambtsv_sim = lambtsv / (len(xidx)*np.log(1+fluxscale/len(xidx)))**2
-        else:
-            lambl1_sim = lambl1 / fluxscale
-            lambtv_sim = lambtv / fluxscale
-            lambtsv_sim = lambtsv / fluxscale**2
+        fluxscale = np.float64(totalflux)
+
+        # convert Flux Scaling Factor
+        fluxscale = np.abs(fluxscale) / Nyx
+        #if   transform=="log":   # log correction
+        #    fluxscale = np.log(fluxscale+transprm)-np.log(transprm)
+        #elif transform=="gamma": # gamma correction
+        #    fluxscale = (fluxscale)**transprm
+
+        lambl1_sim = lambl1 / (fluxscale * Nyx)
+        lambtv_sim = lambtv / (4 * fluxscale * Nyx)
+        lambtsv_sim = lambtsv / (4 *fluxscale**2 * Nyx)
     else:
         lambl1_sim = lambl1
         lambtv_sim = lambtv
