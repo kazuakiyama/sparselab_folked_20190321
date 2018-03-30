@@ -233,7 +233,7 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
         if (dofreq .eq. 0) then
           do i4=1, Nstokes
             N = sum(cnt(i4,:,:,i3,i2))
-            if (N <= minpoint) then
+            if (N < minpoint) then
               uvdataout(3,i4,:,:,i3,i2,i1) = 0.0
               cycle
             end if
@@ -248,7 +248,7 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
           do i4=1, Nif
             do i5=1, Nstokes
               N = sum(cnt(i5,:,i4,i3,i2))
-              if (N <= minpoint) then
+              if (N < minpoint) then
                 uvdataout(3,i5,:,i4,i3,i2,i1) = 0.0
                 cycle
               end if
@@ -265,7 +265,7 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
             do i5=1, Nch
               do i6=1, Nstokes
                 N = cnt(i6,i5,i4,i3,i2)
-                if (N <= minpoint) then
+                if (N < minpoint) then
                   uvdataout(3,i6,i5,i4,i3,i2,i1) = 0.0
                   cycle
                 end if
