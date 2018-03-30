@@ -121,11 +121,12 @@ void calc_yAx_fft(int NX, int NY, fftw_complex *y_fft_h, double *mask, fftw_comp
   /* set parameters */
 
   NY_h   = (int)floor(((double)NY)/2) + 1;
-  sqrtNN = sqrt((double)(NX*NY));
+  //sqrtNN = sqrt((double)(NX*NY));
 
   /* main */
 
-  for(i=0;i<NX*NY_h;++i) yAx_h[i] = y_fft_h[i] - mask[i]*yAx_h[i]/sqrtNN;
+  //for(i=0;i<NX*NY_h;++i) yAx_h[i] = y_fft_h[i] - mask[i]*yAx_h[i]/sqrtNN;
+  for(i=0;i<NX*NY_h;++i) yAx_h[i] = y_fft_h[i] - mask[i]*yAx_h[i];
 
 }
 
@@ -163,11 +164,13 @@ void dF_dx_fft(int *N, int NX, int NY,
 	       fftw_plan *ifftwplan, double *x4f, double *dFdx)
 {
   int i, inc = 1, NY_h;
-  double sqNN = sqrt((double)(NX*NY));
+  //double sqNN = sqrt((double)(NX*NY));
+  double NN = (double)(NX*NY);
 
   NY_h = (int)floor(((double)NY)/2) + 1;
 
-  for(i=0;i<NX*NY_h;++i) yAx_fh[i] *= (mask_h[i]/(2*sqNN));
+  //for(i=0;i<NX*NY_h;++i) yAx_fh[i] *= (mask_h[i]/(2*sqNN));
+  for(i=0;i<NX*NY_h;++i) yAx_fh[i] *= (mask_h[i]/(2*NN));
 
   fftw_execute(*ifftwplan);
 
