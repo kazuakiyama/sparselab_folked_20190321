@@ -1294,8 +1294,11 @@ class UVFITS(object):
             if tmp not in combset:
                 sappend(tmp)
         del sappend,lappend,tmp
-        stlst = np.asarray([comblst.index(comb) for comb in combset], dtype=np.int32)
-        edlst = np.asarray([comblst.count(comb) for comb in combset], dtype=np.int32)
+        cindex = comblst.index
+        ccount = comblst.count
+        stlst = np.asarray([cindex(comb) for comb in combset], dtype=np.int32)
+        edlst = np.asarray([ccount(comb) for comb in combset], dtype=np.int32)
+        del cindex, ccount
         edlst += stlst
         stlst += 1
         Nidx = len(stlst)
