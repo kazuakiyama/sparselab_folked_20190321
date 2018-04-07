@@ -38,6 +38,9 @@ subroutine average(uvdata,u,v,w,tin,tout,start,end,solint,minpoint, &
   ! initialize arrays
   uvdataout(:,:,:,:,:,:,:) = 0.0
   isdata(:) = .False.
+  uout(:) = 0d0
+  vout(:) = 0d0
+  wout(:) = 0d0
 
   !$OMP PARALLEL DO DEFAULT(SHARED)&
   !$OMP   FIRSTPRIVATE(tout,solint,minpoint,start,end,u,v,w,&
@@ -74,7 +77,7 @@ subroutine average(uvdata,u,v,w,tin,tout,start,end,solint,minpoint, &
     !   temporal input data for this particular data index
     allocate(uvdatatmp(3,Nstokes,Nch,Nif,Nra,Ndec,Ndata_idx))
     uvdatatmp(:,:,:,:,:,:,1:Ndata_idx) = uvdata(:,:,:,:,:,:,start(idx):end(idx))
-    !
+
     !   This is a counter that how many data points are included in a specific
     !   time segment
     allocate(cnt(Nstokes,Nch,Nif,Nra,Ndec))
@@ -127,17 +130,28 @@ subroutine average(uvdata,u,v,w,tin,tout,start,end,solint,minpoint, &
           end do !RA
         end do !DEC
       end do !Ndata_idx
+      !
       ! normalize weighted sum of Vreal, Vimag
-      where(cnt>=minpoint)
-        vrsum = vrsum/wsum
-        visum = visum/wsum
-        cnt = cnt - minpoint + 1
-      elsewhere
-        vrsum = 0
-        visum = 0
-        wsum = 0
-        cnt = 0
-      end where
+      do i2=1,Ndec
+        do i3=1,Nra
+          do i4=1,Nif
+            do i5=1,Nch
+              do i6=1,Nstokes
+                if (cnt(i6,i5,i4,i3,i2)>=minpoint) then
+                  vrsum(i6,i5,i4,i3,i2) = vrsum(i6,i5,i4,i3,i2)/wsum(i6,i5,i4,i3,i2)
+                  visum(i6,i5,i4,i3,i2) = visum(i6,i5,i4,i3,i2)/wsum(i6,i5,i4,i3,i2)
+                  cnt(i6,i5,i4,i3,i2) = 1
+                else
+                  vrsum(i6,i5,i4,i3,i2) = 0
+                  visum(i6,i5,i4,i3,i2) = 0
+                  wsum(i6,i5,i4,i3,i2) = 0
+                  cnt(i6,i5,i4,i3,i2) = 0
+                end if
+              end do !Stokes
+            end do !ch
+          end do !IF
+        end do !RA
+      end do !DEC
       !
       ! copy results to output array
       uvdataout(1,:,:,:,:,:,(idx-1)*Nt+it)=vrsum(:,:,:,:,:)
