@@ -203,13 +203,13 @@ subroutine weightcal(uvdata,tsec,ant1,ant2,subarray,source,&
           do i5=1, Nif
             do i6=1, Nch
               do i7=1, Nstokes
-                if (uvdataout(3,i7,i6,i5,i4,i3,i2) < seps) then
+                if (uvdata(3,i7,i6,i5,i4,i3,i2) < seps) then
                   cycle
                 end if
-                if (uvdataout(3,i7,i6,i5,i4,i3,i2) > shug) then
+                if (uvdata(3,i7,i6,i5,i4,i3,i2) > shug) then
                   cycle
                 end if
-                if (uvdataout(3,i7,i6,i5,i4,i3,i2) .ne. uvdataout(3,i7,i6,i5,i4,i3,i2)) then
+                if (uvdata(3,i7,i6,i5,i4,i3,i2) .ne. uvdata(3,i7,i6,i5,i4,i3,i2)) then
                   cycle
                 end if
                 vmr(i7,i6,i5,i4,i3) = uvdata(1,i7,i6,i5,i4,i3,i2) &
