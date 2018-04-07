@@ -546,7 +546,7 @@ def iterative_imaging(initimage, imageprm, Niter=10,
                       doconv=True, convprm={},
                       save_totalflux=False):
     oldimage = imaging(initimage, **imageprm)
-    oldcost = statistics(oldimage, fulloutput=False, **imageprm)["cost"]
+    oldcost = statistics(oldimage, **imageprm)["cost"]
     for i in np.arange(Niter - 1):
         newimage = copy.deepcopy(oldimage)
 
@@ -575,7 +575,7 @@ def iterative_imaging(initimage, imageprm, Niter=10,
         # Imaging Again
         newimage = imaging(newimage, **imageprm)
         newcost = statistics(
-            newimage, fulloutput=False, **imageprm)["cost"]
+            newimage, **imageprm)["cost"]
 
         if oldcost < newcost:
             print("No improvement in cost fucntions. Don't update image.")
@@ -948,7 +948,6 @@ def pipeline(
         lambl1s=[-1.],
         lambtvs=[-1.],
         lambtsvs=[-1.],
-        lambmems=[-1.],
         workdir="./",
         skip=False,
         sumtablefile="summary.csv",
@@ -1007,11 +1006,9 @@ def pipeline(
     lambl1s = -np.sort(-np.asarray(lambl1s))
     lambtvs = -np.sort(-np.asarray(lambtvs))
     lambtsvs = -np.sort(-np.asarray(lambtsvs))
-    lambmems = -np.sort(-np.asarray(lambmems))
     nl1 = len(lambl1s)
     ntv = len(lambtvs)
     ntsv = len(lambtsvs)
-    nmem = len(lambmems)
 
     # Summary Data
     sumtable = pd.DataFrame()
@@ -1039,19 +1036,17 @@ def pipeline(
                 catables = imageprm["catable"].gencvtables(nfold=nfold, seed=seed)
 
     # Start Imaging
-    for itsv, itv, il1, imem in itertools.product(
+    for itsv, itv, il1 in itertools.product(
             np.arange(ntsv),
             np.arange(ntv),
-            np.arange(nl1),
-            np.arange(nmem)):
+            np.arange(nl1)):
 
         # output
         imageprm["lambl1"] = lambl1s[il1]
         imageprm["lambtv"] = lambtvs[itv]
         imageprm["lambtsv"] = lambtsvs[itsv]
-        imageprm["lambmem"] = lambmems[imem]
 
-        header = "tsv%02d.tv%02d.l1%02d.mem%02d" % (itsv, itv, il1, imem)
+        header = "tsv%02d.tv%02d.l1%02d" % (itsv, itv, il1)
         if imageprm["lambtsv"] <= 0.0:
             place = header.find("tsv")
             header = header[:place] + header[place+6:]
@@ -1061,9 +1056,6 @@ def pipeline(
         if imageprm["lambl1"] <= 0.0:
             place = header.find("l1")
             header = header[:place] + header[place+5:]
-        if imageprm["lambmem"] <= 0.0:
-            place = header.find("mem")
-            header = header[:place] + header[place+6:]
         header = header.strip(".")
         if header is "":
             header = "noregularizar"
@@ -1089,7 +1081,6 @@ def pipeline(
         tmpsum["itsv"] = itsv
         tmpsum["itv"] = itv
         tmpsum["il1"] = il1
-        tmpsum["imem"] = imem
         for key in newstats.keys():
             tmpsum[key] = newstats[key]
 
@@ -1102,11 +1093,9 @@ def pipeline(
             tmpcvsum["itsv"] = np.zeros(nfold, dtype=np.int32)
             tmpcvsum["itv"] = np.zeros(nfold, dtype=np.int32)
             tmpcvsum["il1"] = np.zeros(nfold, dtype=np.int32)
-            tmpcvsum["imem"] = np.zeros(nfold, dtype=np.int32)
             tmpcvsum["lambtsv"] = np.zeros(nfold, dtype=np.float64)
             tmpcvsum["lambtv"] = np.zeros(nfold, dtype=np.float64)
             tmpcvsum["lambl1"] = np.zeros(nfold, dtype=np.float64)
-            tmpcvsum["lambmem"] = np.zeros(nfold, dtype=np.float64)
             tmpcvsum["tchisq"] = np.zeros(nfold, dtype=np.float64)
             tmpcvsum["trchisq"] = np.zeros(nfold, dtype=np.float64)
             tmpcvsum["tchisqfcv"] = np.zeros(nfold, dtype=np.float64)
@@ -1132,11 +1121,9 @@ def pipeline(
             tmpcvsum.loc[:, "itsv"] = itsv
             tmpcvsum.loc[:, "itv"] = itv
             tmpcvsum.loc[:, "il1"] = il1
-            tmpcvsum.loc[:, "imem"] = imem
             tmpcvsum.loc[:, "lambtsv"] = lambtsvs[itsv]
             tmpcvsum.loc[:, "lambtv"] = lambtvs[itv]
             tmpcvsum.loc[:, "lambl1"] = lambl1s[il1]
-            tmpcvsum.loc[:, "lambmem"] = lambl1s[imem]
 
             #   Imaging parameters
             cvimageprm = copy.deepcopy(imageprm)
@@ -1173,7 +1160,7 @@ def pipeline(
                                  angunit=angunit, uvunit=uvunit)
 
                 # Check Training data
-                trainstats = statistics(cvnewimage, fulloutput=False,
+                trainstats = statistics(cvnewimage,
                                               **cvimageprm)
 
                 # Check validating data
