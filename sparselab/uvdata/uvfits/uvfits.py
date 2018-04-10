@@ -280,11 +280,16 @@ class UVFITS(object):
         srcdata.sutable["calcode"] = np.asarray([""])
         srcdata.sutable["bandwidth"] = np.asarray([ghdu.header.get("CDELT4")], dtype=np.float64)
         if "EQUINOX" in ghdu.header.keys():
-            srcdata.sutable["equinox"] = np.asarray([ghdu.header.get("EQUINOX")], dtype=np.float64)
+            equinox = ghdu.header.get("EQUINOX")
         elif "EPOCH" in ghdu.header.keys():
-            srcdata.sutable["equinox"] = np.asarray([ghdu.header.get("EPOCH")], dtype=np.float64)
+            equinox = ghdu.header.get("EPOCH")
         else:
-            srcdata.sutable["equinox"] = np.asarray([2000.0], dtype=np.float64)
+            equinox = 2000.0
+        if isinstance(equinox, str) or isinstance(equinox, unicode):
+            if "J" in equinox: equinox = equinox.replace("J","")
+            if "B" in equinox: equinox = equinox.replace("B","")
+            equinox = np.float64(equinox)
+        srcdata.sutable["equinox"] = np.asarray([equinox], dtype=np.float64)
         srcdata.sutable["ra_app"] = np.asarray([ghdu.header.get("CRVAL6")], dtype=np.float64)
         srcdata.sutable["dec_app"] = np.asarray([ghdu.header.get("CRVAL7")], dtype=np.float64)
         srcdata.sutable["pmra"] = np.asarray([0.0], dtype=np.float64)
@@ -1305,7 +1310,7 @@ class UVFITS(object):
 
         print("(3/5) Create Timestamp")
         tsecin = outfits.get_utc().cxcsec
-        tsecout = np.arange(tsecin.min(),tsecin.max()+solint,solint)
+        tsecout = np.arange(tsecin.min()+solint/2,tsecin.max(),solint)
         Nt = len(tsecout)
 
         # Check number of Baselines
