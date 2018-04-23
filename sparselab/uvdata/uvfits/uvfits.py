@@ -1092,15 +1092,30 @@ class UVFITS(object):
         return Vreal,Vimag
 
 
-    def selfcal(self,imodel):
+    def selfcal(self,imodel,std_amp=1,std_pha=100):
         '''
-        self calibration:
-          This function is currently designed for selfcalibration of
-          single polarization (LL, RR, I) or dual polarization (RR+LL, XX+YY).
+        This function is currently designed for selfcalibration of
+        single polarization (LL, RR, I) or dual polarization (RR+LL, XX+YY).
 
-          For dual polarization, we assume that I = LL = RR = XX = YY,
-          which means no circlar polariztion for L/R data, and no linear polarization
-          for X/Y data.
+        For dual polarization, we assume that I = LL = RR = XX = YY,
+        which means no circlar polariztion for L/R data, and no linear polarization
+        for X/Y data.
+
+        Args:
+            imodel (imdata.IMFITS object): Input Model
+            std_amp (float, default=0.2):
+                Standard deviation of Gain amplitudes from unity.
+                This standard deviation will used for the Gaussian prior
+                of gain amplitudes. The defaul value (Std Gain error=100%)
+                provides a weakely infromed prior.
+            std_pha (float in radian, default=100):
+                Standard deviation of Gain phases from 0.
+                This standard deviation will used for the Gaussian prior
+                of gain phases. The defaul value provides a very weakely
+                infromed prior.
+
+        Return:
+            CLTable object
         '''
         print("Initialize CL Table")
         cltable = CLTable(self)
@@ -1114,6 +1129,7 @@ class UVFITS(object):
         # Run selfcal for each subarray
         subarrids = self.subarrays.keys()
         for subarrid in subarrids:
+            print("Subarray %d"%(subarrid))
             # data index of the current subarray
             idx_subarr = self.visdata.coord["subarray"] == subarrid
 
@@ -1122,7 +1138,7 @@ class UVFITS(object):
 
             # get utc information
             utcset = cltable.gaintabs[subarrid]["utc"]
-            for itime,iif,ich,istokes in itertools.product(xrange(Ntime),xrange(Nif),xrange(Nch),xrange(Nstokes)):
+            for itime,iif,ich,istokes in tqdm.tqdm(itertools.product(xrange(Ntime),xrange(Nif),xrange(Nch),xrange(Nstokes))):
                 # data index of the current time
                 idx_utc = utc == utcset[itime]
                 idx_utc &= idx_subarr
@@ -1165,7 +1181,7 @@ class UVFITS(object):
 
                 # compute wij and Xij
                 w_itime = np.sqrt(Vmodel_real_itime**2+Vmodel_imag_itime**2)
-                w_itime/= sigma_itime
+                w_itime/= sigma_itime * np.sqrt(Ndata_itime*2)
                 X_itime = (Vobs_real_itime+1j*Vobs_imag_itime)/(Vmodel_real_itime+1j*Vmodel_imag_itime)
                 del Vobs_real_itime, Vobs_imag_itime, sigma_itime
                 del Vmodel_real_itime, Vmodel_imag_itime
@@ -1177,16 +1193,16 @@ class UVFITS(object):
                 gain0[:Nant_itime] = 1.
 
 
-                if Ndata_itime > Nant_itime:
-                    result = leastsq(
-                        _selfcal_error_func, gain0, Dfun=_selfcal_error_dfunc,
-                        args=(ant1id,ant2id,w_itime,X_itime,Nant_itime,Ndata_itime))
+                #if Ndata_itime > Nant_itime:
+                result = leastsq(
+                    _selfcal_error_func, gain0, Dfun=_selfcal_error_dfunc,
+                    args=(ant1id,ant2id,w_itime,X_itime,std_amp,std_pha,Nant_itime,Ndata_itime))
 
-                    # make cltable
-                    g = result[0]
-                    for i in xrange(Nant_itime):
-                        cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime[i]-1,0]= g[i]
-                        cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime[i]-1,1]= g[i+Nant_itime]
+                # make cltable
+                g = result[0]
+                for i in xrange(Nant_itime):
+                    cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime[i]-1,0]= g[i]
+                    cltable.gaintabs[subarrid]["gain"][itime,iif,ich,istokes,antset_itime[i]-1,1]= g[i+Nant_itime]
         return cltable
 
 
@@ -1903,40 +1919,6 @@ class VisibilityData(object):
         self.coord.reset_index(drop=True, inplace=True)
         prt("VisData.sort: Data have been sorted by %s"%(", ".join(by)),indent)
 
-
-def _selfcal_error_func(gain,ant1,ant2,w,X,Nant,Ndata):
-    g1 = np.asarray([gain[ant1[i]]+1j*gain[Nant+ant1[i]] for i in xrange(Ndata)])
-    g2 = np.asarray([gain[ant2[i]]-1j*gain[Nant+ant2[i]] for i in xrange(Ndata)])
-    dV = w*(X-g1*g2)
-    return np.hstack([np.real(dV),np.imag(dV)])
-
-
-def _selfcal_error_dfunc(gain,ant1,ant2,w,X,Nant,Ndata):
-    ddV = np.zeros([Ndata*2,Nant*2])
-    for idata in xrange(Ndata):
-        # antenna id
-        i = ant1[idata]
-        j = ant2[idata]
-
-        # gains
-        gr_i = gain[i]
-        gi_i = gain[i+Nant]
-        gr_j = gain[j]
-        gi_j = gain[j+Nant]
-
-        ddV[idata,       i]      = -w[idata]*gr_j # d(Vreal)/d(gr_i)
-        ddV[idata,       j]      = -w[idata]*gr_i # d(Vreal)/d(gr_j)
-        ddV[idata,       i+Nant] = -w[idata]*gi_j # d(Vreal)/d(gi_i)
-        ddV[idata,       j+Nant] = -w[idata]*gi_i # d(Vreal)/d(gi_j)
-
-        ddV[idata+Ndata, i]      = +w[idata]*gi_j # d(Vimag)/d(gr_i)
-        ddV[idata+Ndata, j]      = -w[idata]*gi_i # d(Vimag)/d(gr_j)
-        ddV[idata+Ndata, i+Nant] = -w[idata]*gr_j # d(Vimag)/d(gi_i)
-        ddV[idata+Ndata, j+Nant] = +w[idata]*gr_i # d(Vimag)/d(gi_j)
-
-    return ddV
-
-
 class FrequencyData(object):
     def __init__(self):
         # Frequency Setup Number
@@ -2058,3 +2040,44 @@ class SourceData(object):
         lines.append("  Sources:")
         lines.append(prt(self.sutable["id,source,radec,equinox".split(",")],indent*2,output=True))
         return "\n".join(lines)
+
+
+def _selfcal_error_func(gain,ant1,ant2,w,X,std_amp,std_pha,Nant,Ndata):
+    g1 = np.asarray([gain[ant1[i]]+1j*gain[Nant+ant1[i]] for i in xrange(Ndata)])
+    g2 = np.asarray([gain[ant2[i]]-1j*gain[Nant+ant2[i]] for i in xrange(Ndata)])
+    dV = w*(X-g1*g2)
+    Pamp = [(np.sqrt(gain[i]**2+gain[i+Nant]**2)-1)/std_amp for i in xrange(Nant)]
+    Ppha = [np.arctan2(gain[i+Nant],gain[i])/std_pha for i in xrange(Nant)]
+    return np.hstack([np.real(dV),np.imag(dV),Pamp,Ppha])
+
+
+def _selfcal_error_dfunc(gain,ant1,ant2,w,X,std_amp,std_pha,Nant,Ndata):
+    ddV = np.zeros([Ndata*2+Nant*2,Nant*2])
+    for idata in xrange(Ndata):
+        # antenna id
+        i = ant1[idata]
+        j = ant2[idata]
+
+        # gains
+        gr_i = gain[i]
+        gi_i = gain[i+Nant]
+        gr_j = gain[j]
+        gi_j = gain[j+Nant]
+
+        ddV[idata,       i]      = -w[idata]*gr_j # d(Vreal)/d(gr_i)
+        ddV[idata,       j]      = -w[idata]*gr_i # d(Vreal)/d(gr_j)
+        ddV[idata,       i+Nant] = -w[idata]*gi_j # d(Vreal)/d(gi_i)
+        ddV[idata,       j+Nant] = -w[idata]*gi_i # d(Vreal)/d(gi_j)
+
+        ddV[idata+Ndata, i]      = +w[idata]*gi_j # d(Vimag)/d(gr_i)
+        ddV[idata+Ndata, j]      = -w[idata]*gi_i # d(Vimag)/d(gr_j)
+        ddV[idata+Ndata, i+Nant] = -w[idata]*gr_j # d(Vimag)/d(gi_i)
+        ddV[idata+Ndata, j+Nant] = +w[idata]*gr_i # d(Vimag)/d(gi_j)
+    for i in xrange(Nant):
+        ampsq = gain[i]**2+gain[i+Nant]**2
+        amp = np.sqrt(ampsq)
+        ddV[i+Ndata*2, i]      = gain[i]/amp
+        ddV[i+Ndata*2, i+Nant] = gain[i+Nant]/amp
+        ddV[i+Nant+Ndata*2, i]      = gain[i]/ampsq
+        ddV[i+Nant+Ndata*2, i+Nant] =-gain[i+Nant]/ampsq
+    return ddV
