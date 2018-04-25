@@ -26,59 +26,56 @@ AC_CHECK_PROGS([F2PY],
                [f2py],
                [f2py])
 
-
-#-------------------------------------------------------------------------------
-# Check FORTRAN libraries.
-#-------------------------------------------------------------------------------
 AC_LANG([Fortran])
-AC_LANG_PUSH(Fortran)
-
-# BLAS
-AC_CHECK_LIB(openblas, dgemm,
-             [blaslib="-lopenblas"],
-             [AC_CHECK_LIB(blas, dgemm,
-                           [blaslib="-lblas"],
-                           [AC_MSG_ERROR([blas was not found.])]
-             )]
-)
-AC_SUBST([blaslib])
-
-# LAPACK
-AC_CHECK_LIB(lapack, dgesv,
-             [lapacklib="-llapack"],
-             [AC_MSG_ERROR([lapack was not found.])])
-AC_SUBST([lapacklib])
-AC_LANG_POP(Fortran)
-
 
 #-------------------------------------------------------------------------------
-# Check C libraries.
+# PKG CONFIG
 #-------------------------------------------------------------------------------
+PKG_PROG_PKG_CONFIG
+PKG_CONFIG="$PKG_CONFIG --static"
+PKG_CHECK_MODULES(OPENBLAS, openblas)
+AC_MSG_RESULT("CFLAGS: $OPENBLAS_CFLAGS")
+AC_MSG_RESULT("LIBS:   $OPENBLAS_LIBS")
+
+#-------------------------------------------------------------------------------
+# Check FFTW3
+#-------------------------------------------------------------------------------
+PKG_CHECK_MODULES(FFTW3, fftw3)
+AC_MSG_RESULT("CFLAGS: $FFTW3_CFLAGS")
+AC_MSG_RESULT("LIBS:   $FFTW3_LIBS")
+
 AC_LANG_PUSH(C)
-
-# FFTW 3
-AC_CHECK_LIB(fftw3, fftw_malloc,
-             [fftw3lib="-lfftw3"],
-             [AC_MSG_ERROR([fftw3 was not found.])]
-)
-AC_SUBST([fftw3lib])
-
+LDFLAGS_tmp=$LDFLAGS
+LDFLAGS="$FFTW3_CFLAGS $FFTW3_LIBS"
 AC_CHECK_LIB(fftw3_omp, fftw_init_threads,
-  [fftw3thlib="-lfftw3_omp"],
+  [FFTW3TH_LIBS="-lfftw3_omp"],
   [AC_CHECK_LIB(fftw3_threads, fftw_init_threads,
-    [fftw3thlib="-lfftw3_threads"],
+    [FFTW3TH_LIBS="-lfftw3_threads"],
     [AC_MSG_ERROR([fftw3_threads nor fftw3_omp was not found.])]
   )]
 )
-
-AC_SUBST([fftw3thlib])
-
+AC_SUBST([FFTW3TH_LIBS])
+LDFLAGS=$LDFLAGS_tmp
 AC_LANG_POP(C)
+
+
+#-------------------------------------------------------------------------------
+# Check Lapack
+#-------------------------------------------------------------------------------
+AC_LANG_PUSH(Fortran)
+PKG_CHECK_MODULES(LAPACK, lapack,
+  [],
+  [AC_CHECK_LIB(lapack, dgesv,
+               [LAPACK_LIBS="-llapack"],
+               [AC_MSG_ERROR([lapack was not found.])])])
+AC_SUBST([LAPACK_LIBS])
+AC_LANG_POP(Fortran)
 
 
 #-------------------------------------------------------------------------------
 # Check CPP libraries.
 #-------------------------------------------------------------------------------
+
 
 #-------------------------------------------------------------------------------
 # Checks for header files.

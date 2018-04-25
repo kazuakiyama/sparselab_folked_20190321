@@ -31,11 +31,10 @@ else
 endif
 
 FCFLAGS_OMP=-fopenmp
-FCFLAGS_BLAS=@blaslib@
 
 # set command options
-FCFLAGS=-fPIC @FCFLAGS@ @LDFLAGS@ $(FCFLAGS_DBG) $(FCFLAGS_OPT) $(FCFLAGS_BLAS) $(FCFLAGS_OMP)
-
+FCFLAGS=-fPIC $(FCFLAGS_DBG) $(FCFLAGS_OPT) @FCFLAGS@ @LDFLAGS@ @OPENBLAS_CFLAGS@ 
+FCLIBS=@OPENBLAS_LIBS@ $(FCFLAGS_OMP)
 
 #-------------------------------------------------------------------------------
 all: liblbfgsb.a
@@ -44,7 +43,7 @@ liblbfgsb.a: lbfgsb.o linpack.o timer.o
 	ar rsc liblbfgsb.a lbfgsb.o linpack.o timer.o
 
 .f.o:
-	$(FC) -c $< $(FCFLAGS)
+	$(FC) $(FCFLAGS) -c $< $(FCLIBS)
 
 lbfgsb.o: linpack.o timer.o
 

@@ -13,7 +13,6 @@ else
 endif
 
 FCFLAGS_OMP=-fopenmp
-FCFLAGS_BLAS=@LDFLAGS@ @blaslib@
 
 # set command options
 FCFLAGS=-fPIC -std=f2008 @FCFLAGS@ $(FCFLAGS_DBG) $(FCFLAGS_OPT)
