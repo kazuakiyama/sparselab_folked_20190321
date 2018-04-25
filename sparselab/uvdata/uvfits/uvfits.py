@@ -1841,6 +1841,56 @@ class UVFITS(object):
         return outdata
 
 
+    def uvplot(self, uvunit=None, conj=True,
+               ls="none", marker=".", **plotargs):
+        '''
+        Plot uv-plot on the current axes.
+        This method uses matplotlib.pyplot.plot().
+
+        Args:
+          uvunit (str, default = None):
+            The unit of the baseline length.
+
+          conj (boolean, default = True):
+            if conj=True, it will plot complex conjugate components (i.e. (-u, -v)).
+
+          **plotargs:
+            You can set parameters of matplotlib.pyplot.plot.
+            Defaults are {'ls': "none", 'marker': "."}
+        '''
+        self.make_vistable().uvplot(
+          uvunit=uvunit, conj=conj, ls=ls, marker=marker, **plotargs)
+
+    def radplot(self, uvunit=None, datatype="amp", normerror=False, errorbar=True,
+                ls="none", marker=".", **plotargs):
+        '''
+        Plot visibility amplitudes as a function of baseline lengths
+        on the current axes. This method uses matplotlib.pyplot.plot() or
+        matplotlib.pyplot.errorbar().
+
+        Args:
+          uvunit (str, default = None):
+            The unit of the baseline length. if uvunit is None, it will use
+            self.uvunit.
+
+          errorbar (boolean, default = True):
+            If errorbar is True, it will plot data with errorbars using
+            matplotlib.pyplot.errorbar(). Otherwise, it will plot data without
+            errorbars using matplotlib.pyplot.plot().
+
+            If you plot model closure phases (i.e. model is not None),
+            it will plot without errobars regardless of this parameter.
+
+          **plotargs:
+            You can set parameters of matplotlib.pyplot.plot() or
+            matplotlib.pyplot.errorbars().
+            Defaults are {'ls': "none", 'marker': "."}.
+        '''
+        self.make_vistable().radplot(uvunit=uvunit, datatype=datatype,
+                    normerror=normerror, errorbar=errorbar,
+                    ls=ls, marker=marker, **plotargs)
+
+
 #-------------------------------------------------------------------------
 # Subfunctions for UVFITS
 #-------------------------------------------------------------------------
