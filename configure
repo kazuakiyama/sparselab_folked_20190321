@@ -3402,8 +3402,8 @@ fi
 PKG_CONFIG="$PKG_CONFIG --static"
 
 pkg_failed=no
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for openblas" >&5
-$as_echo_n "checking for openblas... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for OPENBLAS" >&5
+$as_echo_n "checking for OPENBLAS... " >&6; }
 
 if test -n "$OPENBLAS_CFLAGS"; then
     pkg_cv_OPENBLAS_CFLAGS="$OPENBLAS_CFLAGS"
@@ -3443,7 +3443,7 @@ fi
 
 
 if test $pkg_failed = yes; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 
 if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
@@ -3470,7 +3470,7 @@ Alternatively, you may set the environment variables OPENBLAS_CFLAGS
 and OPENBLAS_LIBS to avoid the need to call pkg-config.
 See the pkg-config man page for more details." "$LINENO" 5
 elif test $pkg_failed = untried; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 	{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
@@ -3501,8 +3501,8 @@ $as_echo "\"LIBS:   $OPENBLAS_LIBS\"" >&6; }
 #-------------------------------------------------------------------------------
 
 pkg_failed=no
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for fftw3" >&5
-$as_echo_n "checking for fftw3... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for FFTW3" >&5
+$as_echo_n "checking for FFTW3... " >&6; }
 
 if test -n "$FFTW3_CFLAGS"; then
     pkg_cv_FFTW3_CFLAGS="$FFTW3_CFLAGS"
@@ -3542,7 +3542,7 @@ fi
 
 
 if test $pkg_failed = yes; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 
 if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
@@ -3569,7 +3569,7 @@ Alternatively, you may set the environment variables FFTW3_CFLAGS
 and FFTW3_LIBS to avoid the need to call pkg-config.
 See the pkg-config man page for more details." "$LINENO" 5
 elif test $pkg_failed = untried; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 	{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
@@ -3601,18 +3601,17 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-LDFLAGS_tmp=$LDFLAGS
 CFLAGS_tmp=$CFLAGS
 CFLAGS="$FFTW3_CFLAGS"
-LDFLAGS="$FFTW3_LIBS -fopenmp -lpthread"
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for fftw_init_threads in -lfftw3_omp" >&5
-$as_echo_n "checking for fftw_init_threads in -lfftw3_omp... " >&6; }
-if ${ac_cv_lib_fftw3_omp_fftw_init_threads+:} false; then :
+as_ac_Lib=`$as_echo "ac_cv_lib_fftw3_omp $FFTW3_LIBS -fopenmp''_fftw_init_threads" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for fftw_init_threads in -lfftw3_omp $FFTW3_LIBS -fopenmp" >&5
+$as_echo_n "checking for fftw_init_threads in -lfftw3_omp $FFTW3_LIBS -fopenmp... " >&6; }
+if eval \${$as_ac_Lib+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lfftw3_omp  $LIBS"
+LIBS="-lfftw3_omp $FFTW3_LIBS -fopenmp  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -3632,26 +3631,28 @@ return fftw_init_threads ();
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_fftw3_omp_fftw_init_threads=yes
+  eval "$as_ac_Lib=yes"
 else
-  ac_cv_lib_fftw3_omp_fftw_init_threads=no
+  eval "$as_ac_Lib=no"
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_fftw3_omp_fftw_init_threads" >&5
-$as_echo "$ac_cv_lib_fftw3_omp_fftw_init_threads" >&6; }
-if test "x$ac_cv_lib_fftw3_omp_fftw_init_threads" = xyes; then :
+eval ac_res=\$$as_ac_Lib
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_Lib"\" = x"yes"; then :
   FFTW3TH_LIBS="-lfftw3_omp"
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for fftw_init_threads in -lfftw3_threads" >&5
-$as_echo_n "checking for fftw_init_threads in -lfftw3_threads... " >&6; }
-if ${ac_cv_lib_fftw3_threads_fftw_init_threads+:} false; then :
+  as_ac_Lib=`$as_echo "ac_cv_lib_fftw3_threads $FFTW3_LIBS -lpthread''_fftw_init_threads" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for fftw_init_threads in -lfftw3_threads $FFTW3_LIBS -lpthread" >&5
+$as_echo_n "checking for fftw_init_threads in -lfftw3_threads $FFTW3_LIBS -lpthread... " >&6; }
+if eval \${$as_ac_Lib+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lfftw3_threads  $LIBS"
+LIBS="-lfftw3_threads $FFTW3_LIBS -lpthread  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -3671,17 +3672,18 @@ return fftw_init_threads ();
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_fftw3_threads_fftw_init_threads=yes
+  eval "$as_ac_Lib=yes"
 else
-  ac_cv_lib_fftw3_threads_fftw_init_threads=no
+  eval "$as_ac_Lib=no"
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_fftw3_threads_fftw_init_threads" >&5
-$as_echo "$ac_cv_lib_fftw3_threads_fftw_init_threads" >&6; }
-if test "x$ac_cv_lib_fftw3_threads_fftw_init_threads" = xyes; then :
+eval ac_res=\$$as_ac_Lib
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_Lib"\" = x"yes"; then :
   FFTW3TH_LIBS="-lfftw3_threads"
 else
   as_fn_error $? "fftw3_threads nor fftw3_omp was not found." "$LINENO" 5
@@ -3692,7 +3694,6 @@ fi
 fi
 
 
-LDFLAGS=$LDFLAGS_tmp
 CFLAGS=$CFLAGS_tmp
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
@@ -3712,8 +3713,8 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 
 pkg_failed=no
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for lapack" >&5
-$as_echo_n "checking for lapack... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for LAPACK" >&5
+$as_echo_n "checking for LAPACK... " >&6; }
 
 if test -n "$LAPACK_CFLAGS"; then
     pkg_cv_LAPACK_CFLAGS="$LAPACK_CFLAGS"
@@ -3753,7 +3754,7 @@ fi
 
 
 if test $pkg_failed = yes; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 
 if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
@@ -3799,7 +3800,7 @@ else
 fi
 
 elif test $pkg_failed = untried; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for dgesv in -llapack" >&5
 $as_echo_n "checking for dgesv in -llapack... " >&6; }
