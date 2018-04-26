@@ -19,7 +19,7 @@ Sparselab and related functions will use **future**, **numpy**, **scipy**, **mat
 
 .. _Anaconda: https://www.continuum.io/anaconda-overview
 
-You can install **xarray**, **tqdm** and **pyds9** with conda and/or pip as follows
+You can install above packages with conda and/or pip as follows
 (see the official website of `pyds9`_ for its installation).
 
 .. code-block:: Bash
@@ -41,20 +41,49 @@ External Libraries
 
 Fortran/C internal libraries of Sparselab use following external libraries.
 
-1) BLAS
-  **We strongly recommend using OpenBLAS**, which is the fastest library among publicly-available BLAS implementations.
+1) OpenBLAS
+  We use OpenBLAS, which is the fastest library among publicly-available BLAS implementations.
   Our recommendation is to build up `OpenBLAS`_ by yourself with a compile option USE_OPENMP=1 and use it for our library.
   The option USE_OPENMP=1 enables OpenBLAS to perform paralleled multi-threads calculations, which will accelerate our library.
 
   .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
 
-  Some Tips:
-    If you are using Ubuntu (at least after 14.04 LTS), the default OpenBLAS package,
-    which is installable with `apt-get` or `aptitude`, seems compiled with
-    this option (USE_OPENMP=1), so you do not have to compile it by yourself.
+  In most of cases, you can compile this library by
 
-    It seems that RedHat or its variant (Cent OS, Scientific Linux, etc) do not have
-    the standard package compiled with this option, so we recommend compiling OpenBLAS by yourself.
+  .. code-block:: Bash
+
+    # Clone the current repository
+    git clone https://github.com/xianyi/OpenBLAS
+
+    # Compile and install
+    cd OpenBLAS
+    make USE_OPENMP=1
+    make PREFIX="Your install directory; such as /usr/local or $HOME/local" install
+
+  You may need superuser to install OpenBLAS (i.e. to run the last command).
+
+  Sparselab uses **pkg-config** to find appropriate compiler flags for OpenBLAS.
+  Once the library is installed, you can check if the package configuration file
+  can be accessible. You can type
+
+  .. code-block:: Bash
+
+    pkg-config --debug openblas
+
+  If you can see the correct package configuration file in the output (should be
+  $PREFIX/lib/pkgconfig/openblas.pc), you are all set with OpenBLAS. Otherwise,
+  you need to set **PKG_CONFIG_PATH** to your pkgconfig directory by, for instance
+
+  .. code-block:: Bash
+
+    export PKG_CONFIG_PATH="Your prefix for OpenBLAS such as /usr/local"/lib/pkgconfig:$PKG_CONFIG_PATH
+
+  Then you can check by ``pkg-config --debug openblas'' if the path is correct.
+
+  Some Other Tips:
+    If you are using Ubuntu, RedHat and its variant, the default OpenBLAS package,
+    which is installable with `apt-get/aptitude` or `yum`, seems compiled **without**
+    this option (USE_OPENMP=1), so we recommend compiling OpenBLAS by yourself.
 
     If you are using Mac OS X, unfortunately, this option is not available so far.
     You may use a package available in a popular package system (e.g. MacPort, Fink, Homebrew).
@@ -66,12 +95,71 @@ Fortran/C internal libraries of Sparselab use following external libraries.
 
   .. _LAPACK: https://github.com/Reference-LAPACK/lapack-release
 
-3) FFTW3
-  Some module uses fftw3. The default FFTW 3 package in your Linux/OS X package
-  system should be acceptable for Sparselab.
-  Of course, you may build up `FFTW3`_ by yourself.
+  Unfortunately, Lapack does not have package configuration file, which
+  may cause some problems if you put lapack in an unusual place.
+  It would be useful to make and put lapack.pc in a directory specified by
+  **PKG_CONFIG_PATH** to avoid potential problems for compiling Sparselab.
 
-  .. _FFTW3: http://www.fftw.org
+  Following is a sample for lapack.pc
+
+  .. code-block:: Plain
+
+    libdir=<YOUR LAPACK DIRECTORY>
+
+    Name: LAPACK
+    Description: FORTRAN reference implementation of LAPACK Linear Algebra PACKage
+    Version: @LAPACK_VERSION@
+    URL: http://www.netlib.org/lapack/
+    Libs: -L${libdir} -llapack
+    Requires.private: openblas
+    Cflags:
+
+
+3) FFTW3
+  We use FFTW3, which is one of the fastest library among publicly-available FFT library.
+  For non-Ubuntu users, our recommendation is to build up `FFTW3`_ by yourself.
+
+    .. _FFTW3: http://www.fftw.org
+
+  In most of cases, you can compile this library by
+
+  .. code-block:: Bash
+
+    # Download the library (in case of version 3.3.7)
+    wget http://www.fftw.org/fftw-3.3.7.tar.gz # you should check the latest version
+    tar xzvf fftw-3.3.7.tar.gz
+    cd fftw-3.3.7
+
+    # Compile and install
+    ./configure --prefix="install directory; such as /usr/local, $HOME/local" --enable-openmp --enable-threads
+    make
+    make install
+
+  You may need superuser to install FFTW3 (i.e. to run the last command).
+
+  Sparselab uses **pkg-config** to find appropriate compiler flags for FFTW3.
+  Once the library is installed, you can check if the package configuration file
+  can be accessible. You can type
+
+  .. code-block:: Bash
+
+    pkg-config --debug fftw3
+
+  If you can see the correct package configuration file in the output (should be
+  $PREFIX/lib/pkgconfig/fftw3.pc), you are all set with OpenBLAS. Otherwise,
+  you need to set **PKG_CONFIG_PATH** to your pkgconfig directory by, for instance
+
+  .. code-block:: Bash
+
+    export PKG_CONFIG_PATH="Your prefix such as /usr/local"/lib/pkgconfig:$PKG_CONFIG_PATH
+
+  Then you can check by ``pkg-config --debug fftw3'' if the path is correct.
+
+  Some Other Tips:
+    If you are using Ubuntu, the default fftw3 package,
+    which is installable with `apt-get/aptitude` seems compiled **with**
+    the option for Openmp (--enable-openmp). So, you don't need to install it
+    by yourself.
 
 
 Download, Install and Update
@@ -95,25 +183,29 @@ For compiling the whole library, you need to work in your Sparselab directory.
 
   cd (Your Sparselab Directory)
 
-A configure file can be generated with `autoconf`.
+Generate Makefiles with `./configure`.
+If you have correct paths to package-config files for OpenBLAS, FFTW3 and
+path to library or package-config file for LAPACK, you would not need any options.
 
 .. code-block:: Bash
 
-  autoconf
-
-Generate Makefiles with `./configure`. You might need `LDFLAGS` for links to BLAS and LAPACK.
-
-.. code-block:: Bash
-
-  # If you already have a library path to both BLAS and LAPACK.
   ./configure
 
-  # If you don't have a PATH to BLAS and LAPACK, you can add links to them as follows
-  ./configure LDFLAGS="-L(path-to-your-BLAS) -L(path-to-your-LAPACK) -L(path-to-your-FFTW3)"
+If you don't have paths to these files, then you need to specify them manually
+prior to type ./configure
 
-If you are a Mac OS X user using MacPort, Fink, or Homebrew,
-`LDFLAGS="-L/opt/local/lib"`, `LDFLAGS="-L/sw/lib"` or `LDFLAGS="-L/usr/local/lib"`
-would work, respectively.
+.. code-block:: Bash
+
+  # Example for OpenBLAS
+  export OPENBLAS_LIBS="-LYOURPREFIX/lib -lopenblas"
+  export OPENBLAS_CFLAGS="-IYOURPREFIX/include"
+
+  # Example for FFTW3
+  export FFTW3_LIBS="-LYOURPREFIX/lib -lfftw3"
+  export FFTW3_CFLAGS="-IYOURPREFIX/include"
+
+  # Example for LPACK
+  export LAPACK_LIBS="-LYOURPREFIX/lib -llapack"
 
 Make and compile the library.
 The internal C/Fortran Library will be compiled into python modules,
@@ -132,10 +224,15 @@ Sparselab is probably installed successfully.
   # import sparselab
   from sparselab import imdata, uvdata, imaging
 
+**(IMPORTANT NOTE; 2018/04/26)**
+Previously, you needed to type autoconf before ./configure command.
+This is no longer necessary.
+
 **(IMPORTANT NOTE; 2018/01/04)**
 Previously, you needed to add a PYTHONPATH to your Sparselab Directory.
 This is no longer required, because the `make` command will run setup.py and install
 sparselab into the package list of your Python environment.
+
 
 Updating Sparselab
 ------------------
