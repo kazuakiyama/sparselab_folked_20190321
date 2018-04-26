@@ -7,7 +7,6 @@ sparselab/fortlib.so.dSYM
 src/fortutils/fortlib.so.dSYM
 config.log
 config.status
-configure
 src/finufft/makefile
 src/fortlib/makefile
 src/lbfgsb/makefile
