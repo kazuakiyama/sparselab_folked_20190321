@@ -46,7 +46,9 @@ AC_MSG_RESULT("LIBS:   $FFTW3_LIBS")
 
 AC_LANG_PUSH(C)
 LDFLAGS_tmp=$LDFLAGS
-LDFLAGS="$FFTW3_CFLAGS $FFTW3_LIBS"
+CFLAGS_tmp=$CFLAGS
+CFLAGS="$FFTW3_CFLAGS"
+LDFLAGS="$FFTW3_LIBS -fopenmp -lpthread"
 AC_CHECK_LIB(fftw3_omp, fftw_init_threads,
   [FFTW3TH_LIBS="-lfftw3_omp"],
   [AC_CHECK_LIB(fftw3_threads, fftw_init_threads,
@@ -56,6 +58,7 @@ AC_CHECK_LIB(fftw3_omp, fftw_init_threads,
 )
 AC_SUBST([FFTW3TH_LIBS])
 LDFLAGS=$LDFLAGS_tmp
+CFLAGS=$CFLAGS_tmp
 AC_LANG_POP(C)
 
 
