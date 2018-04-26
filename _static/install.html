@@ -242,7 +242,10 @@ You may use a package available in a popular package system (e.g. MacPort, Fink,
 <blockquote>
 <div><p>LAPACK does not have a big impact on computational costs of imaging.
 The default LAPACK package in your Linux/OS X package system would be acceptable for Spareselab.
-Of course, you may build up <a class="reference external" href="https://github.com/Reference-LAPACK/lapack-release">LAPACK</a> by yourself.</p>
+Of course, you may build up <a class="reference external" href="https://github.com/Reference-LAPACK/lapack-release">LAPACK</a> by yourself. If you build up LAPACK by yourself,
+please do not forget adding <strong>``-fPIC’‘</strong> flag to gcc and gfortran to the configuration variables
+<strong>CFLAGS</strong>, <strong>OPTS</strong>, <strong>NOOPT</strong>, <strong>LOADEROPTS</strong>. I (Kazu Akiyama)
+usually add <a href="#id3"><span class="problematic" id="id4">``</span></a>-fPIC -O3 -march=native’’ for Linux and <a href="#id5"><span class="problematic" id="id6">``</span></a>-fPIC -O3 -march=core2’’ for Mac.</p>
 <p>Unfortunately, Lapack does not have package configuration file, which
 may cause some problems if you put lapack in an unusual place.
 It would be useful to make and put lapack.pc in a directory specified by
@@ -275,7 +278,7 @@ tar xzvf fftw-3.3.7.tar.gz
 <span class="nb">cd</span> fftw-3.3.7
 
 <span class="c1"># Compile and install</span>
-./configure --prefix<span class="o">=</span><span class="s2">&quot;install directory; such as /usr/local, </span><span class="nv">$HOME</span><span class="s2">/local&quot;</span> --enable-openmp --enable-threads
+./configure --prefix<span class="o">=</span><span class="s2">&quot;install directory; such as /usr/local, </span><span class="nv">$HOME</span><span class="s2">/local&quot;</span> --enable-openmp --enable-threads --enable-shared
 make
 make install
 </pre></div>
@@ -293,7 +296,7 @@ you need to set <strong>PKG_CONFIG_PATH</strong> to your pkgconfig directory by,
 <div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">PKG_CONFIG_PATH</span><span class="o">=</span><span class="s2">&quot;Your prefix such as /usr/local&quot;</span>/lib/pkgconfig:<span class="nv">$PKG_CONFIG_PATH</span>
 </pre></div>
 </div>
-<p>Then you can check by <a href="#id3"><span class="problematic" id="id4">``</span></a>pkg-config –debug fftw3’’ if the path is correct.</p>
+<p>Then you can check by <a href="#id7"><span class="problematic" id="id8">``</span></a>pkg-config –debug fftw3’’ if the path is correct.</p>
 <dl class="docutils">
 <dt>Some Other Tips:</dt>
 <dd>If you are using Ubuntu, the default fftw3 package,

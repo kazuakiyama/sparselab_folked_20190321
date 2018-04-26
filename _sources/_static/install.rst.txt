@@ -91,7 +91,10 @@ Fortran/C internal libraries of Sparselab use following external libraries.
 2) LAPACK
   LAPACK does not have a big impact on computational costs of imaging.
   The default LAPACK package in your Linux/OS X package system would be acceptable for Spareselab.
-  Of course, you may build up `LAPACK`_ by yourself.
+  Of course, you may build up `LAPACK`_ by yourself. If you build up LAPACK by yourself,
+  please do not forget adding **``-fPIC''** flag to gcc and gfortran to the configuration variables
+  **CFLAGS**, **OPTS**, **NOOPT**, **LOADEROPTS**. I (Kazu Akiyama)
+  usually add ``-fPIC -O3 -march=native'' for Linux and ``-fPIC -O3 -march=core2'' for Mac.
 
   .. _LAPACK: https://github.com/Reference-LAPACK/lapack-release
 
@@ -131,7 +134,7 @@ Fortran/C internal libraries of Sparselab use following external libraries.
     cd fftw-3.3.7
 
     # Compile and install
-    ./configure --prefix="install directory; such as /usr/local, $HOME/local" --enable-openmp --enable-threads
+    ./configure --prefix="install directory; such as /usr/local, $HOME/local" --enable-openmp --enable-threads --enable-shared
     make
     make install
 
