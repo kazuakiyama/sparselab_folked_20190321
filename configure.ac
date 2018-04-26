@@ -50,9 +50,9 @@ CFLAGS_tmp=$CFLAGS
 CFLAGS="$FFTW3_CFLAGS"
 LDFLAGS="$FFTW3_LIBS -fopenmp -lpthread"
 AC_CHECK_LIB(fftw3_omp, fftw_init_threads,
-  [FFTW3TH_LIBS="-lfftw3_omp"],
+  [FFTW3TH_LIBS="-lfftw3_omp -fopenmp"],
   [AC_CHECK_LIB(fftw3_threads, fftw_init_threads,
-    [FFTW3TH_LIBS="-lfftw3_threads"],
+    [FFTW3TH_LIBS="-lfftw3_threads -lpthread"],
     [AC_MSG_ERROR([fftw3_threads nor fftw3_omp was not found.])]
   )]
 )
