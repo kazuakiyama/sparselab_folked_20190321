@@ -85,40 +85,10 @@ Fortran/C internal libraries of Sparselab use following external libraries.
     which is installable with `apt-get/aptitude` or `yum`, seems compiled **without**
     this option (USE_OPENMP=1), so we recommend compiling OpenBLAS by yourself.
 
-    If you are using Mac OS X, unfortunately, this option is not available so far.
+    If you are using macOS, unfortunately, this option is not available so far.
     You may use a package available in a popular package system (e.g. MacPort, Fink, Homebrew).
 
-2) LAPACK
-  LAPACK does not have a big impact on computational costs of imaging.
-  The default LAPACK package in your Linux/OS X package system would be acceptable for Spareselab.
-  Of course, you may build up `LAPACK`_ by yourself. If you build up LAPACK by yourself,
-  please do not forget adding **``-fPIC''** flag to gcc and gfortran to the configuration variables
-  **CFLAGS**, **OPTS**, **NOOPT**, **LOADEROPTS**. I (Kazu Akiyama)
-  usually add ``-fPIC -O3 -march=native'' for Linux and ``-fPIC -O3 -march=core2'' for Mac.
-
-  .. _LAPACK: https://github.com/Reference-LAPACK/lapack-release
-
-  Unfortunately, Lapack does not have package configuration file, which
-  may cause some problems if you put lapack in an unusual place.
-  It would be useful to make and put lapack.pc in a directory specified by
-  **PKG_CONFIG_PATH** to avoid potential problems for compiling Sparselab.
-
-  Following is a sample for lapack.pc
-
-  .. code-block:: Plain
-
-    libdir=<YOUR LAPACK DIRECTORY>
-
-    Name: LAPACK
-    Description: FORTRAN reference implementation of LAPACK Linear Algebra PACKage
-    Version: @LAPACK_VERSION@
-    URL: http://www.netlib.org/lapack/
-    Libs: -L${libdir} -llapack
-    Requires.private: openblas
-    Cflags:
-
-
-3) FFTW3
+2) FFTW3
   We use FFTW3, which is one of the fastest library among publicly-available FFT library.
   For non-Ubuntu users, our recommendation is to build up `FFTW3`_ by yourself.
 
@@ -163,6 +133,37 @@ Fortran/C internal libraries of Sparselab use following external libraries.
     which is installable with `apt-get/aptitude` seems compiled **with**
     the option for Openmp (--enable-openmp). So, you don't need to install it
     by yourself.
+
+3) LAPACK
+  LAPACK does not have a big impact on computational costs of imaging.
+  The default LAPACK package in your Linux/OS X package system would be acceptable for Spareselab.
+  Of course, you may build up `LAPACK`_ by yourself. If you build up LAPACK by yourself,
+  please do not forget adding **``-fPIC''** flag to the configuration variables
+  **CFLAGS**, **OPTS**, **NOOPT**, **LOADEROPTS** in make.inc. I (Kazu Akiyama)
+  usually add ``-fPIC -O3 -march=native'' for Linux and ``-fPIC -O3 -march=core2'' for macOS.
+
+  .. _LAPACK: https://github.com/Reference-LAPACK/lapack-release
+
+  Unfortunately, Lapack does not have a pkg-config file, which
+  may cause some problems if you put lapack in an unusual place.
+  It would be useful to make and put lapack.pc in a directory specified by
+  **PKG_CONFIG_PATH** to avoid potential problems for compiling Sparselab.
+  Sparselab tries to find lapack.pc in your PKG_CONFIG_PATH. If it does not find,
+  it will check if a lapack function can run with -llapack correctly.
+
+  Following is a sample for lapack.pc
+
+  .. code-block:: Plain
+
+    libdir=<YOUR LAPACK DIRECTORY>
+
+    Name: LAPACK
+    Description: FORTRAN reference implementation of LAPACK Linear Algebra PACKage
+    Version: @LAPACK_VERSION@
+    URL: http://www.netlib.org/lapack/
+    Libs: -L${libdir} -llapack
+    Requires.private: openblas
+    Cflags:
 
 
 Download, Install and Update
